@@ -1,0 +1,72 @@
+name: Feature request
+description: Propose a focused, safe improvement to LibraTray
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        LibraTray is deliberately focused on a local-only Yeelight Libra Pro workflow. Phase C/D UI, tray, hotkey, and lifecycle features are planned but not implemented at the current milestone.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Describe the user problem, not only a preferred implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Explain the interaction, expected result, and important failure states.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Protocol probe
+        - Generic protocol core
+        - Product identity
+        - State synchronization
+        - Future tray or quick panel
+        - Future hotkeys or OSD
+        - Future Windows automation
+        - Packaging or documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: device_evidence
+    attributes:
+      label: Device/protocol evidence
+      description: If the request needs a new command or property, link official documentation or describe a redacted, reproducible stock-device observation. Mark unverified claims clearly.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy, security, and compatibility impact
+      description: Address accounts/tokens, network exposure, stored data, permissions, Windows 10/11, accessibility, localization, and rollback where relevant.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Scope checks
+      options:
+        - label: This can remain local-only and does not require a cloud account or public service.
+          required: true
+        - label: I have not inferred `lamp15` identity from a retail-name substring.
+          required: true
+        - label: Any hardware-specific behavior is labeled verified or unverified with its evidence.
+          required: true

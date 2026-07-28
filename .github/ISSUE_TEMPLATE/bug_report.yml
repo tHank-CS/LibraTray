@@ -1,0 +1,119 @@
+name: Bug report
+description: Report a reproducible LibraTray defect using redacted evidence
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a defect. LibraTray currently contains a protocol probe and minimal core, not the production tray UI. Never post credentials, cloud/device tokens, real IP or MAC addresses, device IDs, hostnames, Wi-Fi names, usernames, or unredacted logs.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Build or test
+        - UDP discovery
+        - TCP protocol or framing
+        - Product identity mapping
+        - Protocol probe
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: revision
+    attributes:
+      label: LibraTray revision
+      description: Commit SHA or version. Do not invent a version if running from source.
+      placeholder: e.g. commit 0123456789abcdef
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: Include edition, build, and x64/other architecture.
+      placeholder: e.g. Windows 11 24H2 build 26100, x64
+    validations:
+      required: true
+
+  - type: input
+    id: dotnet
+    attributes:
+      label: .NET SDK
+      description: Paste only the SDK version from `dotnet --version`.
+      placeholder: e.g. 10.0.x
+
+  - type: input
+    id: device
+    attributes:
+      label: Device identity and firmware
+      description: If hardware is involved, give hardware label, redacted discovery model, and firmware. Do not include device ID or address.
+      placeholder: e.g. YLTD003, model lamp15, firmware x.y.z
+
+  - type: dropdown
+    id: firmware_type
+    attributes:
+      label: Firmware type
+      options:
+        - Stock Yeelight firmware
+        - Replacement firmware
+        - Not applicable or unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Include exact commands and order. Replace local identifiers with stable placeholders.
+      placeholder: |
+        1. Run ...
+        2. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include exact error text where safe.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted diagnostics
+      description: Paste the smallest relevant excerpt. State if no log was created. Do not attach a raw configuration or home-network inventory.
+      render: text
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Mention VPNs, multiple adapters, firewall/security software, or other Yeelight LAN clients when relevant.
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Safety and scope checks
+      options:
+        - label: I searched existing issues and read the troubleshooting/testing guides.
+          required: true
+        - label: I removed private network identifiers, personal paths, credentials, and tokens.
+          required: true
+        - label: I have not represented replacement-firmware behavior as stock YLTD003 behavior.
+          required: true
+        - label: I have not claimed a hardware behavior is verified without a reproducible trace.
+          required: true
