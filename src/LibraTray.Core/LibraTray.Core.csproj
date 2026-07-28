@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>LibraTray.Core</AssemblyName>
+    <RootNamespace>LibraTray.Core</RootNamespace>
+    <Description>Transport-independent Yeelight LAN protocol and product identity primitives.</Description>
+  </PropertyGroup>
+</Project>

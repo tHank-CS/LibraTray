@@ -1,0 +1,26 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{cs,csx}]
+indent_style = space
+indent_size = 4
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+csharp_new_line_before_open_brace = all
+csharp_style_namespace_declarations = file_scoped:error
+csharp_style_prefer_primary_constructors = false:suggestion
+
+[*.{json,yml,yaml,xml,resx,props,targets,md}]
+indent_style = space
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{ps1,bat,cmd}]
+end_of_line = crlf

@@ -1,0 +1,37 @@
+# Local SDK and tool caches
+.dotnet/
+.tools/
+.dotnet-home/
+.nuget/
+.temp/
+.tmp/
+
+# .NET build output
+**/bin/
+**/obj/
+artifacts/
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# IDE and user state
+.vs/
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Local application data and diagnostics
+logs/
+diagnostics/
+*.log
+appsettings.local.json
+device-profile.json
+
+# OS metadata
+Thumbs.db
+Desktop.ini
+.DS_Store
