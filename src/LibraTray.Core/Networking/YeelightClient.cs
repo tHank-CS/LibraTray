@@ -212,22 +212,27 @@ public sealed class YeelightClient : IAsyncDisposable
                 pending = DrainPendingRequests();
             }
 
-            connectionCancellation?.Cancel();
-            tcpClient?.Dispose();
-
-            var disconnectException = new YeelightDisconnectedException(
-                "The Yeelight connection was closed by the client.");
-
-            CompletePendingRequests(pending, disconnectException);
-
-            if (receiveLoop is not null)
+            try
             {
-                await receiveLoop
-                    .WaitAsync(cancellationToken)
-                    .ConfigureAwait(false);
-            }
+                connectionCancellation?.Cancel();
+                tcpClient?.Dispose();
 
-            connectionCancellation?.Dispose();
+                var disconnectException = new YeelightDisconnectedException(
+                    "The Yeelight connection was closed by the client.");
+
+                CompletePendingRequests(pending, disconnectException);
+
+                if (receiveLoop is not null)
+                {
+                    await receiveLoop
+                        .WaitAsync(cancellationToken)
+                        .ConfigureAwait(false);
+                }
+            }
+            finally
+            {
+                connectionCancellation?.Dispose();
+            }
         }
         finally
         {
@@ -321,7 +326,9 @@ public sealed class YeelightClient : IAsyncDisposable
         catch (IOException exception)
         {
             HandleConnectionLost(generation, exception);
-            throw;
+            throw new YeelightDisconnectedException(
+                "The Yeelight connection failed while sending a command.",
+                exception);
         }
         catch (SocketException exception)
         {
@@ -353,8 +360,10 @@ public sealed class YeelightClient : IAsyncDisposable
 
         await DisconnectAsync().ConfigureAwait(false);
 
-        _lifecycleLock.Dispose();
-        _writeLock.Dispose();
+        // SemaphoreSlim.Dispose is not safe while another operation is waiting
+        // or releasing. These semaphores do not own native resources unless
+        // AvailableWaitHandle is accessed (which this type never does), so let
+        // the GC reclaim them after all concurrent operations observe disposal.
         GC.SuppressFinalize(this);
     }
 

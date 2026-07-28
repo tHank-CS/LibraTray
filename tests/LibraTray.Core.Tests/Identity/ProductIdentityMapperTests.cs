@@ -74,6 +74,33 @@ public sealed class ProductIdentityMapperTests
     }
 
     [TestMethod]
+    public void ResolveUnknownPreservesRawReportedNameButSanitizesDisplayName()
+    {
+        const string RawName = "\0 \tDesk\r\nLight\u001b\u007f";
+
+        DeviceIdentity identity = ProductIdentityMapper.Resolve(
+            "unknown-model",
+            RawName);
+
+        Assert.AreEqual(RawName, identity.ReportedName);
+        Assert.AreEqual("Desk Light", identity.DisplayName);
+        Assert.IsFalse(identity.DisplayName.Any(char.IsControl));
+    }
+
+    [TestMethod]
+    public void ResolveUnknownBoundsReportedDisplayNameWithoutSplittingUnicode()
+    {
+        string rawName = new string('a', 127) + "😀tail";
+
+        DeviceIdentity identity = ProductIdentityMapper.Resolve(
+            "unknown-model",
+            rawName);
+
+        Assert.AreEqual(new string('a', 127), identity.DisplayName);
+        Assert.AreEqual(rawName, identity.ReportedName);
+    }
+
+    [TestMethod]
     public void WithUserAliasPreservesProductIdentityAndClearingRestoresDefault()
     {
         DeviceIdentity original = ProductIdentityMapper.Resolve(

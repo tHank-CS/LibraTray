@@ -281,6 +281,39 @@ public sealed class YeelightClientTests
             subscriberErrors.Select(error => error.EventName).ToArray());
     }
 
+    [TestMethod]
+    public async Task DisposeAsyncDuringConcurrentWritesFailsCommandsAsDisconnected()
+    {
+        using var testCancellation = new CancellationTokenSource(TestTimeout);
+        await using var server = new LoopbackYeelightServer();
+        var client = new YeelightClient();
+
+        await client.ConnectAsync(server.EndPoint, testCancellation.Token);
+        await using LoopbackYeelightConnection connection =
+            await server.AcceptAsync(testCancellation.Token);
+
+        string largeParameter = new('x', 48 * 1024);
+        Task<YeelightSuccessResponse>[] commands = Enumerable
+            .Range(0, 128)
+            .Select(index => client.SendCommandAsync(
+                $"concurrent_dispose_{index}",
+                [largeParameter],
+                timeout: TestTimeout,
+                cancellationToken: testCancellation.Token))
+            .ToArray();
+
+        await Task.Delay(100, testCancellation.Token);
+        await client.DisposeAsync();
+
+        foreach (Task<YeelightSuccessResponse> command in commands)
+        {
+            await Assert.ThrowsExactlyAsync<YeelightDisconnectedException>(
+                async () => await command);
+        }
+
+        await client.DisposeAsync();
+    }
+
     private static async Task WaitUntilAsync(
         Func<bool> condition,
         CancellationToken cancellationToken)

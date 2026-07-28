@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace LibraTray.Core.Identity;
 
 /// <summary>
@@ -6,6 +8,8 @@ namespace LibraTray.Core.Identity;
 /// </summary>
 public sealed record DeviceIdentity
 {
+    private const int MaximumDisplayNameLength = 128;
+
     internal DeviceIdentity(
         string? friendlyProductName,
         string? hardwareModel,
@@ -18,7 +22,7 @@ public sealed record DeviceIdentity
         HardwareModel = NormalizeOptional(hardwareModel);
         InternalModel = PreserveOptional(internalModel);
         ReportedName = PreserveOptional(reportedName);
-        UserAlias = NormalizeOptional(userAlias);
+        UserAlias = NormalizeDisplayName(userAlias);
         IsKnownProduct = isKnownProduct;
     }
 
@@ -41,7 +45,7 @@ public sealed record DeviceIdentity
     public string DisplayName =>
         UserAlias
         ?? FriendlyProductName
-        ?? ReportedName?.Trim()
+        ?? NormalizeDisplayName(ReportedName)
         ?? ProductIdentityCatalog.UnknownDeviceDisplayName;
 
     /// <summary>
@@ -69,4 +73,42 @@ public sealed record DeviceIdentity
 
     private static string? PreserveOptional(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private static string? NormalizeDisplayName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var builder = new StringBuilder(
+            Math.Min(value.Length, MaximumDisplayNameLength));
+        bool pendingSpace = false;
+
+        foreach (Rune rune in value.EnumerateRunes())
+        {
+            if (Rune.IsControl(rune) || Rune.IsWhiteSpace(rune))
+            {
+                pendingSpace = builder.Length > 0;
+                continue;
+            }
+
+            int separatorLength = pendingSpace ? 1 : 0;
+            if (builder.Length + separatorLength + rune.Utf16SequenceLength
+                > MaximumDisplayNameLength)
+            {
+                break;
+            }
+
+            if (pendingSpace)
+            {
+                builder.Append(' ');
+                pendingSpace = false;
+            }
+
+            builder.Append(rune);
+        }
+
+        return builder.Length == 0 ? null : builder.ToString();
+    }
 }

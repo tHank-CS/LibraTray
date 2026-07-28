@@ -78,4 +78,48 @@ public sealed class YeelightDiscoveryTests
         Assert.ThrowsExactly<YeelightProtocolException>(
             () => YeelightDiscovery.ParseResponse(response));
     }
+
+    [TestMethod]
+    [DataRow("x token")]
+    [DataRow("x(token)")]
+    public void ParseResponseRejectsInvalidHeaderNames(string headerName)
+    {
+        byte[] response = Encoding.UTF8.GetBytes(
+            "HTTP/1.1 200 OK\r\n"
+            + "Location: yeelight://192.0.2.44:55443\r\n"
+            + $"{headerName}: fixture-secret\r\n"
+            + "\r\n");
+
+        Assert.ThrowsExactly<YeelightProtocolException>(
+            () => YeelightDiscovery.ParseResponse(response));
+    }
+
+    [TestMethod]
+    public void ParseResponseRejectsInvalidUtf8()
+    {
+        byte[] prefix = Encoding.ASCII.GetBytes(
+            "HTTP/1.1 200 OK\r\n"
+            + "Location: yeelight://192.0.2.44:55443\r\n"
+            + "name: ");
+        byte[] response = [.. prefix, 0xc3, 0x28, 0x0d, 0x0a, 0x0d, 0x0a];
+
+        Assert.ThrowsExactly<YeelightProtocolException>(
+            () => YeelightDiscovery.ParseResponse(response));
+    }
+
+    [TestMethod]
+    [DataRow("yeelight://token:secret@192.0.2.44:55443")]
+    [DataRow("yeelight://192.0.2.44:55443/path")]
+    [DataRow("yeelight://192.0.2.44:55443?token=secret")]
+    [DataRow("yeelight://192.0.2.44:55443#token=secret")]
+    public void ParseResponseRejectsLocationMetadata(string location)
+    {
+        byte[] response = Encoding.UTF8.GetBytes(
+            "HTTP/1.1 200 OK\r\n"
+            + $"Location: {location}\r\n"
+            + "\r\n");
+
+        Assert.ThrowsExactly<YeelightProtocolException>(
+            () => YeelightDiscovery.ParseResponse(response));
+    }
 }

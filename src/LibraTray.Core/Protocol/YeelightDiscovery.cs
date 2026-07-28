@@ -42,6 +42,8 @@ public static class YeelightDiscovery
         + "HOST: 239.255.255.250:1982\r\n"
         + "MAN: \"ssdp:discover\"\r\n"
         + "ST: wifi_bulb\r\n";
+    private static readonly UTF8Encoding StrictUtf8 =
+        new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
     public static byte[] CreateRequest() => Encoding.ASCII.GetBytes(RequestText);
 
@@ -57,7 +59,17 @@ public static class YeelightDiscovery
             throw new YeelightFrameTooLargeException(MaximumDatagramBytes);
         }
 
-        string responseText = Encoding.UTF8.GetString(datagram);
+        string responseText;
+        try
+        {
+            responseText = StrictUtf8.GetString(datagram);
+        }
+        catch (DecoderFallbackException exception)
+        {
+            throw new YeelightProtocolException(
+                "The discovery response is not valid UTF-8.",
+                exception);
+        }
         string[] lines = responseText.Split(
             "\r\n",
             StringSplitOptions.None);
@@ -94,6 +106,12 @@ public static class YeelightDiscovery
                     $"The discovery response contains an empty header name at line {index + 1}.");
             }
 
+            if (!IsValidHeaderName(name) || !IsValidHeaderValue(value))
+            {
+                throw new YeelightProtocolException(
+                    $"The discovery response contains an invalid header at line {index + 1}.");
+            }
+
             if (headers.TryGetValue(name, out string? existingValue))
             {
                 if (string.Equals(name, "Location", StringComparison.OrdinalIgnoreCase)
@@ -115,6 +133,10 @@ public static class YeelightDiscovery
         if (!headers.TryGetValue("Location", out string? locationValue)
             || !Uri.TryCreate(locationValue, UriKind.Absolute, out Uri? location)
             || !string.Equals(location.Scheme, "yeelight", StringComparison.OrdinalIgnoreCase)
+            || location.UserInfo.Length > 0
+            || !string.Equals(location.AbsolutePath, "/", StringComparison.Ordinal)
+            || location.Query.Length > 0
+            || location.Fragment.Length > 0
             || location.Port is <= 0 or > IPEndPoint.MaxPort
             || !IPAddress.TryParse(location.Host, out IPAddress? address))
         {
@@ -146,7 +168,44 @@ public static class YeelightDiscovery
 
     private static bool IsSuccessfulStatusLine(string statusLine) =>
         string.Equals(statusLine, "HTTP/1.1 200", StringComparison.OrdinalIgnoreCase)
-        || statusLine.StartsWith(
-            "HTTP/1.1 200 ",
+        || string.Equals(
+            statusLine,
+            "HTTP/1.1 200 OK",
             StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsValidHeaderName(string name)
+    {
+        foreach (char character in name)
+        {
+            bool valid = char.IsAsciiLetterOrDigit(character)
+                || character is
+                    '!'
+                    or '#'
+                    or '$'
+                    or '%'
+                    or '&'
+                    or '\''
+                    or '*'
+                    or '+'
+                    or '-'
+                    or '.'
+                    or '^'
+                    or '_'
+                    or '`'
+                    or '|'
+                    or '~';
+            if (!valid)
+            {
+                return false;
+            }
+        }
+
+        return name.Length > 0;
+    }
+
+    private static bool IsValidHeaderValue(string value) =>
+        value.All(static character =>
+            character == '\t'
+            || character is >= '\u0020' and < '\u007f'
+            || character >= '\u0080');
 }
