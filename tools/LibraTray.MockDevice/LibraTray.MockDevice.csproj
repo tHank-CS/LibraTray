@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>LibraTray.MockDevice</AssemblyName>
+    <RootNamespace>LibraTray.MockDevice</RootNamespace>
+    <Description>Loopback-friendly Yeelight LAN mock device for deterministic protocol diagnostics.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LibraTray.Core\LibraTray.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LibraTray.Probe.Tests" />
+  </ItemGroup>
+</Project>
