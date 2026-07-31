@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>LibraTray.Probe.Tests</AssemblyName>
+    <RootNamespace>LibraTray.Probe.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MSTest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\tools\LibraTray.MockDevice\LibraTray.MockDevice.csproj" />
+    <ProjectReference Include="..\..\tools\LibraTray.Probe\LibraTray.Probe.csproj" />
+  </ItemGroup>
+</Project>
