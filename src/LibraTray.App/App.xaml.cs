@@ -5,6 +5,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Threading;
 using LibraTray.App.Interop;
 using LibraTray.App.Presentation;
+using LibraTray.Core.Devices.LibraPro;
 
 namespace LibraTray.App;
 
@@ -14,7 +15,10 @@ namespace LibraTray.App;
     Justification = "WPF owns the Application lifetime; OnExit deterministically disposes the tray icon.")]
 public partial class App : Application
 {
+    private readonly CancellationTokenSource _appCancellation = new();
     private QuickPanelWindow? _quickPanel;
+    private QuickPanelViewModel? _quickPanelViewModel;
+    private LibraProDeviceSession? _deviceSession;
     private TrayIconService? _trayIcon;
     private ContextMenu? _trayMenu;
 
@@ -28,7 +32,12 @@ public partial class App : Application
             || Environment.GetCommandLineArgs()
                 .Skip(1)
                 .Contains("--show", StringComparer.OrdinalIgnoreCase);
-        _quickPanel = new QuickPanelWindow();
+        _deviceSession = new LibraProDeviceSession();
+        _quickPanelViewModel = new QuickPanelViewModel(
+            _deviceSession,
+            Dispatcher,
+            _appCancellation.Token);
+        _quickPanel = new QuickPanelWindow(_quickPanelViewModel);
         if (showRequested)
         {
             _quickPanel.ShowInTaskbar = true;
@@ -41,6 +50,7 @@ public partial class App : Application
         _trayIcon.PrimaryActivated += OnTrayPrimaryActivated;
         _trayIcon.ContextRequested += OnTrayContextRequested;
         _trayMenu = CreateTrayMenu();
+        _ = _quickPanelViewModel.ConnectAsync(_appCancellation.Token);
 
         if (showRequested)
         {
@@ -52,6 +62,13 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _appCancellation.Cancel();
+        _quickPanelViewModel?.Dispose();
+        if (_deviceSession is not null)
+        {
+            _deviceSession.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+
         if (_trayIcon is not null)
         {
             _trayIcon.PrimaryActivated -= OnTrayPrimaryActivated;
@@ -59,6 +76,7 @@ public partial class App : Application
             _trayIcon.Dispose();
         }
 
+        _appCancellation.Dispose();
         base.OnExit(e);
     }
 

@@ -177,6 +177,99 @@ public sealed class LibraProAdapter : IDisposable
     }
 
     /// <summary>
+    /// Changes the primary light power and verifies <c>main_power</c>.
+    /// Firmware or vendor-app coupling may also change background power, so
+    /// the returned complete state is authoritative.
+    /// </summary>
+    public Task<LibraProCommandResult> SetMainPowerAsync(
+        bool enabled,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default) =>
+        ExecuteVerifiedAsync(
+            "set_power",
+            [enabled ? "on" : "off", "sudden", 0],
+            state => state.MainPower == enabled,
+            $"Main power verification failed: expected {FormatPower(enabled)}.",
+            timeout,
+            cancellationToken);
+
+    public Task<LibraProCommandResult> SetMainBrightnessAsync(
+        int brightness,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateBrightness(brightness, nameof(brightness));
+        return ExecuteVerifiedAsync(
+            "set_bright",
+            [brightness, "sudden", 0],
+            state => state.MainBrightness == brightness,
+            $"Main brightness verification failed: expected {brightness}.",
+            timeout,
+            cancellationToken);
+    }
+
+    public Task<LibraProCommandResult> SetMainColorTemperatureAsync(
+        int colorTemperature,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateColorTemperature(colorTemperature, nameof(colorTemperature));
+        return ExecuteVerifiedAsync(
+            "set_ct_abx",
+            [colorTemperature, "sudden", 0],
+            state => state.MainColorTemperature == colorTemperature,
+            $"Main colour-temperature verification failed: expected {colorTemperature}.",
+            timeout,
+            cancellationToken);
+    }
+
+    public Task<LibraProCommandResult> SetBackgroundBrightnessAsync(
+        int brightness,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateBrightness(brightness, nameof(brightness));
+        return ExecuteVerifiedAsync(
+            "bg_set_bright",
+            [brightness, "sudden", 0],
+            state => state.BackgroundBrightness == brightness,
+            $"Background brightness verification failed: expected {brightness}.",
+            timeout,
+            cancellationToken);
+    }
+
+    public Task<LibraProCommandResult> SetBackgroundColorTemperatureAsync(
+        int colorTemperature,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateColorTemperature(colorTemperature, nameof(colorTemperature));
+        return ExecuteVerifiedAsync(
+            "bg_set_ct_abx",
+            [colorTemperature, "sudden", 0],
+            state => state.BackgroundColorTemperature == colorTemperature,
+            $"Background colour-temperature verification failed: expected {colorTemperature}.",
+            timeout,
+            cancellationToken);
+    }
+
+    public Task<LibraProCommandResult> SetBackgroundRgbAsync(
+        int rgb,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(rgb);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(rgb, 16_777_215);
+        return ExecuteVerifiedAsync(
+            "bg_set_rgb",
+            [rgb, "sudden", 0],
+            state => state.BackgroundRgb == rgb,
+            $"Background RGB verification failed: expected {rgb}.",
+            timeout,
+            cancellationToken);
+    }
+
+    /// <summary>
     /// Explicitly initializes the background renderer and restores the
     /// requested power state. This may create a brief visible flash when the
     /// requested state is off, so normal reconnect handling should prefer
@@ -344,6 +437,44 @@ public sealed class LibraProAdapter : IDisposable
         }
     }
 
+    private async Task<LibraProCommandResult> ExecuteVerifiedAsync(
+        string method,
+        IReadOnlyList<object?> parameters,
+        Func<LibraProState, bool> postcondition,
+        string failureMessage,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        ThrowIfDisposed();
+        await _commandLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await SendOkAsync(
+                    method,
+                    parameters,
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            LibraProState state = await QueryStateAsync(timeout, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (!postcondition(state))
+            {
+                throw new LibraProStateVerificationException(failureMessage);
+            }
+
+            return new LibraProCommandResult(
+                state,
+                RecoveryAttempted: false,
+                ConnectionEpoch);
+        }
+        finally
+        {
+            _commandLock.Release();
+        }
+    }
+
     private bool TryClaimRecovery()
     {
         lock (_epochLock)
@@ -418,6 +549,18 @@ public sealed class LibraProAdapter : IDisposable
     }
 
     private static string FormatPower(bool value) => value ? "on" : "off";
+
+    private static void ValidateBrightness(int value, string parameterName)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(value, 1, parameterName);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(value, 100, parameterName);
+    }
+
+    private static void ValidateColorTemperature(int value, string parameterName)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(value, 3_000, parameterName);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(value, 6_500, parameterName);
+    }
 
     private void ThrowIfDisposed() =>
         ObjectDisposedException.ThrowIf(_disposed, this);

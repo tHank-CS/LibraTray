@@ -137,18 +137,28 @@ behavior, not persistence across a later cold power cycle.
 
 ## High-frequency controls
 
-Brightness, temperature, and colour sliders use a replaceable latest-value
-queue:
+Brightness, temperature, and colour sliders use bounded commit behavior:
 
 - cap send frequency below protocol quotas;
-- while a command is in flight, replace queued intermediate values;
-- on pointer/key release, enqueue the final value even if equal to the latest
-  provisional state;
-- cancellation removes obsolete queued values but not an already written
-  command;
+- send only on pointer release, whether the value came from a track click or a
+  completed drag;
+- disable additional UI writes while the verified command is in flight;
+- never cancel an already written command because a read-back is delayed;
 - a failure marks uncertainty and triggers bounded reconciliation.
 
-This prevents backlog and ensures the physical final position is sent.
+This prevents intermediate slider traffic and ensures the physical final
+position is sent.
+
+The production session additionally serializes every protocol request with a
+1.1-second minimum start-to-start interval. A write's notification is absorbed
+by its mandatory post-read instead of scheduling another query. Rapid physical
+updates coalesce behind the active reconciliation query, so the UI converges
+to the latest confirmed state without replaying every intermediate value.
+
+Transient timeout, device-busy (`-1`), protocol, disconnect, and verified
+postcondition failures receive two retries after 300 ms and 900 ms. Idempotent
+setting commands are resent, then re-read. The UI remains online and exposes
+retry progress; only exhaustion produces an operation error.
 
 ## Notifications
 
@@ -198,10 +208,9 @@ metadata and conservative precedence:
 
 This behavior is planned and unimplemented at the current milestone.
 
-## Planned tests
+## Test coverage
 
-The Phase-C state implementation must add automated tests using loopback test
-doubles for:
+The Phase-C state implementation uses loopback test doubles for:
 
 - split/coalesced response and notification frames;
 - out-of-order responses;
@@ -221,5 +230,7 @@ The initial Phase-C adapter coverage includes exact product/capability gating,
 complete two-channel query validation, ordinary verified background power,
 one recovery attempt per connection epoch, main-channel preservation, explicit
 restore-to-off behavior, and a real-TCP `cold-start-silent` mock integration.
-Notification merging, scheduler/coalescing, reconnect orchestration, settings,
-and UI state remain separate pending Phase-C work.
+The current coverage also includes trusted discovery filtering, full live
+session commands, retry success and exhaustion, request spacing, and
+notification recovery. Settings and shortcut state remain pending Phase-C
+work.

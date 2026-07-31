@@ -4,8 +4,9 @@
 
 This document defines the intended architecture of LibraTray. The repository
 contains research, a protocol probe, a UI-independent protocol core, the
-initial product-specific adapter, and an offline WPF tray shell. Live discovery
-and control integration remain under Phase-C development.
+initial product-specific adapter, and a live WPF tray host with trusted
+discovery and verified controls. Shortcuts and settings remain under Phase-C
+development.
 
 The architecture optimizes for:
 
@@ -142,8 +143,9 @@ field. Only a trimmed, case-insensitive exact internal-model match maps to
   frame when multiple messages arrive together.
 - Buffer and message size limits are enforced before JSON materialization.
 - Phase-B probe writes require the method and `get_prop` to appear in the
-  advertised `support` capabilities. A production command-rate limiter below
-  Yeelight's published quotas is deferred with the Phase-C command scheduler.
+  advertised `support` capabilities. The production session serializes every
+  request and enforces a 1.1-second start-to-start interval below Yeelight's
+  60-command-per-minute per-connection ceiling.
 - No network operation blocks the UI thread.
 
 ## State reconciliation
@@ -152,7 +154,7 @@ Each channel is modeled independently. A state property includes value, source
 (`query`, `notification`, `command`, `physical-inferred`), confidence, request
 ID when applicable, monotonic observation order, and UTC timestamp.
 
-The adapter and remaining Phase-C state services will:
+The adapter and Phase-C session:
 
 1. query initial state after connecting;
 2. subscribe to/receive `props` notifications on the same connection;
@@ -168,6 +170,12 @@ by post-write query mismatch. It performs at most one `bg_set_scene` renderer
 initialization per connection epoch, restores confirmed background appearance,
 and verifies that main power was preserved. It does not equate every TCP
 reconnect with a cold boot.
+
+Transient timeouts, generic device-busy responses, protocol failures, and
+postcondition mismatches receive at most two delayed retries. Idempotent setting
+commands are resent and re-read; retry UI remains online. Notifications caused
+by an in-flight write do not add a redundant query, while rapid physical input
+coalesces behind one bounded reconciliation read.
 
 See [state synchronization](protocol/state-synchronization.md).
 
@@ -222,8 +230,8 @@ failures into actionable status while retaining a redacted technical cause.
 - **Phase A:** research, ADRs, governance, identity rules.
 - **Phase B:** probe, minimal protocol core, mock device, automated tests.
 - **Phase C (in progress):** Libra Pro adapter, bounded cold-start recovery,
-  tray shell, and offline quick panel implemented; live discovery/control
-  binding, notification reconciliation, shortcuts, settings, and presets
+  tray host, trusted discovery/control binding, notification reconciliation,
+  retry, and request scheduling implemented; shortcuts, settings, and presets
   remain.
 - **Phase D:** Windows lifecycle automation, packaging, CI/release hardening.
 

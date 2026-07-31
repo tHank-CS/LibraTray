@@ -142,7 +142,7 @@ read. Values in `props` are documented as partial updates and commonly strings.
 | `get_prop` | Officially documented | Home Assistant, python-yeelight, kyuuri | Verified in one firmware-38 session | Production adapter may query only the verified bounded property set and must tolerate empty values |
 | `set_power` | Officially documented | Multiple generic clients | On and off verified on firmware 38; off behavior depends on the vendor-app ambient-follow setting | Use three-property pre/post reconciliation; do not assume the background remains unchanged when follow mode is enabled |
 | `set_bright` | Officially documented | Multiple generic clients | Verified once on firmware 38 with notification and post-read | Eligible for production adapter after repeat/reconnect coverage |
-| `set_ct_abx` | Officially documented | Multiple generic clients | 5000 K to 4000 K verified on firmware 38 | Eligible for the production adapter with bounded input and post-read verification |
+| `set_ct_abx` | Officially documented | Multiple generic clients | 5000 K to 4000 K verified; values below 3000 K did not respond in UI testing on firmware 38 | Production adapter clamps the writable range to 3000–6500 K and requires post-read verification |
 | `toggle` | Officially documented | Multiple generic clients | Unverified | Avoid until toggle semantics are verified |
 | `bg_set_power` | Officially documented as a generic background method | Home Assistant, python-yeelight, kyuuri, NumberOneBot | Off/on verified once on firmware 38; off notification defect confirmed | Eligible only with mandatory post-notification query reconciliation |
 | `bg_set_bright` | Officially documented as a generic background method | Same sources | Verified once on firmware 38 with notification and post-read | Eligible for production adapter after repeat/reconnect coverage |
@@ -209,12 +209,13 @@ The official generic limits are:
 - 60 command messages per minute on one connection;
 - 144 LAN command messages per minute overall.
 
-The phase-B core provides one receive loop per connection, request correlation,
-timeouts, cancellation, disconnect handling, and an explicit reconnect
-operation. It does not yet implement production command-rate scheduling, slider
-coalescing/final-value delivery, or automatic reconnect backoff. Those are
-Phase-C state/application responsibilities and must remain below the published
-ceilings when implemented. Actual `lamp15` limit error behavior is unverified.
+The production session provides one receive loop, request correlation,
+timeouts, cancellation, bounded reconnect support, and a serialized
+1.1-second request interval. Notification reads are coalesced and redundant
+write notifications are absorbed by mandatory post-read verification. Rapid
+unlimited requests caused firmware 38 to stop responding temporarily; stopping
+the client restored immediate read-only responses. The exact device-side
+limit error behavior remains unverified.
 
 ## Probe acceptance criteria
 

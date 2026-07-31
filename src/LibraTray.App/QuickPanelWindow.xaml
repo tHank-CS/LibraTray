@@ -41,12 +41,49 @@
                     <StackPanel Margin="0,7,0,0" Orientation="Horizontal">
                         <Ellipse Width="8"
                                  Height="8"
-                                 Margin="0,1,8,0"
-                                 Fill="#FF9AA3AA" />
+                                 Margin="0,1,8,0">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="#FF9AA3AA" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsDeviceOnline}"
+                                                     Value="True">
+                                            <Setter Property="Fill"
+                                                    Value="{StaticResource AccentBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
                         <TextBlock Text="{Binding ConnectionStatus}"
                                    FontSize="12"
                                    Foreground="{StaticResource TextSecondaryBrush}" />
+                        <Button Margin="12,-6,0,-6"
+                                Padding="9,4"
+                                IsEnabled="{Binding CanRetry}"
+                                Content="重试"
+                                Style="{StaticResource QuietButtonStyle}"
+                                Click="RetryButton_Click" />
                     </StackPanel>
+                    <TextBlock Margin="0,8,0,0"
+                               Text="{Binding ErrorMessage}"
+                               TextWrapping="Wrap"
+                               FontSize="12"
+                               Foreground="#FFB5473C">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock"
+                                   BasedOn="{StaticResource {x:Type TextBlock}}">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ErrorMessage}"
+                                                 Value="{x:Null}">
+                                        <Setter Property="Visibility"
+                                                Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
                 <Button Grid.Column="1"
                         Width="32"
@@ -61,7 +98,7 @@
 
             <Border Grid.Row="2"
                     Style="{StaticResource SectionCardStyle}"
-                    IsEnabled="{Binding IsDeviceOnline}">
+                    IsEnabled="{Binding CanControl}">
                 <StackPanel>
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -79,7 +116,9 @@
                         </StackPanel>
                         <CheckBox Grid.Column="1"
                                   VerticalAlignment="Center"
-                                  Content="开启" />
+                                  Content="开启"
+                                  IsChecked="{Binding MainPower, Mode=OneWay}"
+                                  Click="MainPower_Click" />
                     </Grid>
                     <Grid Margin="0,16,0,0">
                         <Grid.ColumnDefinitions>
@@ -90,33 +129,44 @@
                         <TextBlock VerticalAlignment="Center"
                                    Text="亮度"
                                    Foreground="{StaticResource TextSecondaryBrush}" />
-                        <Slider Grid.Column="1" Minimum="1" Maximum="100" />
+                        <Slider Grid.Column="1"
+                                Minimum="1"
+                                Maximum="100"
+                                Value="{Binding MainBrightness, Mode=OneWay}"
+                                PreviewMouseLeftButtonUp="MainBrightness_PointerReleased" />
                         <TextBlock Grid.Column="2"
                                    HorizontalAlignment="Right"
                                    VerticalAlignment="Center"
-                                   Text="—" />
+                                   Text="{Binding MainBrightness}" />
                     </Grid>
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="52" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="34" />
+                            <ColumnDefinition Width="64" />
                         </Grid.ColumnDefinitions>
                         <TextBlock VerticalAlignment="Center"
                                    Text="色温"
                                    Foreground="{StaticResource TextSecondaryBrush}" />
-                        <Slider Grid.Column="1" Minimum="1700" Maximum="6500" />
+                        <Slider Grid.Column="1"
+                                Minimum="3000"
+                                Maximum="6500"
+                                TickFrequency="100"
+                                IsSnapToTickEnabled="True"
+                                Value="{Binding MainColorTemperature, Mode=OneWay}"
+                                PreviewMouseLeftButtonUp="MainColorTemperature_PointerReleased" />
                         <TextBlock Grid.Column="2"
                                    HorizontalAlignment="Right"
                                    VerticalAlignment="Center"
-                                   Text="—" />
+                                   Text="{Binding MainColorTemperature,
+                                                  StringFormat={}{0} K}" />
                     </Grid>
                 </StackPanel>
             </Border>
 
             <Border Grid.Row="4"
                     Style="{StaticResource SectionCardStyle}"
-                    IsEnabled="{Binding IsDeviceOnline}">
+                    IsEnabled="{Binding CanControl}">
                 <StackPanel>
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -134,7 +184,9 @@
                         </StackPanel>
                         <CheckBox Grid.Column="1"
                                   VerticalAlignment="Center"
-                                  Content="开启" />
+                                  Content="开启"
+                                  IsChecked="{Binding BackgroundPower, Mode=OneWay}"
+                                  Click="BackgroundPower_Click" />
                     </Grid>
                     <Grid Margin="0,16,0,0">
                         <Grid.ColumnDefinitions>
@@ -145,21 +197,68 @@
                         <TextBlock VerticalAlignment="Center"
                                    Text="亮度"
                                    Foreground="{StaticResource TextSecondaryBrush}" />
-                        <Slider Grid.Column="1" Minimum="1" Maximum="100" />
+                        <Slider Grid.Column="1"
+                                Minimum="1"
+                                Maximum="100"
+                                Value="{Binding BackgroundBrightness, Mode=OneWay}"
+                                PreviewMouseLeftButtonUp="BackgroundBrightness_PointerReleased" />
                         <TextBlock Grid.Column="2"
                                    HorizontalAlignment="Right"
                                    VerticalAlignment="Center"
-                                   Text="—" />
+                                   Text="{Binding BackgroundBrightness}" />
                     </Grid>
                     <StackPanel Margin="0,15,0,0" Orientation="Horizontal">
                         <TextBlock Width="52"
                                    VerticalAlignment="Center"
                                    Text="颜色"
                                    Foreground="{StaticResource TextSecondaryBrush}" />
-                        <Ellipse Width="24" Height="24" Margin="0,0,10,0" Fill="#FFF3D8A4" />
-                        <Ellipse Width="24" Height="24" Margin="0,0,10,0" Fill="#FFC8E4D7" />
-                        <Ellipse Width="24" Height="24" Margin="0,0,10,0" Fill="#FFC9DCF4" />
-                        <Ellipse Width="24" Height="24" Fill="#FFE3D2EF" />
+                        <Button Width="30"
+                                Height="30"
+                                Margin="0,0,8,0"
+                                Padding="2"
+                                Tag="16753920"
+                                ToolTip="橙色"
+                                Style="{StaticResource QuietButtonStyle}"
+                                Click="BackgroundColor_Click">
+                            <Ellipse Width="20"
+                                     Height="20"
+                                     Fill="#FFFFA500" />
+                        </Button>
+                        <Button Width="30"
+                                Height="30"
+                                Margin="0,0,8,0"
+                                Padding="2"
+                                Tag="65280"
+                                ToolTip="绿色"
+                                Style="{StaticResource QuietButtonStyle}"
+                                Click="BackgroundColor_Click">
+                            <Ellipse Width="20"
+                                     Height="20"
+                                     Fill="#FF00C96B" />
+                        </Button>
+                        <Button Width="30"
+                                Height="30"
+                                Margin="0,0,8,0"
+                                Padding="2"
+                                Tag="255"
+                                ToolTip="蓝色"
+                                Style="{StaticResource QuietButtonStyle}"
+                                Click="BackgroundColor_Click">
+                            <Ellipse Width="20"
+                                     Height="20"
+                                     Fill="#FF438DFF" />
+                        </Button>
+                        <Button Width="30"
+                                Height="30"
+                                Padding="2"
+                                Tag="8388736"
+                                ToolTip="紫色"
+                                Style="{StaticResource QuietButtonStyle}"
+                                Click="BackgroundColor_Click">
+                            <Ellipse Width="20"
+                                     Height="20"
+                                     Fill="#FF9B66D9" />
+                        </Button>
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -179,7 +278,7 @@
                                VerticalAlignment="Top"
                                Margin="0,2,10,0" />
                     <TextBlock Grid.Column="1"
-                               Text="设备发现接入完成前，控制保持禁用；不会向未知设备发送命令。"
+                               Text="只连接精确识别为 lamp15 的本地设备；每次写入都会复读确认。"
                                TextWrapping="Wrap"
                                FontSize="12"
                                LineHeight="18"
