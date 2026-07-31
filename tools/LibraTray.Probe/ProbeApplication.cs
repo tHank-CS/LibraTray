@@ -430,9 +430,22 @@ internal static class ProbeApplication
             return 5;
         }
 
+        if (capabilityResult == SafeWriteCapabilityResult.UnsupportedModel)
+        {
+            await output.ErrorAsync(
+                $"拒绝写入：{write.Method} 仅允许用于精确识别为 lamp15 的设备。",
+                cancellationToken).ConfigureAwait(false);
+            return 5;
+        }
+
+        string writeWarning = write.Method == "bg_set_scene"
+            ? "写入已显式确认：将执行官方背景灯颜色情景命令 bg_set_scene，"
+                + "仅用于临时重新初始化固件 38 的氛围灯可见输出；"
+                + "冷启动后可能需要再次执行。"
+            : $"写入已显式确认：仅执行官方通用命令 {write.Method}；"
+                + "不会发送任何猜测的 lamp15 私有命令。";
         await output.WarningAsync(
-            $"写入已显式确认：仅执行官方通用命令 {write.Method}；"
-            + "不会发送任何猜测的 lamp15 私有命令。",
+            writeWarning,
             cancellationToken).ConfigureAwait(false);
 
         SafeWriteVerificationPlan verificationPlan =
@@ -540,6 +553,15 @@ internal static class ProbeApplication
                 ", ",
                 expectedAfterWrite.Select(pair => $"{pair.Key}={pair.Value}"))}。",
             cancellationToken).ConfigureAwait(false);
+        if (write.Method == "bg_set_scene")
+        {
+            await output.WarningAsync(
+                "背景颜色情景已应用并通过属性复读；恢复仅对当前设备运行周期有效。"
+                + "正式适配器应在普通背景写入复读失败时至多重试一次，"
+                + "随后恢复用户的目标状态。",
+                cancellationToken).ConfigureAwait(false);
+        }
+
         return 0;
     }
 
@@ -587,6 +609,12 @@ internal static class ProbeApplication
         string[] declaredCapabilities = capabilities
             .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
+        if (write.Method == "bg_set_scene"
+            && !ProductIdentityMapper.IsSupportedInternalModel(record.Response.Model))
+        {
+            return SafeWriteCapabilityResult.UnsupportedModel;
+        }
+
         if (!declaredCapabilities.Contains(write.Method, StringComparer.Ordinal))
         {
             return SafeWriteCapabilityResult.MissingWriteMethod;
@@ -623,10 +651,26 @@ internal static class ProbeApplication
             && ProductIdentityMapper.IsSupportedInternalModel(internalModel)
             ? new SafeWriteVerificationPlan(
                 ["power", "main_power", "bg_power"],
-                IsLamp15MainPower: true)
-            : new SafeWriteVerificationPlan(
-                [write.PropertyName],
-                IsLamp15MainPower: false);
+                IsLamp15MainPower: true,
+                IsLamp15BackgroundColorScene: false)
+            : write.Method == "bg_set_scene"
+                ? new SafeWriteVerificationPlan(
+                    [
+                        "power",
+                        "main_power",
+                        "bg_power",
+                        "bright",
+                        "ct",
+                        "bg_bright",
+                        "bg_rgb",
+                        "bg_lmode",
+                    ],
+                    IsLamp15MainPower: false,
+                    IsLamp15BackgroundColorScene: true)
+                : new SafeWriteVerificationPlan(
+                    [write.PropertyName],
+                    IsLamp15MainPower: false,
+                    IsLamp15BackgroundColorScene: false);
     }
 
     internal static bool TryCreateExpectedSafeWriteState(
@@ -639,6 +683,51 @@ internal static class ProbeApplication
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(write);
         ArgumentNullException.ThrowIfNull(beforeWrite);
+
+        if (plan.IsLamp15BackgroundColorScene)
+        {
+            string[] stableProperties =
+                ["power", "main_power", "bg_power", "bright", "ct"];
+            foreach (string property in stableProperties)
+            {
+                if (!beforeWrite.TryGetValue(property, out string? value)
+                    || string.IsNullOrEmpty(value))
+                {
+                    expectedAfterWrite = new Dictionary<string, string>();
+                    error = $"lamp15 背景情景校验需要有效的 {property} 当前值"
+                        + $"（实际值：{value ?? "<missing>"}）。";
+                    return false;
+                }
+            }
+
+            if (beforeWrite["power"] is not ("on" or "off")
+                || beforeWrite["main_power"] is not ("on" or "off")
+                || beforeWrite["bg_power"] is not ("on" or "off")
+                || !IsIntegerInRange(beforeWrite["bright"], 1, 100)
+                || !IsIntegerInRange(beforeWrite["ct"], 1_700, 6_500)
+                || write.Parameters.Count != 3
+                || write.Parameters[1] is not int rgb
+                || write.Parameters[2] is not int brightness)
+            {
+                expectedAfterWrite = new Dictionary<string, string>();
+                error = "lamp15 背景情景校验的写前状态或命令参数无效。";
+                return false;
+            }
+
+            expectedAfterWrite = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["power"] = "on",
+                ["main_power"] = beforeWrite["main_power"],
+                ["bg_power"] = "on",
+                ["bright"] = beforeWrite["bright"],
+                ["ct"] = beforeWrite["ct"],
+                ["bg_bright"] = brightness.ToString(CultureInfo.InvariantCulture),
+                ["bg_rgb"] = rgb.ToString(CultureInfo.InvariantCulture),
+                ["bg_lmode"] = "1",
+            };
+            error = string.Empty;
+            return true;
+        }
 
         if (!plan.IsLamp15MainPower)
         {
@@ -817,10 +906,44 @@ internal static class ProbeApplication
                 value,
                 minimum: 0,
                 maximum: 16_777_215),
+            "bg_set_scene" => CreateBackgroundColorSceneWrite(method, value),
             _ => throw new ArgumentException(
                 "安全写白名单仅包含 set_power、set_bright、set_ct_abx、set_rgb、"
-                + "bg_set_power、bg_set_bright、bg_set_rgb。"),
+                + "bg_set_power、bg_set_bright、bg_set_rgb，以及恢复用 bg_set_scene。"
+                + "set_segment_rgb 的即时效果已验证，但冷启动关联风险尚未排除，"
+                + "因此仍被禁用。"),
         };
+    }
+
+    private static SafeWriteSpec CreateBackgroundColorSceneWrite(
+        string method,
+        string rawValue)
+    {
+        string[] values = rawValue.Split(',', StringSplitOptions.TrimEntries);
+        if (values.Length != 2
+            || !int.TryParse(
+                values[0],
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out int rgb)
+            || !int.TryParse(
+                values[1],
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out int brightness)
+            || rgb is < 0 or > 16_777_215
+            || brightness is < 1 or > 100)
+        {
+            throw new ArgumentException(
+                "bg_set_scene 的 --value 必须是“RGB,亮度”：RGB 为 0 到 "
+                + "16777215 的十进制整数，亮度为 1 到 100。");
+        }
+
+        return new SafeWriteSpec(
+            method,
+            "bg_rgb",
+            rgb.ToString(CultureInfo.InvariantCulture),
+            ["color", rgb, brightness]);
     }
 
     private static SafeWriteSpec CreateNumericWrite(
@@ -889,6 +1012,8 @@ internal static class ProbeApplication
               LibraTray.Probe get-props --host HOST [--port 55443] [--props power,bright,...]
               LibraTray.Probe listen --host HOST [--port 55443] [--listen-seconds 15]
               LibraTray.Probe safe-write --host HOST --method METHOD --value VALUE --confirm-write
+              LibraTray.Probe safe-write --host HOST --method bg_set_scene
+                --value "RGB,BRIGHTNESS" --confirm-write
 
             通用选项：
               --timeout-seconds N   连接、请求和 discovery 超时，默认 5 秒
@@ -903,7 +1028,9 @@ internal static class ProbeApplication
               氛围灯逐项测试另允许 bg_set_power、bg_set_bright、bg_set_rgb；
               同时要求 --confirm-write，且设备 discovery support 必须明确声明该命令。
               写前/写后复读还要求设备明确声明 get_prop。
-              本工具不实现任何猜测的 lamp15 私有、分区或专有命令。
+              set_segment_rgb 已禁用：即时分区效果虽已验证，但与冷启动故障的关联尚未排除。
+              bg_set_scene 仅允许精确 lamp15，应用官方颜色情景并复读双通道状态；
+              它只能恢复当前运行周期，正式应用必须限次并恢复用户目标状态。
 
             默认日志：
               %LOCALAPPDATA%\LibraTray\logs\protocol-probe-*.jsonl
@@ -919,11 +1046,13 @@ internal static class ProbeApplication
 
     internal sealed record SafeWriteVerificationPlan(
         IReadOnlyList<string> Properties,
-        bool IsLamp15MainPower);
+        bool IsLamp15MainPower,
+        bool IsLamp15BackgroundColorScene);
 
     internal enum SafeWriteCapabilityResult
     {
         Allowed,
+        UnsupportedModel,
         MissingWriteMethod,
         MissingGetProp,
     }

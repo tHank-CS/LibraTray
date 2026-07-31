@@ -16,6 +16,7 @@ internal enum MockMode
     Disconnect,
     Restart,
     BadProps,
+    ColdStartSilent,
 }
 
 internal sealed class MockOptions
@@ -63,6 +64,7 @@ internal sealed class MockOptions
                 "disconnect" => MockMode.Disconnect,
                 "restart" => MockMode.Restart,
                 "bad-props" or "incorrect-props" => MockMode.BadProps,
+                "cold-start-silent" => MockMode.ColdStartSilent,
                 _ => throw new ArgumentException($"未知模拟模式：{raw}"),
             };
         }

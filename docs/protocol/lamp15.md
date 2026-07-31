@@ -56,14 +56,51 @@ The 2026-07-31 session established:
 - confirmed `bg_set_bright(50, "sudden", 0)` changed the physical background
   light from 100 to 50, returned `["ok"]`, emitted `bg_bright=50`, and passed
   a write-after-read query;
+- confirmed `set_ct_abx(4000, "sudden", 0)` changed the physical main light
+  from 5000 K to a visibly warmer 4000 K, returned `["ok"]`, emitted
+  `ct=4000`, and passed a write-after-read query without affecting the
+  background light;
+- confirmed `bg_set_rgb(65280, "sudden", 0)` changed the physical background
+  light to green, returned `["ok"]`, emitted `bg_rgb=65280`, `bg_hue=120`,
+  and `bg_sat=100`, and passed a write-after-read query without affecting the
+  main light;
 - confirmed `bg_set_power("off", "sudden", 0)` independently turned the
   background channel off while the main channel remained on. The command
   returned `["ok"]`, but emitted the incorrect notification
   `bg_power=on`; the post-read correctly returned `off`;
 - confirmed `bg_set_power("on", "sudden", 0)` restored the background channel,
   returned `["ok"]`, emitted `bg_power=on`, and passed the post-read;
-- the final query reported aggregate/main/background power as `on/on/on` and
-  retained independent main/background brightness values of 50.
+- confirmed `set_power("on", "sudden", 0)` changed a background-only state
+  from `on/off/on` to `on/on/on`, emitted `main_power=on`, and preserved the
+  already-on background channel;
+- the Xiaomi Home setting that makes the ambient light follow the main-light
+  switch changes `set_power("off")` semantics: with following enabled both
+  channels became off; with following disabled the result was
+  `power=on,main_power=off,bg_power=on`;
+- confirmed the advertised experimental extension
+  `set_segment_rgb(leftRgb, rightRgb)` twice over separate TCP connections.
+  `[16711680,255]` produced a red left zone and blue right zone, while
+  `[255,16711680]` reversed them. Both requests returned `["ok"]` and left
+  main power, brightness, and colour temperature unchanged;
+- no segment-specific property or notification was observed. The ordinary
+  `bg_rgb`, `bg_hue`, and `bg_sat` properties retained the previous whole-
+  background values after a segmented write;
+- after the segment experiments, subsequent cold power cycles left the
+  background channel accepting commands while producing no visible light.
+  In the final clean cycle, `bg_set_power("on")` returned `["ok"]` but the
+  immediate query still returned `bg_power=off`. Main-light control remained
+  functional;
+- `bg_set_scene("color", 13395711, 50)` also restored visible output and manual
+  control in the running session, but the background failed again after the
+  next cold power cycle. It is therefore only a temporary recovery aid, not a
+  repair for the persistent state;
+- a Xiaomi Home scene likewise restored the running session but did not survive
+  the next cold cycle. No clean pre-experiment cold-cycle baseline or factory
+  reset was performed, so the evidence does not establish whether segment
+  control caused the firmware state or merely preceded an independent firmware
+  defect;
+- `set_segment_rgb` therefore remains disabled in executable product/probe
+  paths pending an isolated control test or separate explicit risk acceptance.
 
 The Windows host had multiple physical, VPN/tunnel, Hyper-V, WSL, and VMware
 interfaces. Binding discovery to the physical LAN IPv4 made multicast
@@ -99,16 +136,17 @@ read. Values in `props` are documented as partial updates and commonly strings.
 | Area / method | Generic source status | Open-source `lamp15` lead | Stock YLTD003 status | Production policy |
 | --- | --- | --- | --- | --- |
 | `get_prop` | Officially documented | Home Assistant, python-yeelight, kyuuri | Verified in one firmware-38 session | Production adapter may query only the verified bounded property set and must tolerate empty values |
-| `set_power` | Officially documented | Multiple generic clients | Unverified | Probe only with three-property pre/post verification of aggregate, main, and unchanged background power |
+| `set_power` | Officially documented | Multiple generic clients | On and off verified on firmware 38; off behavior depends on the vendor-app ambient-follow setting | Use three-property pre/post reconciliation; do not assume the background remains unchanged when follow mode is enabled |
 | `set_bright` | Officially documented | Multiple generic clients | Verified once on firmware 38 with notification and post-read | Eligible for production adapter after repeat/reconnect coverage |
-| `set_ct_abx` | Officially documented | Multiple generic clients | Unverified | Same |
+| `set_ct_abx` | Officially documented | Multiple generic clients | 5000 K to 4000 K verified on firmware 38 | Eligible for the production adapter with bounded input and post-read verification |
 | `toggle` | Officially documented | Multiple generic clients | Unverified | Avoid until toggle semantics are verified |
 | `bg_set_power` | Officially documented as a generic background method | Home Assistant, python-yeelight, kyuuri, NumberOneBot | Off/on verified once on firmware 38; off notification defect confirmed | Eligible only with mandatory post-notification query reconciliation |
 | `bg_set_bright` | Officially documented as a generic background method | Same sources | Verified once on firmware 38 with notification and post-read | Eligible for production adapter after repeat/reconnect coverage |
-| `bg_set_rgb` / `bg_set_hsv` | Officially documented as generic background methods | Same sources | Unverified | Probe only; validate colour model/ranges |
+| `bg_set_rgb` / `bg_set_hsv` | Officially documented as generic background methods | Same sources | `bg_set_rgb` green verified on firmware 38; `bg_set_hsv` unverified | RGB is eligible for the production adapter; HSV remains probe-only |
 | `bg_set_ct_abx` | Officially documented as a generic background method | Generic libraries | Unverified | Do not assume ambient channel supports CT |
 | `bg_toggle` / `dev_toggle` | Officially documented generically | Some libraries | Unverified | Avoid until both-channel semantics are measured |
-| `set_segment_rgb` or similar segment extension | Not present in reviewed official LAN specification | NumberOneBot lead | Unverified | Research only; no production/UI exposure |
+| `bg_set_scene` | Officially documented as a generic background method | Generic libraries | A colour scene restored visible output in each affected running session; ordinary writes then worked, but the next cold cycle required recovery again | Production compatibility fallback only after verified ordinary-write failure; one attempt per connection epoch, preserve main state, restore cached appearance and desired power |
+| `set_segment_rgb` | Not present in reviewed official LAN specification | NumberOneBot lead | Left/right order worked twice; a cold-start defect was later reproduced, but causality is unresolved | Keep disabled by default and out of executable paths until an isolated control test or separate explicit risk acceptance |
 | Chroma UDP R2/token commands | Separate Yeelight Chroma material | Yeelight Chroma Connector | Not the standard LAN control path | Explicitly out of the LAN adapter |
 
 Parameters are taken only from the official specification or the probe's
@@ -121,7 +159,7 @@ evidence record. LibraTray does not invent parameter order or default values.
 | main `power`, `main_power`, `bright`, `ct`, `rgb`, `hue`, `sat`, `color_mode` | Official generic protocol plus device-observed `main_power` | Queried on firmware 38; empty inactive colour fields retained as empty |
 | ambient `bg_power`, `bg_bright`, `bg_ct`, `bg_rgb`, `bg_hue`, `bg_sat`, `bg_lmode` | Official generic background-property model and open-source references | Queried on firmware 38 |
 | firmware, model, name, support | Official discovery protocol | Exact model, firmware, endpoint, and capability list observed on firmware 38 |
-| segment fields/indices | Open-source lead only | Unverified; do not formalize |
+| segment fields/indices | Open-source lead plus firmware-38 writes | Two fixed zones were observed and no readable segment property exists; cold-start safety remains unresolved, so this is diagnostic evidence only |
 
 Unknown properties are retained as diagnostic data and ignored by domain
 mapping until typed and verified. An empty `get_prop` result may mean unknown
@@ -194,13 +232,13 @@ persistence, or firmware independence.
 
 - `support` and initial properties on firmware versions other than 38;
 - whether main and ambient channels accept every generic `bg_*` method;
-- ambient colour model and boundaries;
+- ambient HSV/CT behavior and boundary behavior;
 - both-channel toggle/power semantics;
 - repeatability of physical rotary-control notifications after reconnect and
   power cycle;
-- reboot persistence;
+- whether the cold-start renderer failure occurs on a factory-reset or otherwise
+  clean device that has never received a segment write;
 - bad-notification scope outside the observed firmware-38 session;
-- segment support;
 - fallback behavior for every unsupported method.
 
 These unknowns block the production Libra Pro adapter and formal UI controls,
