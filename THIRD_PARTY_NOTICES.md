@@ -37,10 +37,10 @@ required attribution.
 
 ## Actual build and test dependencies
 
-The phase-B production core is BCL-only and has no third-party
-`PackageReference`. The non-packable test project directly references the
+The phase-B production core and tools are BCL-only and have no third-party
+`PackageReference`. The non-packable test projects directly reference the
 centrally pinned `MSTest` meta-package 4.3.2. A completed NuGet restore resolved
-the following test-only graph:
+the following shared test-only graph:
 
 | Package | Resolved version | Purpose | Package license metadata |
 | --- | --- | --- | --- |
@@ -81,6 +81,24 @@ telemetry component.
 Before every release, regenerate the resolved graph from locked restore
 metadata, audit every package license/notice, and compare the published
 application payload to ensure test tooling is absent.
+
+## CI and bootstrap tooling (not redistributed)
+
+These tools execute repository automation but are not linked into or shipped
+with LibraTray application artifacts:
+
+| Tool | Pinned version / source | Purpose | License | Maintenance and replacement | Application payload impact |
+| --- | --- | --- | --- | --- | --- |
+| `actions/checkout` | v6.1.0, commit `d23441a48e516b6c34aea4fa41551a30e30af803` | Check out the repository on GitHub Actions | MIT | Official GitHub Action; low replacement cost with another source checkout step | None |
+| `actions/setup-dotnet` | v5.3.0, commit `9a946fdbd5fb07b82b2f5a4466058b876ab72bb2` | Install the SDK selected by `global.json` and cache locked NuGet inputs | MIT | Official GitHub Action; medium replacement cost because SDK setup and cache behavior must be reproduced | None |
+| `actions/upload-artifact` | v7.0.1, commit `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` | Retain CI TRX and coverage evidence | MIT | Official GitHub Action; low replacement cost, with different retention semantics to revalidate | None |
+| Microsoft `dotnet-install.ps1` | Official `https://dot.net/v1/dotnet-install.ps1` endpoint; downloaded only on explicit bootstrap | Install exact SDK `10.0.302` into the ignored local `.dotnet` directory | MIT (`dotnet/install-scripts`) | Microsoft-maintained; medium replacement cost via a system SDK or verified offline installer. The bootstrap refuses scripts without a valid Microsoft Authenticode signature | None |
+
+GitHub Actions are pinned to immutable commits; Dependabot may propose reviewed
+updates. The bootstrap installer itself is neither committed nor redistributed.
+Its mutable official endpoint is an acknowledged bootstrap trade-off mitigated
+by an exact SDK version, Microsoft publisher verification, and an ignored local
+tool directory.
 
 ## Public specifications and product material
 

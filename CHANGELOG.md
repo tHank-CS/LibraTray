@@ -15,7 +15,8 @@ and this project intends to follow
 - Phase-B Yeelight LAN protocol probe and minimal protocol core.
 - Product identity mapping for `lamp15`, YLTD003, and the friendly name
   Yeelight Libra Pro.
-- Initial automated protocol, identity, and mock-device tests.
+- Initial automated protocol, identity, probe-option, address-policy, and
+  diagnostic-redaction tests, plus a separately runnable mock-device surface.
 - Open-source governance, security, privacy, testing, and release
   documentation.
 

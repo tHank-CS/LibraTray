@@ -15,7 +15,8 @@ No user-supplied stock-device trace has yet been reviewed. Therefore:
   **officially documented**;
 - claims that a particular method/property works on `lamp15` are
   **unverified** unless explicitly noted otherwise;
-- no `lamp15`-specific private method is enabled in the production adapter;
+- no production `lamp15` adapter exists yet, and the probe exposes no
+  `lamp15`-specific private method;
 - a method advertised in `support` is eligible for a careful probe, not
   automatically trusted as semantically correct.
 
@@ -61,7 +62,7 @@ read. Values in `props` are documented as partial updates and commonly strings.
 
 | Area / method | Generic source status | Open-source `lamp15` lead | Stock YLTD003 status | Production policy |
 | --- | --- | --- | --- | --- |
-| `get_prop` | Officially documented | Home Assistant, python-yeelight, kyuuri | Unverified | Probe read-only after capability/response checks |
+| `get_prop` | Officially documented | Home Assistant, python-yeelight, kyuuri | Unverified | Probe read-only; the safe-write path additionally requires `get_prop` in advertised capabilities |
 | `set_power` | Officially documented | Multiple generic clients | Unverified | Disabled in product adapter until verified |
 | `set_bright` | Officially documented | Multiple generic clients | Unverified | Same |
 | `set_ct_abx` | Officially documented | Multiple generic clients | Unverified | Same |
@@ -90,6 +91,19 @@ Unknown properties are retained as diagnostic data and ignored by domain
 mapping until typed and verified. An empty `get_prop` result may mean unknown
 property under the generic specification; it is not coerced to zero or off.
 
+The phase-B probe's default known-property snapshot requests these 17 names:
+
+```text
+power, bright, ct, rgb, hue, sat, color_mode, name, model, fw_ver,
+bg_power, bg_bright, bg_ct, bg_rgb, bg_hue, bg_sat, bg_lmode
+```
+
+It sends at most 15 property names in one `get_prop` request, so the default
+snapshot is split into two sequential, separately logged requests. A custom
+`--props` list is partitioned the same way. This is a bounded snapshot of known
+generic property names, not proof that the list is complete for every YLTD003
+firmware; unsupported properties may return empty values or an error.
+
 ## Notification reliability lead
 
 Home Assistant contains a targeted re-query when a background-power update is
@@ -114,9 +128,12 @@ The official generic limits are:
 - 60 command messages per minute on one connection;
 - 144 LAN command messages per minute overall.
 
-The client stays below these ceilings, shares one receive loop per connection,
-coalesces slider updates, sends the final released value, and backs off after
-timeouts/disconnects. Actual `lamp15` limit error behavior is unverified.
+The phase-B core provides one receive loop per connection, request correlation,
+timeouts, cancellation, disconnect handling, and an explicit reconnect
+operation. It does not yet implement production command-rate scheduling, slider
+coalescing/final-value delivery, or automatic reconnect backoff. Those are
+Phase-C state/application responsibilities and must remain below the published
+ceilings when implemented. Actual `lamp15` limit error behavior is unverified.
 
 ## Probe acceptance criteria
 

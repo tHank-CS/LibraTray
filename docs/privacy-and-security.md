@@ -63,16 +63,26 @@ Firmware version, internal model, command method, response class, timing, and
 error category normally remain because they are useful for diagnosis. Review
 every exported file manually before publication.
 
-An advanced raw-log mode may exist for local debugging, but it must:
+The probe provides `--no-redact` for local debugging. This advanced raw-log mode
+must:
 
 - display a prominent privacy warning;
 - apply only to the current run unless explicitly re-enabled;
 - never upload or copy data automatically;
 - label its output as sensitive;
-- use bounded file size and retention.
+- use a bounded file size.
+
+The phase-B probe creates a new file and refuses to append to or overwrite an
+existing path. Each file has a 10 MiB hard cap. Automatic rotation and
+age/count-based deletion are not implemented at this milestone, so users must
+review and remove old logs themselves. A later desktop application must define
+and implement a retention policy before claiming automatic retention
+management.
 
 No password, cloud token, or account credential should ever be logged, even in
-raw mode.
+raw mode. The permanent credential classifier also covers authorization
+headers, API keys, secrets, credential fields, and cookies, including composite
+or escaped JSON property names and nested diagnostic strings.
 
 ## Network-input requirements
 
@@ -88,6 +98,18 @@ Device and network data are untrusted. Implementations must:
 - cap concurrent connections and stay below published command quotas;
 - close sockets and event registrations deterministically;
 - bind mock/test services to loopback.
+
+The phase-B discovery probe rejects any UDP datagram larger than 16 KiB before
+decoding or structured logging. Every received datagram still counts toward
+per-run processing budgets of 512 datagrams and 4 MiB of cumulative received
+data. If accepting another datagram would exceed either total budget, the probe
+warns and stops receiving. A separate cap stops discovery after 64 unique valid
+records. These are bounded-input controls, not authentication or complete
+denial-of-service protection.
+
+One `get-props` invocation accepts at most 64 unique property names
+(case-insensitive) and sends them in batches of at most 15. Duplicate or
+credential-like property names are rejected before any network operation.
 
 Manual addresses may target only valid local endpoints by default. A later
 escape hatch for unusual routed LANs must be explicit and warn the user.

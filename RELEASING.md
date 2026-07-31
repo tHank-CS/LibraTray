@@ -31,13 +31,13 @@ download link, or tag until its artifact has passed this runbook.
 Run on a supported Windows x64 host:
 
 ```powershell
-dotnet --info
-dotnet restore LibraTray.slnx
-dotnet build LibraTray.slnx -c Release --no-restore
-dotnet test LibraTray.slnx -c Release --no-build
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\restore.ps1 -Locked
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\verify.ps1 -SkipRestore
 ```
 
-Then run the repository's packaging script once it exists. Verify:
+The second command verifies formatting/analyzers, builds Release, runs all test
+projects with reports and coverage, and performs the dependency audit. Then run
+the repository's packaging script once it exists. Verify:
 
 - the publish directory exists;
 - the expected launcher exists;

@@ -8,15 +8,17 @@ do not exist yet.
 From the repository root:
 
 ```powershell
-dotnet --info
-dotnet restore LibraTray.slnx
-dotnet build LibraTray.slnx -c Release --no-restore
-dotnet test LibraTray.slnx -c Release --no-build
+.\scripts\restore.ps1 -Locked
+.\scripts\verify.ps1 -SkipRestore
 dotnet run --project tools/LibraTray.Probe -- --help
 ```
 
 Use the .NET 10 SDK. If PowerShell cannot find `dotnet`, install the x64 SDK
 from Microsoft, close and reopen the terminal, and rerun `dotnet --info`.
+The repository scripts also use a local `.dotnet\dotnet.exe` when present. If
+local execution policy blocks a checked-out script, invoke the same file with
+`powershell.exe -NoProfile -ExecutionPolicy Bypass -File`, keeping its remaining
+arguments unchanged.
 
 ## Discovery returns no devices
 
@@ -87,6 +89,18 @@ Other causes include:
 
 A timeout is not a successful command. State must remain unconfirmed or roll
 back until a response, notification, or reconciliation query confirms it.
+
+## Diagnostic log path already exists
+
+The probe deliberately opens a new JSONL file and never appends to or
+overwrites an existing diagnostic log. Choose a new filename:
+
+```powershell
+dotnet run --project tools/LibraTray.Probe -- discover --log-path .\diagnostics\probe-new.jsonl
+```
+
+If that path already exists, select another new path. The default timestamped
+path under `%LOCALAPPDATA%\LibraTray\logs` normally avoids collisions.
 
 ## State differs after using the physical knob
 

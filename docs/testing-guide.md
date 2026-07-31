@@ -2,9 +2,12 @@
 
 ## Purpose
 
-Automated tests establish parser, identity, and state-machine behavior. They
-cannot establish how a particular YLTD003 firmware responds to a command or
-physical-knob action. This guide keeps those evidence types separate.
+Current automated tests establish generic framing/parsing, request correlation,
+timeouts/cancellation/disconnect and explicit reconnect, product identity,
+probe option/address policy, and diagnostic-redaction behavior. The Phase-C
+state machine and its tests do not exist yet. No automated test can establish
+how a particular YLTD003 firmware responds to a command or physical-knob
+action. This guide keeps those evidence types separate.
 
 Status vocabulary used in protocol documents:
 
@@ -24,12 +27,14 @@ At this milestone, product-specific command and physical-knob behavior is
 From the repository root:
 
 ```powershell
-dotnet restore LibraTray.slnx
-dotnet build LibraTray.slnx -c Release --no-restore
-dotnet test LibraTray.slnx -c Release --no-build
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\restore.ps1 -Locked
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\verify.ps1 -SkipRestore
 ```
 
-The test suite should cover:
+The verification script checks formatting/analyzers, builds Release, runs all
+test projects with TRX/Cobertura output, and audits vulnerable dependencies.
+
+Current Phase-B automated coverage includes:
 
 ### Protocol
 
@@ -39,7 +44,11 @@ The test suite should cover:
 - maximum-message rejection;
 - one frame split across reads and multiple frames in one read;
 - out-of-order ID correlation;
-- timeout, cancellation, disconnect, and reconnect.
+- timeout, cancellation, disconnect, reconnect, and concurrent disposal;
+- strict discovery status/header/UTF-8/`Location` validation, bounded property
+  queries, and endpoint/ID deduplication;
+- default PII redaction plus permanent credential redaction for escaped,
+  duplicate, nested, malformed-container, header, and assignment forms.
 
 ### Product identity
 
@@ -52,7 +61,9 @@ The test suite should cover:
 - clearing an alias or recovering corrupt configuration restores the friendly
   default.
 
-### State and configuration
+### Phase-C state and configuration coverage
+
+The following remains planned and is not part of the current automated suite:
 
 - channel-independent power, brightness, temperature, and color boundaries;
 - throttling/coalescing with a final-value send;
@@ -65,11 +76,20 @@ The test suite should cover:
 
 ### Mock device
 
-The mock binds to loopback and exercises success, delay, silence, errors,
-unsolicited `props`, split/coalesced messages, disconnect, restart, independent
-channels, misleading notification, and unknown model.
+The separately runnable mock binds to loopback and exposes success, delay,
+silence, errors, unsolicited `props`, split/coalesced messages, disconnect,
+restart, independent channels, misleading notification, and unknown-model
+modes. Phase-B integration tests launch the normal, delay, error, no-response,
+split, coalesce, `props`, disconnect, restart, and bad-`props` modes. They also
+verify per-client oversized-frame isolation and the confirmed safe-write happy
+path from discovery through pre-read, write, and post-read.
 
-Passing mock tests does not change a protocol item to “device verified.”
+The current suite does not yet drive the standalone mock with an unknown model,
+nor does it cover every post-write timeout/rejection/mismatch path. Independent
+dual-channel state reconciliation remains a Phase-C responsibility.
+
+Passing a mock smoke or future automated mock test does not change a protocol
+item to “device verified.”
 
 ## Real-device prerequisites
 
@@ -100,7 +120,16 @@ Do not test replacement-firmware devices as evidence for the stock protocol.
 4. Confirm friendly name, YLTD003 mapping, exact raw model, address, device ID,
    firmware, and advertised `support` list.
 5. Export a redacted discovery log and manually audit its redaction.
-6. Connect and perform only the probe's read-only state query.
+6. Connect and perform only the probe's read-only known-property snapshot:
+
+   ```powershell
+   dotnet run --project tools/LibraTray.Probe -- inspect --host <DEVICE_IP>
+   ```
+
+   The default snapshot contains 17 known generic properties and is sent as two
+   sequential `get_prop` requests of at most 15 properties each. Each request
+   and response is logged. This does not prove the property set is complete for
+   the tested firmware.
 7. Compare response fields with physical main/ambient state.
 8. Test one documented write operation at a time, only when the method appears
    in the device's advertised capabilities and the probe presents the exact
@@ -109,6 +138,12 @@ Do not test replacement-firmware devices as evidence for the stock protocol.
 10. Test physical-knob actions without simultaneous software commands.
 11. Test simultaneous input, reconnect, and reboot only after basic behavior is
     understood.
+
+To capture notifications without writing device state:
+
+```powershell
+dotnet run --project tools/LibraTray.Probe -- listen --host <DEVICE_IP> --listen-seconds 30
+```
 
 Use conservative intervals. Yeelight's published ceiling is 60 commands per
 minute per connection and 144 LAN commands per minute overall; LibraTray tests
@@ -172,8 +207,15 @@ The probe's default diagnostic directory is:
 ```
 
 The tool must print the exact file path after export. A caller-selected output
-path may override the default when the current `--help` documents it. Redacted
+path may override the default when the current `--help` documents it.
+`--log-path` must identify a new, nonexistent file; the probe refuses to append
+to or overwrite an existing file. Parent directories may be created. Redacted
 export remains the default.
+
+Each JSONL file has a 10 MiB hard cap. When the cap is reached, logging stops
+with a warning while the network operation may continue. Phase B does not
+rotate or delete old logs automatically; review and remove files manually when
+they are no longer needed.
 
 Before sharing, search the file for IP/MAC addresses, device IDs, hostname,
 username, Wi-Fi name, and absolute paths. Replace remaining values with stable

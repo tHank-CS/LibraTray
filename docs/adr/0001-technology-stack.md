@@ -202,7 +202,7 @@ be added without a new dependency review.
 
 | Dependency | Version | Purpose | License | Why BCL is insufficient | Maintenance | Replacement cost | Release-size impact |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| MSTest meta-package | 4.3.2, centrally pinned | Test framework, adapter, runner integration, TRX/coverage toolchain | MIT per NuGet package metadata and Microsoft testfx repository | BCL has assertions but no discovery, runner protocol, adapter, reporting, or coverage integration | Microsoft-supported; 4.3.2 published 2026-07-13 at review | Low-to-medium; tests use MSTest attributes/assertions and could migrate mechanically | None; referenced only by the non-packable test project and not shipped in app artifacts |
+| MSTest meta-package | 4.3.2, centrally pinned | Test framework, adapter, runner integration, TRX/coverage toolchain | MIT per NuGet package metadata and Microsoft testfx repository | BCL has assertions but no discovery, runner protocol, adapter, reporting, or coverage integration | Microsoft-supported; 4.3.2 published 2026-07-13 at review | Low-to-medium; tests use MSTest attributes/assertions and could migrate mechanically | None; referenced only by the non-packable test projects and not shipped in app artifacts |
 
 MSTest 4.3.2 brings test SDK/adapter/framework/report/coverage dependencies.
 Their exact resolved versions are captured by NuGet restore metadata. They are

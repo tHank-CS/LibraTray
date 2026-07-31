@@ -30,11 +30,12 @@ Requirements:
 From the repository root:
 
 ```powershell
-dotnet restore LibraTray.slnx
-dotnet build LibraTray.slnx -c Release --no-restore
-dotnet test LibraTray.slnx -c Release --no-build
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\restore.ps1 -Locked
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\verify.ps1 -SkipRestore
 ```
 
+The verification script checks formatting/analyzers, builds Release, runs all
+test projects with reports and coverage, and performs the dependency audit.
 Run the narrowest relevant test first while developing. Before submitting a
 pull request, run the complete commands above and report exactly what ran.
 

@@ -154,9 +154,10 @@ metadata and conservative precedence:
 
 This behavior is planned and unimplemented at the current milestone.
 
-## Tests
+## Planned tests
 
-Automated tests use a loopback mock device for:
+The Phase-C state implementation must add automated tests using loopback test
+doubles for:
 
 - split/coalesced response and notification frames;
 - out-of-order responses;
@@ -171,3 +172,10 @@ Automated tests use a loopback mock device for:
 Real-device tests must repeat physical-knob, simultaneous input, reconnect, and
 reboot scenarios for every firmware claimed as verified. See
 [testing guide](../testing-guide.md).
+
+At Phase B, automated coverage is limited to generic framing, parsing, request
+correlation, timeout/cancellation/disconnect behavior, explicit reconnect,
+identity mapping, probe options/address policy, and diagnostic redaction. The
+separately runnable mock device exposes notification, channel, disconnect,
+restart, and incorrect-`props` modes as test surfaces; their presence is not a
+completed state engine or automated state-reconciliation suite.

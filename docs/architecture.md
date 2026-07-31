@@ -136,8 +136,9 @@ field. Only a trimmed, case-insensitive exact internal-model match maps to
 - The framer preserves partial bytes between reads and emits every complete
   frame when multiple messages arrive together.
 - Buffer and message size limits are enforced before JSON materialization.
-- Commands use advertised `support` capabilities and a conservative limiter
-  below Yeelight's published quotas.
+- Phase-B probe writes require the method and `get_prop` to appear in the
+  advertised `support` capabilities. A production command-rate limiter below
+  Yeelight's published quotas is deferred with the Phase-C command scheduler.
 - No network operation blocks the UI thread.
 
 ## State reconciliation
@@ -179,8 +180,12 @@ wireless-network names, and equivalent identifiers. Raw logging is a
 non-persistent developer opt-in with an explicit warning; it never triggers
 upload or clipboard copy.
 
-Logs are size- and retention-bounded. Message bodies are treated as untrusted
-text and are never evaluated.
+The phase-B probe creates a new log for each run and hard-caps one file at
+10 MiB. It never appends to or overwrites an existing path. It does not yet
+rotate or delete old logs automatically; users remain responsible for local
+retention. A later desktop application must add an explicit, documented
+retention policy before claiming automatic retention management. Message
+bodies are treated as untrusted text and are never evaluated.
 
 ## Failure model
 

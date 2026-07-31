@@ -110,7 +110,9 @@ Windows 构建上运行只能视为尽力兼容。
    检查，不发送未记录命令。
 
 v0.1.0 前命令行可能调整；当前检出版本的 `--help` 才是准确信息。实机测试前请阅读
-[测试指南](docs/testing-guide.md)。
+[测试指南](docs/testing-guide.md)。默认 JSONL 日志创建在
+`%LOCALAPPDATA%\LibraTray\logs`。如果使用 `--log-path`，必须指定一个尚不存在的
+新文件；探针不会追加或覆盖已有日志。
 
 ## 托盘、快捷键与 Windows 自动化
 
@@ -131,14 +133,14 @@ v0.1.0 前命令行可能调整；当前检出版本的 `--help` 才是准确信
 在仓库根目录打开 PowerShell：
 
 ```powershell
-dotnet --info
-dotnet restore LibraTray.slnx
-dotnet build LibraTray.slnx -c Release --no-restore
-dotnet test LibraTray.slnx -c Release --no-build
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\restore.ps1 -Locked
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\verify.ps1 -SkipRestore
 ```
 
-项目使用 .NET 10 LTS，主要目标为 Windows x64。构建和测试不需要任何私有文件、
-真实设备 IP、账号凭据或云端 Token。
+锁定还原使用已提交的 `packages.lock.json`。验证脚本检查格式和分析器、执行 Release
+构建、运行全部测试项目并生成 TRX/Cobertura 结果，同时审计存在漏洞的依赖。项目使用
+.NET 10 LTS，主要目标为 Windows x64。构建和测试不需要任何私有文件、真实设备 IP、
+账号凭据或云端 Token。
 
 ## 故障排除
 

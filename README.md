@@ -130,7 +130,9 @@ project obtains a code-signing certificate.
 
 Probe syntax may evolve before v0.1.0; `--help` is the source of truth for the
 checked-out revision. See the [testing guide](docs/testing-guide.md) before
-testing real hardware.
+testing real hardware. The default JSONL log is created under
+`%LOCALAPPDATA%\LibraTray\logs`. If `--log-path` is used, it must name a new,
+nonexistent file; the probe never appends to or overwrites an existing log.
 
 ## Tray, shortcuts, and Windows automation
 
@@ -153,14 +155,15 @@ debounced. No normal UI will expose `lamp15` as the device name.
 From a PowerShell prompt in the repository root:
 
 ```powershell
-dotnet --info
-dotnet restore LibraTray.slnx
-dotnet build LibraTray.slnx -c Release --no-restore
-dotnet test LibraTray.slnx -c Release --no-build
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\restore.ps1 -Locked
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\verify.ps1 -SkipRestore
 ```
 
-The project uses .NET 10 LTS and targets Windows x64. No private file, device IP,
-account credential, or cloud token is required to build or test it.
+The locked restore uses committed `packages.lock.json` files. Verification
+checks formatting and analyzers, builds Release, runs all test projects with
+TRX/Cobertura output, and audits vulnerable dependencies. The project uses
+.NET 10 LTS and targets Windows x64. No private file, device IP, account
+credential, or cloud token is required to build or test it.
 
 ## Troubleshooting
 
