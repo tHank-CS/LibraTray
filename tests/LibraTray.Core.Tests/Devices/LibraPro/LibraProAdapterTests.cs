@@ -9,7 +9,17 @@ namespace LibraTray.Core.Tests.Devices.LibraPro;
 public sealed class LibraProAdapterTests
 {
     private static readonly string[] Capabilities =
-        ["get_prop", "bg_set_power", "bg_set_scene"];
+    [
+        "get_prop",
+        "set_power",
+        "set_bright",
+        "set_ct_abx",
+        "bg_set_power",
+        "bg_set_bright",
+        "bg_set_ct_abx",
+        "bg_set_rgb",
+        "bg_set_scene",
+    ];
 
     private static readonly string[] ExplicitRecoveryMethods =
         ["get_prop", "bg_set_scene", "get_prop", "bg_set_power", "get_prop"];
@@ -170,6 +180,53 @@ public sealed class LibraProAdapterTests
     }
 
     [TestMethod]
+    public async Task VerifiedMainAndBackgroundAppearanceCommandsReturnCompleteState()
+    {
+        var transport = new FakeTransport();
+        LibraProAdapter adapter = CreateAdapter(transport);
+        TimeSpan timeout = TimeSpan.FromSeconds(1);
+
+        LibraProState state = (await adapter.SetMainPowerAsync(true, timeout)).State;
+        Assert.IsTrue(state.MainPower);
+
+        state = (await adapter.SetMainBrightnessAsync(42, timeout)).State;
+        Assert.AreEqual(42, state.MainBrightness);
+
+        state = (await adapter.SetMainColorTemperatureAsync(3_500, timeout)).State;
+        Assert.AreEqual(3_500, state.MainColorTemperature);
+
+        state = (await adapter.SetBackgroundBrightnessAsync(61, timeout)).State;
+        Assert.AreEqual(61, state.BackgroundBrightness);
+
+        state = (await adapter.SetBackgroundColorTemperatureAsync(3_000, timeout)).State;
+        Assert.AreEqual(3_000, state.BackgroundColorTemperature);
+
+        state = (await adapter.SetBackgroundRgbAsync(65_280, timeout)).State;
+        Assert.AreEqual(65_280, state.BackgroundRgb);
+    }
+
+    [TestMethod]
+    public async Task AppearanceCommandsRejectOutOfRangeValuesBeforeSending()
+    {
+        var transport = new FakeTransport();
+        LibraProAdapter adapter = CreateAdapter(transport);
+        TimeSpan timeout = TimeSpan.FromSeconds(1);
+
+        await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(
+            () => adapter.SetMainBrightnessAsync(0, timeout));
+        await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(
+            () => adapter.SetBackgroundBrightnessAsync(101, timeout));
+        await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(
+            () => adapter.SetMainColorTemperatureAsync(2_999, timeout));
+        await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(
+            () => adapter.SetBackgroundColorTemperatureAsync(6_501, timeout));
+        await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(
+            () => adapter.SetBackgroundRgbAsync(16_777_216, timeout));
+
+        Assert.HasCount(0, transport.Methods);
+    }
+
+    [TestMethod]
     public void AdapterRejectsUnknownProductIdentity()
     {
         Assert.ThrowsExactly<ArgumentException>(
@@ -231,7 +288,13 @@ public sealed class LibraProAdapterTests
             IReadOnlyList<string> result = method switch
             {
                 "get_prop" => ReadProperties(parameters),
+                "set_power" => SetMainPower(parameters),
+                "set_bright" => SetIntegerProperty("bright", parameters),
+                "set_ct_abx" => SetIntegerProperty("ct", parameters),
                 "bg_set_power" => SetBackgroundPower(parameters),
+                "bg_set_bright" => SetIntegerProperty("bg_bright", parameters),
+                "bg_set_ct_abx" => SetIntegerProperty("bg_ct", parameters),
+                "bg_set_rgb" => SetIntegerProperty("bg_rgb", parameters),
                 "bg_set_scene" => SetBackgroundScene(parameters),
                 _ => throw new NotSupportedException(method),
             };
@@ -253,6 +316,23 @@ public sealed class LibraProAdapterTests
                     return _state[property];
                 })
                 .ToArray();
+
+        private IReadOnlyList<string> SetMainPower(
+            IReadOnlyList<object?> parameters)
+        {
+            _state["main_power"] = (string)parameters[0]!;
+            UpdateAggregatePower();
+            return ["ok"];
+        }
+
+        private IReadOnlyList<string> SetIntegerProperty(
+            string property,
+            IReadOnlyList<object?> parameters)
+        {
+            _state[property] = ((int)parameters[0]!).ToString(
+                System.Globalization.CultureInfo.InvariantCulture);
+            return ["ok"];
+        }
 
         private IReadOnlyList<string> SetBackgroundPower(
             IReadOnlyList<object?> parameters)

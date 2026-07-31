@@ -38,6 +38,13 @@ and this project intends to follow
 - An initial .NET 10 WPF tray application shell with native
   `Shell_NotifyIcon` integration, a compact offline quick panel, explicit
   unavailable states, tray-first startup, and graceful shutdown.
+- Trusted multi-interface LAN discovery, an exact-`lamp15` device session, and
+  live main/background controls in the quick panel.
+- Verified command post-read, physical-notification reconciliation, bounded
+  retries, and a 1.1-second per-connection request interval below the published
+  60-command-per-minute ceiling.
+- Firmware-38 UI limits including a 3000–6500 K main colour-temperature range,
+  whole-background RGB swatches, and click-or-drag slider commits.
 
 ### Fixed
 
@@ -46,6 +53,8 @@ and this project intends to follow
 - Firmware-38 background-power notifications are documented as provisional:
   an independent background off action may incorrectly notify
   `bg_power=on`, while a follow-up `get_prop` returns the correct state.
+- A transient reconciliation failure no longer marks a still-connected device
+  offline, and rapid input no longer amplifies into an unbounded request burst.
 
 ### Security
 

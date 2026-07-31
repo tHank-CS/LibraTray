@@ -10,12 +10,12 @@ LibraTray is a tray-first, local-only Windows controller being built for the
 synchronization.
 
 > **Current status:** phases A/B are complete and Phase C is in progress. The
-> repository now contains an initial tray-first WPF shell, a tested product
-> adapter, and bounded cold-start recovery. Device discovery and control are not
-> yet wired into the tray UI, so its controls intentionally remain disabled.
-> Global shortcuts, Windows automation, packaging, signing, and a GitHub
-> Release are still pending. The two-zone RGB command remains disabled because
-> its relationship to the observed cold-start failure has not been isolated.
+> repository now contains a tray-first WPF application with trusted local
+> discovery, verified main/background controls, notification reconciliation,
+> bounded retry/rate limiting, and cold-start recovery. Global shortcuts,
+> settings, Windows automation, packaging, signing, and a GitHub Release are
+> still pending. The two-zone RGB command remains disabled because its
+> relationship to the observed cold-start failure has not been isolated.
 
 English | [简体中文](README.zh-CN.md)
 
@@ -70,15 +70,15 @@ Available at the current milestone:
 - command IDs, timeouts, cancellation, and bounded input handling;
 - safe product-identity mapping and unknown-device fallback;
 - redaction-oriented diagnostic output;
-- an initial Windows tray icon, context menu, and offline quick-panel shell;
+- a Windows tray icon, context menu, and live quick panel;
+- verified main power, brightness, and 3000–6500 K colour-temperature control;
+- verified background power, brightness, and whole-background RGB presets;
+- bounded retry, notification reconciliation, and per-connection rate limiting;
 - automated tests and a mock-device test surface.
 
 Planned after real-device verification:
 
-- independent main and ambient channel controls;
-- reliable physical-knob state synchronization;
-- live discovery/control binding, configurable global shortcuts, and optional
-  OSD;
+- configurable global shortcuts and optional OSD;
 - local presets;
 - opt-in lock, unlock, sleep, wake, and display-power automation;
 - portable packages and an installer.
@@ -140,9 +140,9 @@ nonexistent file; the probe never appends to or overwrites an existing log.
 
 ## Tray, shortcuts, and Windows automation
 
-The tray icon, context menu, and offline quick-panel shell are implemented.
-Device discovery/control binding, shortcuts, and Windows automation are not
-implemented yet. Planned shortcut defaults are:
+The tray icon, context menu, trusted device discovery, verified controls, and
+physical-control reconciliation are implemented. Shortcuts and Windows
+automation are not implemented yet. Planned shortcut defaults are:
 
 | Action | Planned default |
 | --- | --- |
@@ -170,7 +170,7 @@ TRX/Cobertura output, and audits vulnerable dependencies. The project uses
 .NET 10 LTS and targets Windows x64. No private file, device IP, account
 credential, or cloud token is required to build or test it.
 
-To inspect the current offline quick-panel shell during development:
+To run the current tray application during development:
 
 ```powershell
 .\.dotnet\dotnet.exe run --project .\src\LibraTray.App\LibraTray.App.csproj -c Release -- --show
