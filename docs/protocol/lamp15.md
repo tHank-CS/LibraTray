@@ -99,7 +99,7 @@ read. Values in `props` are documented as partial updates and commonly strings.
 | Area / method | Generic source status | Open-source `lamp15` lead | Stock YLTD003 status | Production policy |
 | --- | --- | --- | --- | --- |
 | `get_prop` | Officially documented | Home Assistant, python-yeelight, kyuuri | Verified in one firmware-38 session | Production adapter may query only the verified bounded property set and must tolerate empty values |
-| `set_power` | Officially documented | Multiple generic clients | Unverified | Disabled in product adapter until verified |
+| `set_power` | Officially documented | Multiple generic clients | Unverified | Probe only with three-property pre/post verification of aggregate, main, and unchanged background power |
 | `set_bright` | Officially documented | Multiple generic clients | Verified once on firmware 38 with notification and post-read | Eligible for production adapter after repeat/reconnect coverage |
 | `set_ct_abx` | Officially documented | Multiple generic clients | Unverified | Same |
 | `toggle` | Officially documented | Multiple generic clients | Unverified | Avoid until toggle semantics are verified |

@@ -140,8 +140,64 @@ public sealed class MockDeviceIntegrationTests
         }
     }
 
-    private static async Task<YeelightSuccessResponse> SendGetPowerAsync(
+    [TestMethod]
+    public async Task ConfirmedLamp15MainPowerWritePreservesBackgroundChannel()
+    {
+        await using MockServerFixture fixture = MockServerFixture.Start("normal");
+        string logPath = Path.Combine(
+            Path.GetTempPath(),
+            $"LibraTray-Probe-Lamp15-Power-{Guid.NewGuid():N}.jsonl");
+
+        try
+        {
+            int exitCode = await ProbeApplication.RunAsync(
+            [
+                "safe-write",
+                "--host",
+                IPAddress.Loopback.ToString(),
+                "--port",
+                fixture.TcpPort.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                "--target",
+                IPAddress.Loopback.ToString(),
+                "--local-address",
+                IPAddress.Loopback.ToString(),
+                "--discovery-port",
+                fixture.DiscoveryPort.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture),
+                "--method",
+                "set_power",
+                "--value",
+                "off",
+                "--confirm-write",
+                "--timeout-seconds",
+                "2",
+                "--log-path",
+                logPath,
+            ]);
+
+            Assert.AreEqual(0, exitCode);
+            YeelightSuccessResponse state = await SendGetPropertiesAsync(
+                fixture.TcpPort,
+                ["power", "main_power", "bg_power"],
+                TimeSpan.FromSeconds(1));
+            Assert.AreEqual("on", state.Results[0].GetString());
+            Assert.AreEqual("off", state.Results[1].GetString());
+            Assert.AreEqual("on", state.Results[2].GetString());
+        }
+        finally
+        {
+            File.Delete(logPath);
+        }
+    }
+
+    private static Task<YeelightSuccessResponse> SendGetPowerAsync(
         int port,
+        TimeSpan timeout) =>
+        SendGetPropertiesAsync(port, ["power"], timeout);
+
+    private static async Task<YeelightSuccessResponse> SendGetPropertiesAsync(
+        int port,
+        IReadOnlyList<object?> properties,
         TimeSpan timeout)
     {
         string logPath = Path.Combine(
@@ -162,7 +218,7 @@ public sealed class MockDeviceIntegrationTests
                 CancellationToken.None);
             return await session.SendCommandAsync(
                 "get_prop",
-                ["power"],
+                properties,
                 timeout,
                 CancellationToken.None);
         }

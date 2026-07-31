@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using LibraTray.Core.Identity;
 
 namespace LibraTray.MockDevice;
 
@@ -33,8 +34,9 @@ internal sealed class MockState
         }
     }
 
-    private Dictionary<string, string> CreateInitialProperties() =>
-        new(StringComparer.Ordinal)
+    private Dictionary<string, string> CreateInitialProperties()
+    {
+        var properties = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["power"] = "on",
             ["bright"] = "50",
@@ -51,6 +53,14 @@ internal sealed class MockState
             ["bg_sat"] = "0",
             ["bg_lmode"] = "0",
         };
+
+        if (ProductIdentityMapper.IsSupportedInternalModel(_model))
+        {
+            properties["main_power"] = "on";
+        }
+
+        return properties;
+    }
 
     public IReadOnlyDictionary<string, string> Snapshot()
     {
@@ -69,7 +79,11 @@ internal sealed class MockState
             return request.Method switch
             {
                 "get_prop" => GetProperties(request.Parameters),
-                "set_power" => SetPower("power", request.Parameters),
+                "set_power" => SetPower(
+                    ProductIdentityMapper.IsSupportedInternalModel(_model)
+                        ? "main_power"
+                        : "power",
+                    request.Parameters),
                 "set_bright" => SetInteger(
                     "bright",
                     request.Parameters,
@@ -138,6 +152,16 @@ internal sealed class MockState
         }
 
         _properties[property] = value;
+        if (ProductIdentityMapper.IsSupportedInternalModel(_model)
+            && property is "main_power" or "bg_power")
+        {
+            _properties["power"] =
+                _properties["main_power"] == "on"
+                || _properties["bg_power"] == "on"
+                    ? "on"
+                    : "off";
+        }
+
         return MockReply.Ok(["ok"]);
     }
 

@@ -8,6 +8,11 @@ namespace LibraTray.Probe.Tests.Networking;
 [TestClass]
 public sealed class ProbeApplicationSafetyTests
 {
+    private static readonly string[] Lamp15PowerProperties =
+        ["power", "main_power", "bg_power"];
+
+    private static readonly string[] GenericPowerProperties = ["power"];
+
     [TestMethod]
     [DataRow("set_power", "on", "power", "on")]
     [DataRow("set_bright", "42", "bright", "42")]
@@ -110,6 +115,95 @@ public sealed class ProbeApplicationSafetyTests
         Assert.AreEqual(
             expected,
             ProbeApplication.IsValidCurrentPropertyValue(write, currentValue));
+    }
+
+    [TestMethod]
+    public void Lamp15SetPowerVerificationUsesIndependentChannelProperties()
+    {
+        ProbeApplication.SafeWriteSpec write = ParseSafeWrite("set_power", "off");
+
+        ProbeApplication.SafeWriteVerificationPlan lamp15 =
+            ProbeApplication.CreateSafeWriteVerificationPlan(" LAMP15 ", write);
+        ProbeApplication.SafeWriteVerificationPlan unknown =
+            ProbeApplication.CreateSafeWriteVerificationPlan("unknown", write);
+
+        CollectionAssert.AreEqual(
+            Lamp15PowerProperties,
+            lamp15.Properties.ToArray());
+        Assert.IsTrue(lamp15.IsLamp15MainPower);
+        CollectionAssert.AreEqual(
+            GenericPowerProperties,
+            unknown.Properties.ToArray());
+        Assert.IsFalse(unknown.IsLamp15MainPower);
+    }
+
+    [TestMethod]
+    public void Lamp15SetPowerExpectedStatePreservesBackgroundAndAggregatesPower()
+    {
+        ProbeApplication.SafeWriteSpec write = ParseSafeWrite("set_power", "off");
+        ProbeApplication.SafeWriteVerificationPlan plan =
+            ProbeApplication.CreateSafeWriteVerificationPlan("lamp15", write);
+        var before = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["power"] = "on",
+            ["main_power"] = "on",
+            ["bg_power"] = "on",
+        };
+
+        bool valid = ProbeApplication.TryCreateExpectedSafeWriteState(
+            plan,
+            write,
+            before,
+            out IReadOnlyDictionary<string, string> expected,
+            out string error);
+
+        Assert.IsTrue(valid, error);
+        Assert.AreEqual("on", expected["power"]);
+        Assert.AreEqual("off", expected["main_power"]);
+        Assert.AreEqual("on", expected["bg_power"]);
+    }
+
+    [TestMethod]
+    public void Lamp15SetPowerRejectsInconsistentPreReadAndChangedBackground()
+    {
+        ProbeApplication.SafeWriteSpec write = ParseSafeWrite("set_power", "off");
+        ProbeApplication.SafeWriteVerificationPlan plan =
+            ProbeApplication.CreateSafeWriteVerificationPlan("lamp15", write);
+        var inconsistentBefore = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["power"] = "off",
+            ["main_power"] = "on",
+            ["bg_power"] = "on",
+        };
+
+        Assert.IsFalse(
+            ProbeApplication.TryCreateExpectedSafeWriteState(
+                plan,
+                write,
+                inconsistentBefore,
+                out _,
+                out string beforeError));
+        StringAssert.Contains(beforeError, "写前电源状态不一致");
+
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["power"] = "on",
+            ["main_power"] = "off",
+            ["bg_power"] = "on",
+        };
+        var changedBackground = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["power"] = "on",
+            ["main_power"] = "off",
+            ["bg_power"] = "off",
+        };
+
+        Assert.IsFalse(
+            ProbeApplication.TryValidateSafeWriteState(
+                expected,
+                changedBackground,
+                out string afterError));
+        StringAssert.Contains(afterError, "bg_power 期望值为 on");
     }
 
     [TestMethod]

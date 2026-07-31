@@ -435,6 +435,8 @@ internal static class ProbeApplication
             + "不会发送任何猜测的 lamp15 私有命令。",
             cancellationToken).ConfigureAwait(false);
 
+        SafeWriteVerificationPlan verificationPlan =
+            CreateSafeWriteVerificationPlan(record.Response.Model, write);
         IPEndPoint controlEndPoint = record.Response.ControlEndPoint;
         string tcpHost = controlEndPoint.Address.ToString();
         int tcpPort = controlEndPoint.Port;
@@ -447,21 +449,24 @@ internal static class ProbeApplication
             cancellationToken).ConfigureAwait(false);
 
         await output.InfoAsync(
-            $"写入前读取 {write.PropertyName}。",
+            $"写入前读取 {string.Join(", ", verificationPlan.Properties)}。",
             cancellationToken).ConfigureAwait(false);
         IReadOnlyDictionary<string, string> beforeWrite = await QueryPropertiesAsync(
             session,
-            [write.PropertyName],
+            verificationPlan.Properties,
             options.Timeout,
             output,
             cancellationToken).ConfigureAwait(false);
 
-        if (!beforeWrite.TryGetValue(write.PropertyName, out string? currentValue)
-            || !IsValidCurrentPropertyValue(write, currentValue))
+        if (!TryCreateExpectedSafeWriteState(
+                verificationPlan,
+                write,
+                beforeWrite,
+                out IReadOnlyDictionary<string, string> expectedAfterWrite,
+                out string beforeWriteError))
         {
             await output.ErrorAsync(
-                $"拒绝写入：写入前无法读取有效的 {write.PropertyName} 当前值"
-                + $"（实际值：{currentValue ?? "<missing>"}）。",
+                $"拒绝写入：{beforeWriteError}",
                 cancellationToken).ConfigureAwait(false);
             return 5;
         }
@@ -494,11 +499,11 @@ internal static class ProbeApplication
         try
         {
             await output.InfoAsync(
-                $"写入后复读 {write.PropertyName}。",
+                $"写入后复读 {string.Join(", ", verificationPlan.Properties)}。",
                 cancellationToken).ConfigureAwait(false);
             afterWrite = await QueryPropertiesAsync(
                 session,
-                [write.PropertyName],
+                verificationPlan.Properties,
                 options.Timeout,
                 output,
                 cancellationToken).ConfigureAwait(false);
@@ -519,21 +524,21 @@ internal static class ProbeApplication
             return 6;
         }
 
-        if (!afterWrite.TryGetValue(write.PropertyName, out string? actualValue)
-            || !string.Equals(
-                actualValue,
-                write.ExpectedPropertyValue,
-                StringComparison.Ordinal))
+        if (!TryValidateSafeWriteState(
+                expectedAfterWrite,
+                afterWrite,
+                out string afterWriteError))
         {
             await output.ErrorAsync(
-                $"写后验证失败：{write.PropertyName} 期望值为 "
-                + $"{write.ExpectedPropertyValue}，实际值为 {actualValue ?? "<missing>"}。",
+                $"写后验证失败：{afterWriteError}",
                 cancellationToken).ConfigureAwait(false);
             return 6;
         }
 
         await output.InfoAsync(
-            $"写后验证成功：{write.PropertyName}={write.ExpectedPropertyValue}。",
+            $"写后验证成功：{string.Join(
+                ", ",
+                expectedAfterWrite.Select(pair => $"{pair.Key}={pair.Value}"))}。",
             cancellationToken).ConfigureAwait(false);
         return 0;
     }
@@ -606,6 +611,119 @@ internal static class ProbeApplication
             "rgb" or "bg_rgb" => IsIntegerInRange(value, 0, 16_777_215),
             _ => false,
         };
+    }
+
+    internal static SafeWriteVerificationPlan CreateSafeWriteVerificationPlan(
+        string? internalModel,
+        SafeWriteSpec write)
+    {
+        ArgumentNullException.ThrowIfNull(write);
+
+        return write.Method == "set_power"
+            && ProductIdentityMapper.IsSupportedInternalModel(internalModel)
+            ? new SafeWriteVerificationPlan(
+                ["power", "main_power", "bg_power"],
+                IsLamp15MainPower: true)
+            : new SafeWriteVerificationPlan(
+                [write.PropertyName],
+                IsLamp15MainPower: false);
+    }
+
+    internal static bool TryCreateExpectedSafeWriteState(
+        SafeWriteVerificationPlan plan,
+        SafeWriteSpec write,
+        IReadOnlyDictionary<string, string> beforeWrite,
+        out IReadOnlyDictionary<string, string> expectedAfterWrite,
+        out string error)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(write);
+        ArgumentNullException.ThrowIfNull(beforeWrite);
+
+        if (!plan.IsLamp15MainPower)
+        {
+            if (!beforeWrite.TryGetValue(write.PropertyName, out string? currentValue)
+                || !IsValidCurrentPropertyValue(write, currentValue))
+            {
+                expectedAfterWrite = new Dictionary<string, string>();
+                error = $"写入前无法读取有效的 {write.PropertyName} 当前值"
+                    + $"（实际值：{currentValue ?? "<missing>"}）。";
+                return false;
+            }
+
+            expectedAfterWrite = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                [write.PropertyName] = write.ExpectedPropertyValue,
+            };
+            error = string.Empty;
+            return true;
+        }
+
+        foreach (string property in plan.Properties)
+        {
+            if (!beforeWrite.TryGetValue(property, out string? value)
+                || value is not ("on" or "off"))
+            {
+                expectedAfterWrite = new Dictionary<string, string>();
+                error = $"lamp15 主灯电源校验需要有效的 {property} 当前值"
+                    + $"（实际值：{value ?? "<missing>"}）。";
+                return false;
+            }
+        }
+
+        string expectedAggregateBefore =
+            beforeWrite["main_power"] == "on" || beforeWrite["bg_power"] == "on"
+                ? "on"
+                : "off";
+        if (!string.Equals(
+                beforeWrite["power"],
+                expectedAggregateBefore,
+                StringComparison.Ordinal))
+        {
+            expectedAfterWrite = new Dictionary<string, string>();
+            error = "lamp15 写前电源状态不一致：power 必须等于 "
+                + "main_power 与 bg_power 的聚合状态。";
+            return false;
+        }
+
+        string expectedAggregateAfter =
+            write.ExpectedPropertyValue == "on" || beforeWrite["bg_power"] == "on"
+                ? "on"
+                : "off";
+        expectedAfterWrite = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["power"] = expectedAggregateAfter,
+            ["main_power"] = write.ExpectedPropertyValue,
+            ["bg_power"] = beforeWrite["bg_power"],
+        };
+        error = string.Empty;
+        return true;
+    }
+
+    internal static bool TryValidateSafeWriteState(
+        IReadOnlyDictionary<string, string> expected,
+        IReadOnlyDictionary<string, string> actual,
+        out string error)
+    {
+        ArgumentNullException.ThrowIfNull(expected);
+        ArgumentNullException.ThrowIfNull(actual);
+
+        foreach ((string property, string expectedValue) in expected)
+        {
+            if (!actual.TryGetValue(property, out string? actualValue)
+                || !string.Equals(
+                    actualValue,
+                    expectedValue,
+                    StringComparison.Ordinal))
+            {
+                error = $"{property} 期望值为 {expectedValue}，"
+                    + $"实际值为 {actualValue ?? "<missing>"}。";
+                return false;
+            }
+        }
+
+        error = string.Empty;
+        return true;
     }
 
     private static async Task<IReadOnlyDictionary<string, string>> QueryPropertiesAsync(
@@ -798,6 +916,10 @@ internal static class ProbeApplication
         string PropertyName,
         string ExpectedPropertyValue,
         IReadOnlyList<object?> Parameters);
+
+    internal sealed record SafeWriteVerificationPlan(
+        IReadOnlyList<string> Properties,
+        bool IsLamp15MainPower);
 
     internal enum SafeWriteCapabilityResult
     {

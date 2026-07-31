@@ -137,6 +137,10 @@ Do not test replacement-firmware devices as evidence for the stock protocol.
 8. Test one documented write operation at a time, only when the method appears
    in the device's advertised capabilities and the probe presents the exact
    JSON for confirmation.
+   For exact `lamp15` identity, a `set_power` probe reads
+   `power,main_power,bg_power` before and after the command. It verifies
+   `main_power` against the requested value, recomputes aggregate `power`, and
+   rejects any unexpected change to `bg_power`.
 9. Between operations, record response and all notifications, then query state.
 10. Test physical-knob actions without simultaneous software commands.
 11. Test simultaneous input, reconnect, and reboot only after basic behavior is
