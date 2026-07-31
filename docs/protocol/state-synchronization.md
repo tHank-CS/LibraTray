@@ -130,6 +130,11 @@ light. The verified mismatch (`ok` followed by `bg_power=off`) is detectable;
 an `on` readback with physically dark LEDs would still require user-visible
 diagnostics.
 
+The complete bounded recovery sequence was physically confirmed on firmware 38
+on 2026-07-31: visible background output returned and ordinary background
+control worked again for that running session. This confirms the recovery
+behavior, not persistence across a later cold power cycle.
+
 ## High-frequency controls
 
 Brightness, temperature, and colour sliders use a replaceable latest-value

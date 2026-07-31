@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/LibraTray.App/LibraTray.App.csproj" />
     <Project Path="src/LibraTray.Core/LibraTray.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">

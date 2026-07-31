@@ -3,9 +3,9 @@
 ## Status and goals
 
 This document defines the intended architecture of LibraTray. The repository
-contains research, a protocol probe, a UI-independent protocol core, and the
-initial product-specific adapter. The production WPF tray application remains
-under Phase-C development.
+contains research, a protocol probe, a UI-independent protocol core, the
+initial product-specific adapter, and an offline WPF tray shell. Live discovery
+and control integration remain under Phase-C development.
 
 The architecture optimizes for:
 
@@ -18,8 +18,8 @@ The architecture optimizes for:
 
 ## Technology baseline
 
-The selected baseline is C# on .NET 10 LTS with WPF for the future desktop
-shell and thin, isolated Win32 interop for tray mouse events, global hotkeys,
+The selected baseline is C# on .NET 10 LTS with WPF for the desktop shell and
+thin, isolated Win32 interop for tray mouse events, global hotkeys,
 session notifications, and power notifications. The protocol and domain
 assemblies target .NET APIs and must not reference WPF. See
 [ADR 0001](adr/0001-technology-stack.md).
@@ -59,10 +59,10 @@ Windows integration.
    - source, confidence, sequence, and timestamp metadata.
 6. **Application services**
    - device selection, settings, presets, logging, localization, startup;
-   - future tray, hotkeys, and Windows lifecycle orchestration.
+   - tray, hotkeys, and Windows lifecycle orchestration.
 7. **Presentation**
-   - future quick panel, settings, discovery, device details, OSD, and
-     diagnostic views.
+   - quick panel, settings, discovery, device details, OSD, and diagnostic
+     views.
 
 The product-identity layer is independent of transport. The device adapter
 consumes protocol abstractions, not raw sockets. Application services consume
@@ -101,13 +101,18 @@ split/coalesced frames; unsolicited notifications; disconnect/restart; wrong
 notification values; independent channels; and unknown models. It binds only
 to loopback and never needs a real home-network address.
 
-### Future desktop host
+### Desktop host
 
 WPF owns presentation and localization. Thin interop adapters translate
 `Shell_NotifyIcon`, `RegisterHotKey`, session, power, and monitor events into
 application-level events. Interop handles are scoped and disposed
 deterministically. A failure to register one shortcut degrades that shortcut,
 not the entire process.
+
+The initial host creates the tray icon through a small disposable
+`Shell_NotifyIcon` adapter and exposes a compact quick panel. Until trusted
+discovery and the product adapter are connected to presentation state, all
+device controls are visibly disabled rather than simulated.
 
 ## Identity model
 
@@ -216,9 +221,10 @@ failures into actionable status while retaining a redacted technical cause.
 
 - **Phase A:** research, ADRs, governance, identity rules.
 - **Phase B:** probe, minimal protocol core, mock device, automated tests.
-- **Phase C (in progress):** Libra Pro adapter and bounded cold-start recovery
-  implemented; notification reconciliation, tray shell, quick panel,
-  shortcuts, settings, and presets remain.
+- **Phase C (in progress):** Libra Pro adapter, bounded cold-start recovery,
+  tray shell, and offline quick panel implemented; live discovery/control
+  binding, notification reconciliation, shortcuts, settings, and presets
+  remain.
 - **Phase D:** Windows lifecycle automation, packaging, CI/release hardening.
 
 An unverified `lamp15` behavior cannot cross from the probe into the production

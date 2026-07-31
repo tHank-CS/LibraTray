@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>LibraTray</AssemblyName>
+    <RootNamespace>LibraTray.App</RootNamespace>
+    <Description>Tray-first Windows desktop host for Yeelight Libra Pro.</Description>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LibraTray.Core\LibraTray.Core.csproj" />
+  </ItemGroup>
+</Project>

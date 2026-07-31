@@ -9,23 +9,20 @@ LibraTray is a tray-first, local-only Windows controller being built for the
 `lamp15`. It is focused on instant control and reliable two-channel state
 synchronization.
 
-> **Current status:** this repository is at the phase-A research / phase-B
-> protocol-probe and minimal-core milestone. It does **not** yet contain the
-> production tray UI, global shortcuts, Windows automation, an installer, a
-> signed executable, or a GitHub Release. The commands and behaviors specific
-> to real `lamp15` hardware remain disabled unless separately verified. One
-> firmware-38 session now verifies discovery, state reads, notifications, and
-> basic main/background writes. Phase C has started with a tested product
-> adapter and bounded cold-start recovery. The two-zone RGB command remains
-> disabled because its relationship to the observed cold-start failure has not
-> been isolated.
+> **Current status:** phases A/B are complete and Phase C is in progress. The
+> repository now contains an initial tray-first WPF shell, a tested product
+> adapter, and bounded cold-start recovery. Device discovery and control are not
+> yet wired into the tray UI, so its controls intentionally remain disabled.
+> Global shortcuts, Windows automation, packaging, signing, and a GitHub
+> Release are still pending. The two-zone RGB command remains disabled because
+> its relationship to the observed cold-start failure has not been isolated.
 
 English | [简体中文](README.zh-CN.md)
 
 ## Screenshot
 
-The production UI belongs to a later milestone. A real screenshot will replace
-this notice after that UI exists; no mock-up is presented as implemented
+The initial quick-panel UI is implemented. A verified capture will replace this
+notice after visual QA is completed; no mock-up is presented as implemented
 software.
 
 ## Why LibraTray?
@@ -73,13 +70,15 @@ Available at the current milestone:
 - command IDs, timeouts, cancellation, and bounded input handling;
 - safe product-identity mapping and unknown-device fallback;
 - redaction-oriented diagnostic output;
+- an initial Windows tray icon, context menu, and offline quick-panel shell;
 - automated tests and a mock-device test surface.
 
 Planned after real-device verification:
 
 - independent main and ambient channel controls;
 - reliable physical-knob state synchronization;
-- tray menu, quick panel, configurable global shortcuts, and optional OSD;
+- live discovery/control binding, configurable global shortcuts, and optional
+  OSD;
 - local presets;
 - opt-in lock, unlock, sleep, wake, and display-power automation;
 - portable packages and an installer.
@@ -141,8 +140,9 @@ nonexistent file; the probe never appends to or overwrites an existing log.
 
 ## Tray, shortcuts, and Windows automation
 
-These features are specified but **not implemented at this milestone**.
-Planned defaults are:
+The tray icon, context menu, and offline quick-panel shell are implemented.
+Device discovery/control binding, shortcuts, and Windows automation are not
+implemented yet. Planned shortcut defaults are:
 
 | Action | Planned default |
 | --- | --- |
@@ -169,6 +169,14 @@ checks formatting and analyzers, builds Release, runs all test projects with
 TRX/Cobertura output, and audits vulnerable dependencies. The project uses
 .NET 10 LTS and targets Windows x64. No private file, device IP, account
 credential, or cloud token is required to build or test it.
+
+To inspect the current offline quick-panel shell during development:
+
+```powershell
+.\.dotnet\dotnet.exe run --project .\src\LibraTray.App\LibraTray.App.csproj -c Release -- --show
+```
+
+Without `--show`, the application starts tray-first with its window hidden.
 
 ## Troubleshooting
 
