@@ -2,10 +2,10 @@
 
 ## Status and goals
 
-This document defines the intended architecture of LibraTray. The current
-milestone contains research, a protocol probe, and a minimal UI-independent
-core. The production WPF tray application and product-specific adapter are
-deliberately deferred until stock YLTD003 hardware behavior is measured.
+This document defines the intended architecture of LibraTray. The repository
+contains research, a protocol probe, a UI-independent protocol core, and the
+initial product-specific adapter. The production WPF tray application remains
+under Phase-C development.
 
 The architecture optimizes for:
 
@@ -50,7 +50,7 @@ Windows integration.
    - unknown-model fallback.
 4. **Device adapters**
    - generic capabilities;
-   - a future Yeelight Libra Pro adapter containing only verified behavior;
+   - a Yeelight Libra Pro adapter containing only verified behavior;
    - extension boundary for later, separately verified models.
 5. **State**
    - last confirmed device state per channel;
@@ -147,7 +147,7 @@ Each channel is modeled independently. A state property includes value, source
 (`query`, `notification`, `command`, `physical-inferred`), confidence, request
 ID when applicable, monotonic observation order, and UTC timestamp.
 
-The future adapter will:
+The adapter and remaining Phase-C state services will:
 
 1. query initial state after connecting;
 2. subscribe to/receive `props` notifications on the same connection;
@@ -157,6 +157,12 @@ The future adapter will:
 6. issue a low-frequency reconciliation query after reconnect, conflicting
    evidence, or a known-unreliable notification;
 7. never infer device offline merely because one channel is off.
+
+The initial adapter also detects the firmware-38 cold-start background failure
+by post-write query mismatch. It performs at most one `bg_set_scene` renderer
+initialization per connection epoch, restores confirmed background appearance,
+and verifies that main power was preserved. It does not equate every TCP
+reconnect with a cold boot.
 
 See [state synchronization](protocol/state-synchronization.md).
 
@@ -210,8 +216,9 @@ failures into actionable status while retaining a redacted technical cause.
 
 - **Phase A:** research, ADRs, governance, identity rules.
 - **Phase B:** probe, minimal protocol core, mock device, automated tests.
-- **Phase C (blocked on hardware evidence):** Libra Pro adapter, reconciliation,
-  tray shell, quick panel, shortcuts, settings, and presets.
+- **Phase C (in progress):** Libra Pro adapter and bounded cold-start recovery
+  implemented; notification reconciliation, tray shell, quick panel,
+  shortcuts, settings, and presets remain.
 - **Phase D:** Windows lifecycle automation, packaging, CI/release hardening.
 
 An unverified `lamp15` behavior cannot cross from the probe into the production

@@ -18,7 +18,10 @@ internal sealed class MockDeviceServer
     public MockDeviceServer(MockOptions options)
     {
         _options = options;
-        _state = new MockState(options.Model, options.Name);
+        _state = new MockState(
+            options.Model,
+            options.Name,
+            backgroundRendererSilent: options.Mode == MockMode.ColdStartSilent);
     }
 
     public async Task RunAsync(CancellationToken cancellationToken)

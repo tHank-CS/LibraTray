@@ -130,10 +130,13 @@ internal static class MockApplication
               bad-props    query 返回真实状态，但主动 props 故意给出冲突值
               incorrect-props
                            bad-props 的同义名称
+              cold-start-silent
+                           初始双通道全关；普通背景开灯返回 ok 但状态不变，
+                           直到 bg_set_scene 重新初始化背景输出
 
             支持的通用命令：
               get_prop, set_power, set_bright, set_ct_abx, set_rgb,
-              bg_set_power, bg_set_bright, bg_set_rgb
+              bg_set_power, bg_set_bright, bg_set_rgb, bg_set_scene
 
             restart 是确定性的协议重连测试接缝，不会重启进程或操作系统。
             """);

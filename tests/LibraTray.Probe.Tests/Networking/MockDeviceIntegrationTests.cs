@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using LibraTray.Core.Devices.LibraPro;
 using LibraTray.Core.Networking;
 using LibraTray.Core.Protocol;
 using LibraTray.MockDevice;
@@ -140,8 +141,158 @@ public sealed class MockDeviceIntegrationTests
         }
     }
 
-    private static async Task<YeelightSuccessResponse> SendGetPowerAsync(
+    [TestMethod]
+    public async Task ConfirmedLamp15MainPowerWritePreservesBackgroundChannel()
+    {
+        await using MockServerFixture fixture = MockServerFixture.Start("normal");
+        string logPath = Path.Combine(
+            Path.GetTempPath(),
+            $"LibraTray-Probe-Lamp15-Power-{Guid.NewGuid():N}.jsonl");
+
+        try
+        {
+            int exitCode = await ProbeApplication.RunAsync(
+            [
+                "safe-write",
+                "--host",
+                IPAddress.Loopback.ToString(),
+                "--port",
+                fixture.TcpPort.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                "--target",
+                IPAddress.Loopback.ToString(),
+                "--local-address",
+                IPAddress.Loopback.ToString(),
+                "--discovery-port",
+                fixture.DiscoveryPort.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture),
+                "--method",
+                "set_power",
+                "--value",
+                "off",
+                "--confirm-write",
+                "--timeout-seconds",
+                "2",
+                "--log-path",
+                logPath,
+            ]);
+
+            Assert.AreEqual(0, exitCode);
+            YeelightSuccessResponse state = await SendGetPropertiesAsync(
+                fixture.TcpPort,
+                ["power", "main_power", "bg_power"],
+                TimeSpan.FromSeconds(1));
+            Assert.AreEqual("on", state.Results[0].GetString());
+            Assert.AreEqual("off", state.Results[1].GetString());
+            Assert.AreEqual("on", state.Results[2].GetString());
+        }
+        finally
+        {
+            File.Delete(logPath);
+        }
+    }
+
+    [TestMethod]
+    public async Task ConfirmedLamp15BackgroundColorSceneRestoresReadableState()
+    {
+        await using MockServerFixture fixture = MockServerFixture.Start("normal");
+        string logPath = Path.Combine(
+            Path.GetTempPath(),
+            $"LibraTray-Probe-Lamp15-BackgroundScene-{Guid.NewGuid():N}.jsonl");
+
+        try
+        {
+            int exitCode = await ProbeApplication.RunAsync(
+            [
+                "safe-write",
+                "--host",
+                IPAddress.Loopback.ToString(),
+                "--port",
+                fixture.TcpPort.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                "--target",
+                IPAddress.Loopback.ToString(),
+                "--local-address",
+                IPAddress.Loopback.ToString(),
+                "--discovery-port",
+                fixture.DiscoveryPort.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture),
+                "--method",
+                "bg_set_scene",
+                "--value",
+                "13395711,50",
+                "--confirm-write",
+                "--timeout-seconds",
+                "2",
+                "--log-path",
+                logPath,
+            ]);
+
+            Assert.AreEqual(0, exitCode);
+            YeelightSuccessResponse state = await SendGetPropertiesAsync(
+                fixture.TcpPort,
+                [
+                    "power",
+                    "main_power",
+                    "bg_power",
+                    "bright",
+                    "ct",
+                    "bg_bright",
+                    "bg_rgb",
+                    "bg_lmode",
+                ],
+                TimeSpan.FromSeconds(1));
+            Assert.AreEqual("on", state.Results[0].GetString());
+            Assert.AreEqual("on", state.Results[1].GetString());
+            Assert.AreEqual("on", state.Results[2].GetString());
+            Assert.AreEqual("50", state.Results[3].GetString());
+            Assert.AreEqual("4000", state.Results[4].GetString());
+            Assert.AreEqual("50", state.Results[5].GetString());
+            Assert.AreEqual("13395711", state.Results[6].GetString());
+            Assert.AreEqual("1", state.Results[7].GetString());
+        }
+        finally
+        {
+            File.Delete(logPath);
+        }
+    }
+
+    [TestMethod]
+    public async Task AdapterRecoversColdStartSilentBackgroundOverRealTcp()
+    {
+        await using MockServerFixture fixture =
+            MockServerFixture.Start("cold-start-silent");
+        await using var client = new YeelightClient(TimeSpan.FromSeconds(2));
+        await client.ConnectAsync(
+            IPAddress.Loopback.ToString(),
+            fixture.TcpPort);
+        var transport = new YeelightCommandTransport(client);
+        using var adapter = new LibraProAdapter(
+            transport,
+            "lamp15",
+            MockState.SupportedMethods.Split(
+                ' ',
+                StringSplitOptions.RemoveEmptyEntries));
+        adapter.BeginConnectionEpoch(1);
+
+        LibraProCommandResult result = await adapter.SetBackgroundPowerAsync(
+            enabled: true,
+            new LibraProBackgroundSnapshot(50, 13_395_711),
+            TimeSpan.FromSeconds(2));
+
+        Assert.IsTrue(result.RecoveryAttempted);
+        Assert.IsFalse(result.State.MainPower);
+        Assert.IsTrue(result.State.BackgroundPower);
+        Assert.AreEqual(50, result.State.BackgroundBrightness);
+        Assert.AreEqual(13_395_711, result.State.BackgroundRgb);
+    }
+
+    private static Task<YeelightSuccessResponse> SendGetPowerAsync(
         int port,
+        TimeSpan timeout) =>
+        SendGetPropertiesAsync(port, ["power"], timeout);
+
+    private static async Task<YeelightSuccessResponse> SendGetPropertiesAsync(
+        int port,
+        IReadOnlyList<object?> properties,
         TimeSpan timeout)
     {
         string logPath = Path.Combine(
@@ -162,7 +313,7 @@ public sealed class MockDeviceIntegrationTests
                 CancellationToken.None);
             return await session.SendCommandAsync(
                 "get_prop",
-                ["power"],
+                properties,
                 timeout,
                 CancellationToken.None);
         }

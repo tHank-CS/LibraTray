@@ -8,6 +8,11 @@ namespace LibraTray.Probe.Tests.Networking;
 [TestClass]
 public sealed class ProbeApplicationSafetyTests
 {
+    private static readonly string[] Lamp15PowerProperties =
+        ["power", "main_power", "bg_power"];
+
+    private static readonly string[] GenericPowerProperties = ["power"];
+
     [TestMethod]
     [DataRow("set_power", "on", "power", "on")]
     [DataRow("set_bright", "42", "bright", "42")]
@@ -30,6 +35,21 @@ public sealed class ProbeApplicationSafetyTests
     }
 
     [TestMethod]
+    public void ParseSafeWriteAllowsBoundedLamp15BackgroundColorScene()
+    {
+        ProbeApplication.SafeWriteSpec write = ParseSafeWrite(
+            "bg_set_scene",
+            "13395711,50");
+
+        Assert.AreEqual("bg_set_scene", write.Method);
+        Assert.AreEqual("bg_rgb", write.PropertyName);
+        Assert.AreEqual("13395711", write.ExpectedPropertyValue);
+        CollectionAssert.AreEqual(
+            new object?[] { "color", 13_395_711, 50 },
+            write.Parameters.ToArray());
+    }
+
+    [TestMethod]
     [DataRow("set_power", "toggle")]
     [DataRow("set_bright", "0")]
     [DataRow("set_bright", "101")]
@@ -40,6 +60,11 @@ public sealed class ProbeApplicationSafetyTests
     [DataRow("bg_set_rgb", "16777216")]
     [DataRow("set_scene", "1")]
     [DataRow("set_ps", "1")]
+    [DataRow("set_segment_rgb", "16711680,255")]
+    [DataRow("bg_set_scene", "13395711")]
+    [DataRow("bg_set_scene", "16777216,50")]
+    [DataRow("bg_set_scene", "13395711,0")]
+    [DataRow("bg_set_scene", "13395711,101")]
     public void ParseSafeWriteRejectsUnknownPrivateAndOutOfRangeCommands(
         string method,
         string value)
@@ -81,6 +106,34 @@ public sealed class ProbeApplicationSafetyTests
     }
 
     [TestMethod]
+    public void BackgroundSceneRecoveryRequiresExactLamp15AndDeclaredCapabilities()
+    {
+        var address = IPAddress.Parse("192.0.2.31");
+        ProbeApplication.SafeWriteSpec write = ParseSafeWrite(
+            "bg_set_scene",
+            "13395711,50");
+        DiscoveryRecord wrongModel = CreateRecord(
+            senderAddress: address,
+            controlAddress: address,
+            controlPort: 55_443,
+            support: "get_prop bg_set_scene",
+            model: "unknown");
+        DiscoveryRecord allowed = CreateRecord(
+            senderAddress: address,
+            controlAddress: address,
+            controlPort: 55_443,
+            support: "get_prop bg_set_scene",
+            model: "lamp15");
+
+        Assert.AreEqual(
+            ProbeApplication.SafeWriteCapabilityResult.UnsupportedModel,
+            ProbeApplication.EvaluateSafeWriteCapabilities(wrongModel, write));
+        Assert.AreEqual(
+            ProbeApplication.SafeWriteCapabilityResult.Allowed,
+            ProbeApplication.EvaluateSafeWriteCapabilities(allowed, write));
+    }
+
+    [TestMethod]
     [DataRow("set_power", "on", true)]
     [DataRow("set_power", "OFF", false)]
     [DataRow("set_bright", "1", true)]
@@ -110,6 +163,134 @@ public sealed class ProbeApplicationSafetyTests
         Assert.AreEqual(
             expected,
             ProbeApplication.IsValidCurrentPropertyValue(write, currentValue));
+    }
+
+    [TestMethod]
+    public void Lamp15SetPowerVerificationUsesIndependentChannelProperties()
+    {
+        ProbeApplication.SafeWriteSpec write = ParseSafeWrite("set_power", "off");
+
+        ProbeApplication.SafeWriteVerificationPlan lamp15 =
+            ProbeApplication.CreateSafeWriteVerificationPlan(" LAMP15 ", write);
+        ProbeApplication.SafeWriteVerificationPlan unknown =
+            ProbeApplication.CreateSafeWriteVerificationPlan("unknown", write);
+
+        CollectionAssert.AreEqual(
+            Lamp15PowerProperties,
+            lamp15.Properties.ToArray());
+        Assert.IsTrue(lamp15.IsLamp15MainPower);
+        CollectionAssert.AreEqual(
+            GenericPowerProperties,
+            unknown.Properties.ToArray());
+        Assert.IsFalse(unknown.IsLamp15MainPower);
+    }
+
+    [TestMethod]
+    public void Lamp15BackgroundColorSceneRestoresBackgroundAndPreservesMainState()
+    {
+        ProbeApplication.SafeWriteSpec write = ParseSafeWrite(
+            "bg_set_scene",
+            "13395711,50");
+        ProbeApplication.SafeWriteVerificationPlan plan =
+            ProbeApplication.CreateSafeWriteVerificationPlan("lamp15", write);
+        var before = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["power"] = "off",
+            ["main_power"] = "off",
+            ["bg_power"] = "off",
+            ["bright"] = "100",
+            ["ct"] = "4000",
+            ["bg_bright"] = "50",
+            ["bg_rgb"] = "13395711",
+            ["bg_lmode"] = "1",
+        };
+
+        Assert.IsTrue(plan.IsLamp15BackgroundColorScene);
+        Assert.IsTrue(
+            ProbeApplication.TryCreateExpectedSafeWriteState(
+                plan,
+                write,
+                before,
+                out IReadOnlyDictionary<string, string> expected,
+                out string error),
+            error);
+        Assert.AreEqual("on", expected["power"]);
+        Assert.AreEqual("off", expected["main_power"]);
+        Assert.AreEqual("on", expected["bg_power"]);
+        Assert.AreEqual("100", expected["bright"]);
+        Assert.AreEqual("4000", expected["ct"]);
+        Assert.AreEqual("50", expected["bg_bright"]);
+        Assert.AreEqual("13395711", expected["bg_rgb"]);
+        Assert.AreEqual("1", expected["bg_lmode"]);
+    }
+
+    [TestMethod]
+    public void Lamp15SetPowerExpectedStatePreservesBackgroundAndAggregatesPower()
+    {
+        ProbeApplication.SafeWriteSpec write = ParseSafeWrite("set_power", "off");
+        ProbeApplication.SafeWriteVerificationPlan plan =
+            ProbeApplication.CreateSafeWriteVerificationPlan("lamp15", write);
+        var before = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["power"] = "on",
+            ["main_power"] = "on",
+            ["bg_power"] = "on",
+        };
+
+        bool valid = ProbeApplication.TryCreateExpectedSafeWriteState(
+            plan,
+            write,
+            before,
+            out IReadOnlyDictionary<string, string> expected,
+            out string error);
+
+        Assert.IsTrue(valid, error);
+        Assert.AreEqual("on", expected["power"]);
+        Assert.AreEqual("off", expected["main_power"]);
+        Assert.AreEqual("on", expected["bg_power"]);
+    }
+
+    [TestMethod]
+    public void Lamp15SetPowerRejectsInconsistentPreReadAndChangedBackground()
+    {
+        ProbeApplication.SafeWriteSpec write = ParseSafeWrite("set_power", "off");
+        ProbeApplication.SafeWriteVerificationPlan plan =
+            ProbeApplication.CreateSafeWriteVerificationPlan("lamp15", write);
+        var inconsistentBefore = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["power"] = "off",
+            ["main_power"] = "on",
+            ["bg_power"] = "on",
+        };
+
+        Assert.IsFalse(
+            ProbeApplication.TryCreateExpectedSafeWriteState(
+                plan,
+                write,
+                inconsistentBefore,
+                out _,
+                out string beforeError));
+        StringAssert.Contains(beforeError, "写前电源状态不一致");
+
+        var expected = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["power"] = "on",
+            ["main_power"] = "off",
+            ["bg_power"] = "on",
+        };
+        var changedBackground = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["power"] = "on",
+            ["main_power"] = "off",
+            ["bg_power"] = "off",
+        };
+
+        Assert.IsFalse(
+            ProbeApplication.TryValidateSafeWriteState(
+                expected,
+                changedBackground,
+                out string afterError));
+        StringAssert.Contains(afterError, "bg_power 期望值为 on");
     }
 
     [TestMethod]
@@ -195,11 +376,13 @@ public sealed class ProbeApplicationSafetyTests
         IPAddress senderAddress,
         IPAddress controlAddress,
         int controlPort,
-        string support = "get_prop set_bright")
+        string support = "get_prop set_bright",
+        string model = "lamp15")
     {
         string raw =
             "HTTP/1.1 200 OK\r\n"
             + $"Location: yeelight://{controlAddress}:{controlPort}\r\n"
+            + $"model: {model}\r\n"
             + $"support: {support}\r\n"
             + "\r\n";
         YeelightDiscoveryResponse response = YeelightDiscovery.ParseResponse(

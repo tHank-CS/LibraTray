@@ -85,8 +85,12 @@ verify per-client oversized-frame isolation and the confirmed safe-write happy
 path from discovery through pre-read, write, and post-read.
 
 The current suite does not yet drive the standalone mock with an unknown model,
-nor does it cover every post-write timeout/rejection/mismatch path. Independent
-dual-channel state reconciliation remains a Phase-C responsibility.
+nor does it cover every post-write timeout/rejection/mismatch path. The mock
+covers exact-`lamp15` main-power reconciliation and a `cold-start-silent` mode
+where `bg_set_power("on")` returns success without changing readable state.
+The production adapter's bounded `bg_set_scene` recovery is exercised over a
+real loopback TCP connection. `set_segment_rgb` remains rejected by the parser
+and is not implemented by the mock.
 
 Passing a mock smoke or future automated mock test does not change a protocol
 item to “device verified.”
@@ -137,6 +141,17 @@ Do not test replacement-firmware devices as evidence for the stock protocol.
 8. Test one documented write operation at a time, only when the method appears
    in the device's advertised capabilities and the probe presents the exact
    JSON for confirmation.
+   For exact `lamp15` identity, a `set_power` probe reads
+   `power,main_power,bg_power` before and after the command. It verifies
+   `main_power` against the requested value, recomputes aggregate `power`, and
+   rejects any unexpected change to `bg_power`.
+   Do not send `set_segment_rgb`, even when the device advertises it. Its
+   immediate left/right effect was verified, but a later firmware-38 cold-start
+   failure has not been isolated from the earlier segment experiment. The probe
+   rejects this method while causality and safe recovery remain unresolved.
+   The exact-`lamp15` `bg_set_scene` path is retained only as a temporary
+   recovery diagnostic. It initializes the current running session but does
+   not persist across a cold cycle.
 9. Between operations, record response and all notifications, then query state.
 10. Test physical-knob actions without simultaneous software commands.
 11. Test simultaneous input, reconnect, and reboot only after basic behavior is
@@ -159,20 +174,23 @@ Record every row separately for the tested firmware:
 | Area | Evidence to capture | Current status |
 | --- | --- | --- |
 | discovery address/port and TCP `Location` | raw redacted response | Verified once on firmware 38; multi-NIC host required explicit local binding |
-| message terminator and request ID | exact request/response bytes | Verified for `get_prop`, `set_bright`, `bg_set_bright`, and `bg_set_power` on firmware 38 |
+| message terminator and request ID | exact request/response bytes | Verified for `get_prop`, basic main/background writes, and the now-disabled `set_segment_rgb` on firmware 38 |
 | initial main properties | response and physical state | Verified once on firmware 38 |
 | initial ambient properties | response and physical state | Verified once on firmware 38 |
-| main power/brightness/temperature | request, result, notification, query | Reads and physical notifications verified; only `set_bright` write verified |
-| ambient power/brightness/color | request, result, notification, query | `bg_set_power` off/on and `bg_set_bright` verified; color writes unverified; off notification is unreliable |
+| main power/brightness/temperature | request, result, notification, query | `set_power` on/off, `set_bright`, and `set_ct_abx` verified; off follows the vendor-app ambient-follow policy |
+| ambient power/brightness/color | request, result, notification, query | `bg_set_power` off/on, `bg_set_bright`, and `bg_set_rgb` verified; off notification is unreliable |
+| ambient left/right segments | exact request, result, physical side mapping | Immediate left/right mapping verified twice; command remains blocked because a later cold-start failure has not been isolated from the experiment |
 | both-channel power interaction | before/after state | Three power combinations queried on firmware 38 |
 | one channel off, other on | before/after state | `main_power`/`bg_power` query semantics verified |
 | physical-knob updates | notification plus reconciliation query | Brightness/CT observed; independent background off can notify `bg_power=on` |
-| reconnect/reboot persistence | ordered timestamps and queries | Unverified |
+| reconnect/reboot persistence | ordered timestamps and queries | Cold-start background failure reproduced; both local and vendor-app scenes restored only the running session; ordinary `bg_set_power` returned `ok` but remained `off` until scene refresh |
 | malformed/unknown notification behavior | mock first; safe observation only | Unverified |
-| firmware-specific defects | repeat count and firmware | Firmware 38 background-power notification defect observed; query fallback required |
+| firmware-specific defects | repeat count and firmware | Firmware 38 background-power notification defect observed; cold-start renderer initialization failure reproduced and recoverable with one `bg_set_scene`; segment causality unresolved |
 
-Never promote a special method such as a segment-color command from an
-open-source lead into production solely because one implementation exposes it.
+Never promote a special method from an open-source lead or immediate visual
+success alone. The segment experiment passed command, readback, reconnect, and
+physical side checks but failed cold-cycle testing, so it remains documented
+evidence only and is not executable through LibraTray.
 
 ## Evidence record
 

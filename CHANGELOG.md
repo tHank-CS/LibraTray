@@ -24,6 +24,17 @@ and this project intends to follow
 - A redacted firmware-38 YLTD003 evidence record covering exact identity,
   two-channel reads, physical notifications, and verified `set_bright`,
   `bg_set_bright`, and `bg_set_power` operations.
+- Firmware-38 evidence for `set_segment_rgb`, including verified left/right RGB
+  ordering and a cold-start ambient-output failure observed in the same test
+  sequence. The causal relationship remains unresolved, so the command stays
+  disabled.
+- A capability-gated `bg_set_scene` recovery probe for exact `lamp15` devices,
+  explicitly documented as temporary recovery rather than a persistent fix.
+- The initial Libra Pro adapter core, including exact identity/capability
+  gating, complete two-channel state validation, one recovery attempt per
+  connection epoch, and restoration of confirmed background appearance.
+- A `cold-start-silent` mock mode and real-TCP integration coverage for the
+  firmware-38 recovery path.
 
 ### Fixed
 

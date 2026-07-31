@@ -97,6 +97,39 @@ fresh query.
 The production adapter never sends an unverified `lamp15` command solely
 because it exists in a different project.
 
+## Firmware-38 background recovery
+
+Firmware 38 can enter a cold-start state where `bg_set_power("on")` returns
+`["ok"]` but an immediate query still reports `bg_power=off` and the background
+emits no visible light. A colour-form `bg_set_scene` initializes the background
+renderer for the current running session. The same recovery may be needed after
+the next cold power cycle.
+
+The adapter treats this as a failed postcondition, not as a successful write:
+
+1. retain the last confirmed background brightness and whole-background RGB;
+2. send the requested ordinary background command;
+3. query the complete two-channel state;
+4. if the on command was acknowledged but `bg_power` remains off, claim the
+   single recovery attempt for the current connection epoch;
+5. send `bg_set_scene("color", cachedRgb, cachedBrightness)`;
+6. query again and require background on, cached appearance restored, and
+   `main_power` unchanged;
+7. restore the desired background power if an explicit proactive recovery was
+   requested;
+8. expose failure after one attempt rather than entering a recovery loop.
+
+Ordinary TCP reconnects do not unconditionally trigger a scene because network
+jitter and idle disconnects are not proof of a device reboot. The default is
+lazy recovery after a verified write mismatch. A future explicit proactive
+mode may refresh after a strong cold-start signal, but it must warn about a
+brief visible flash when the desired background state is off.
+
+The readable properties do not reveal whether LEDs are physically emitting
+light. The verified mismatch (`ok` followed by `bg_power=off`) is detectable;
+an `on` readback with physically dark LEDs would still require user-visible
+diagnostics.
+
 ## High-frequency controls
 
 Brightness, temperature, and colour sliders use a replaceable latest-value
@@ -179,9 +212,9 @@ Real-device tests must repeat physical-knob, simultaneous input, reconnect, and
 reboot scenarios for every firmware claimed as verified. See
 [testing guide](../testing-guide.md).
 
-At Phase B, automated coverage is limited to generic framing, parsing, request
-correlation, timeout/cancellation/disconnect behavior, explicit reconnect,
-identity mapping, probe options/address policy, and diagnostic redaction. The
-separately runnable mock device exposes notification, channel, disconnect,
-restart, and incorrect-`props` modes as test surfaces; their presence is not a
-completed state engine or automated state-reconciliation suite.
+The initial Phase-C adapter coverage includes exact product/capability gating,
+complete two-channel query validation, ordinary verified background power,
+one recovery attempt per connection epoch, main-channel preservation, explicit
+restore-to-off behavior, and a real-TCP `cold-start-silent` mock integration.
+Notification merging, scheduler/coalescing, reconnect orchestration, settings,
+and UI state remain separate pending Phase-C work.

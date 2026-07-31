@@ -15,8 +15,10 @@ synchronization.
 > signed executable, or a GitHub Release. The commands and behaviors specific
 > to real `lamp15` hardware remain disabled unless separately verified. One
 > firmware-38 session now verifies discovery, state reads, notifications, and
-> the `set_bright`, `bg_set_bright`, and `bg_set_power` paths; this is not a
-> production adapter claim.
+> basic main/background writes. Phase C has started with a tested product
+> adapter and bounded cold-start recovery. The two-zone RGB command remains
+> disabled because its relationship to the observed cold-start failure has not
+> been isolated.
 
 English | [简体中文](README.zh-CN.md)
 

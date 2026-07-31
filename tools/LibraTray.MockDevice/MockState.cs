@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using LibraTray.Core.Identity;
 
 namespace LibraTray.MockDevice;
 
@@ -7,17 +8,24 @@ internal sealed class MockState
 {
     public const string SupportedMethods =
         "get_prop set_power set_bright set_ct_abx set_rgb "
-        + "bg_set_power bg_set_bright bg_set_rgb";
+        + "bg_set_power bg_set_bright bg_set_rgb bg_set_scene";
 
     private readonly object _sync = new();
     private readonly Dictionary<string, string> _properties;
     private readonly string _model;
     private readonly string _name;
+    private readonly bool _initialBackgroundRendererSilent;
+    private bool _backgroundRendererSilent;
 
-    public MockState(string model, string name)
+    public MockState(
+        string model,
+        string name,
+        bool backgroundRendererSilent = false)
     {
         _model = model;
         _name = name;
+        _initialBackgroundRendererSilent = backgroundRendererSilent;
+        _backgroundRendererSilent = backgroundRendererSilent;
         _properties = CreateInitialProperties();
     }
 
@@ -25,6 +33,7 @@ internal sealed class MockState
     {
         lock (_sync)
         {
+            _backgroundRendererSilent = _initialBackgroundRendererSilent;
             _properties.Clear();
             foreach ((string name, string value) in CreateInitialProperties())
             {
@@ -33,17 +42,18 @@ internal sealed class MockState
         }
     }
 
-    private Dictionary<string, string> CreateInitialProperties() =>
-        new(StringComparer.Ordinal)
+    private Dictionary<string, string> CreateInitialProperties()
+    {
+        var properties = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["power"] = "on",
+            ["power"] = _initialBackgroundRendererSilent ? "off" : "on",
             ["bright"] = "50",
             ["ct"] = "4000",
             ["rgb"] = "16777215",
             ["name"] = _name,
             ["model"] = _model,
             ["fw_ver"] = "100",
-            ["bg_power"] = "on",
+            ["bg_power"] = _initialBackgroundRendererSilent ? "off" : "on",
             ["bg_bright"] = "40",
             ["bg_ct"] = "4000",
             ["bg_rgb"] = "16777215",
@@ -51,6 +61,15 @@ internal sealed class MockState
             ["bg_sat"] = "0",
             ["bg_lmode"] = "0",
         };
+
+        if (ProductIdentityMapper.IsSupportedInternalModel(_model))
+        {
+            properties["main_power"] =
+                _initialBackgroundRendererSilent ? "off" : "on";
+        }
+
+        return properties;
+    }
 
     public IReadOnlyDictionary<string, string> Snapshot()
     {
@@ -69,7 +88,11 @@ internal sealed class MockState
             return request.Method switch
             {
                 "get_prop" => GetProperties(request.Parameters),
-                "set_power" => SetPower("power", request.Parameters),
+                "set_power" => SetPower(
+                    ProductIdentityMapper.IsSupportedInternalModel(_model)
+                        ? "main_power"
+                        : "power",
+                    request.Parameters),
                 "set_bright" => SetInteger(
                     "bright",
                     request.Parameters,
@@ -96,6 +119,7 @@ internal sealed class MockState
                     request.Parameters,
                     minimum: 0,
                     maximum: 16_777_215),
+                "bg_set_scene" => SetBackgroundColorScene(request.Parameters),
                 _ => MockReply.Fail(-1, $"unsupported method: {request.Method}"),
             };
         }
@@ -137,7 +161,24 @@ internal sealed class MockState
             return MockReply.Fail(-5001, "power value must be on or off");
         }
 
+        if (property == "bg_power"
+            && value == "on"
+            && _backgroundRendererSilent)
+        {
+            return MockReply.Ok(["ok"]);
+        }
+
         _properties[property] = value;
+        if (ProductIdentityMapper.IsSupportedInternalModel(_model)
+            && property is "main_power" or "bg_power")
+        {
+            _properties["power"] =
+                _properties["main_power"] == "on"
+                || _properties["bg_power"] == "on"
+                    ? "on"
+                    : "off";
+        }
+
         return MockReply.Ok(["ok"]);
     }
 
@@ -160,6 +201,35 @@ internal sealed class MockState
         }
 
         _properties[property] = value.ToString(CultureInfo.InvariantCulture);
+        return MockReply.Ok(["ok"]);
+    }
+
+    private MockReply SetBackgroundColorScene(IReadOnlyList<JsonElement> parameters)
+    {
+        if (parameters.Count != 3
+            || parameters[0].ValueKind != JsonValueKind.String
+            || parameters[0].GetString() != "color"
+            || !parameters[1].TryGetInt32(out int rgb)
+            || !parameters[2].TryGetInt32(out int brightness)
+            || rgb is < 0 or > 16_777_215
+            || brightness is < 1 or > 100)
+        {
+            return MockReply.Fail(
+                -5001,
+                "bg_set_scene expects color, RGB, and brightness");
+        }
+
+        if (!ProductIdentityMapper.IsSupportedInternalModel(_model))
+        {
+            return MockReply.Fail(-5001, "bg_set_scene recovery requires lamp15");
+        }
+
+        _backgroundRendererSilent = false;
+        _properties["bg_power"] = "on";
+        _properties["power"] = "on";
+        _properties["bg_bright"] = brightness.ToString(CultureInfo.InvariantCulture);
+        _properties["bg_rgb"] = rgb.ToString(CultureInfo.InvariantCulture);
+        _properties["bg_lmode"] = "1";
         return MockReply.Ok(["ok"]);
     }
 }
