@@ -22,7 +22,8 @@ and this project intends to follow
 - Explicit local-IPv4 binding for reliable Yeelight multicast discovery on
   Windows hosts with VPN, tunnel, Hyper-V, WSL, VMware, or multiple NICs.
 - A redacted firmware-38 YLTD003 evidence record covering exact identity,
-  two-channel reads, physical notifications, and verified `set_bright`.
+  two-channel reads, physical notifications, and verified `set_bright`,
+  `bg_set_bright`, and `bg_set_power` operations.
 
 ### Fixed
 

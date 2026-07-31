@@ -53,6 +53,17 @@ The 2026-07-31 session established:
   `bg_power=on`; a follow-up `get_prop` returned the correct `off` value;
 - confirmed `set_bright(50, "sudden", 0)` changed the physical main light,
   returned `["ok"]`, emitted `bright=50`, and passed a write-after-read query.
+- confirmed `bg_set_bright(50, "sudden", 0)` changed the physical background
+  light from 100 to 50, returned `["ok"]`, emitted `bg_bright=50`, and passed
+  a write-after-read query;
+- confirmed `bg_set_power("off", "sudden", 0)` independently turned the
+  background channel off while the main channel remained on. The command
+  returned `["ok"]`, but emitted the incorrect notification
+  `bg_power=on`; the post-read correctly returned `off`;
+- confirmed `bg_set_power("on", "sudden", 0)` restored the background channel,
+  returned `["ok"]`, emitted `bg_power=on`, and passed the post-read;
+- the final query reported aggregate/main/background power as `on/on/on` and
+  retained independent main/background brightness values of 50.
 
 The Windows host had multiple physical, VPN/tunnel, Hyper-V, WSL, and VMware
 interfaces. Binding discovery to the physical LAN IPv4 made multicast
@@ -92,8 +103,8 @@ read. Values in `props` are documented as partial updates and commonly strings.
 | `set_bright` | Officially documented | Multiple generic clients | Verified once on firmware 38 with notification and post-read | Eligible for production adapter after repeat/reconnect coverage |
 | `set_ct_abx` | Officially documented | Multiple generic clients | Unverified | Same |
 | `toggle` | Officially documented | Multiple generic clients | Unverified | Avoid until toggle semantics are verified |
-| `bg_set_power` | Officially documented as a generic background method | Home Assistant, python-yeelight, kyuuri, NumberOneBot | Capability advertised; write unverified; notification defect confirmed | Probe only; reconcile by query during research |
-| `bg_set_bright` | Officially documented as a generic background method | Same sources | Unverified | Probe only |
+| `bg_set_power` | Officially documented as a generic background method | Home Assistant, python-yeelight, kyuuri, NumberOneBot | Off/on verified once on firmware 38; off notification defect confirmed | Eligible only with mandatory post-notification query reconciliation |
+| `bg_set_bright` | Officially documented as a generic background method | Same sources | Verified once on firmware 38 with notification and post-read | Eligible for production adapter after repeat/reconnect coverage |
 | `bg_set_rgb` / `bg_set_hsv` | Officially documented as generic background methods | Same sources | Unverified | Probe only; validate colour model/ranges |
 | `bg_set_ct_abx` | Officially documented as a generic background method | Generic libraries | Unverified | Do not assume ambient channel supports CT |
 | `bg_toggle` / `dev_toggle` | Officially documented generically | Some libraries | Unverified | Avoid until both-channel semantics are measured |
@@ -136,8 +147,9 @@ suspect, and an older
 [Yeelight forum report](https://forum.yeelight.com/t/topic/23184) describes an
 incorrect status value on YLTD003 firmware. The same class of defect is now
 confirmed in the firmware-38 session: independent background off and on
-actions could both notify `bg_power=on`, while the subsequent query returned
-the physically correct value.
+actions both notified `bg_power=on`, making the transition indistinguishable
+from the notification alone. The subsequent query returned the physically
+correct `off` or `on` value.
 
 Required policy:
 

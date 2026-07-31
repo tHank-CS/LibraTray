@@ -159,11 +159,11 @@ Record every row separately for the tested firmware:
 | Area | Evidence to capture | Current status |
 | --- | --- | --- |
 | discovery address/port and TCP `Location` | raw redacted response | Verified once on firmware 38; multi-NIC host required explicit local binding |
-| message terminator and request ID | exact request/response bytes | Verified for `get_prop` and `set_bright` on firmware 38 |
+| message terminator and request ID | exact request/response bytes | Verified for `get_prop`, `set_bright`, `bg_set_bright`, and `bg_set_power` on firmware 38 |
 | initial main properties | response and physical state | Verified once on firmware 38 |
 | initial ambient properties | response and physical state | Verified once on firmware 38 |
 | main power/brightness/temperature | request, result, notification, query | Reads and physical notifications verified; only `set_bright` write verified |
-| ambient power/brightness/color | request, result, notification, query | Reads verified; writes unverified; background-power notification is unreliable |
+| ambient power/brightness/color | request, result, notification, query | `bg_set_power` off/on and `bg_set_bright` verified; color writes unverified; off notification is unreliable |
 | both-channel power interaction | before/after state | Three power combinations queried on firmware 38 |
 | one channel off, other on | before/after state | `main_power`/`bg_power` query semantics verified |
 | physical-knob updates | notification plus reconciliation query | Brightness/CT observed; independent background off can notify `bg_power=on` |

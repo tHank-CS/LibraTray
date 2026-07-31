@@ -15,7 +15,8 @@ synchronization.
 > signed executable, or a GitHub Release. The commands and behaviors specific
 > to real `lamp15` hardware remain disabled unless separately verified. One
 > firmware-38 session now verifies discovery, state reads, notifications, and
-> the generic `set_bright` path; this is not a production adapter claim.
+> the `set_bright`, `bg_set_bright`, and `bg_set_power` paths; this is not a
+> production adapter claim.
 
 English | [简体中文](README.zh-CN.md)
 
