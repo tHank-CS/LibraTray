@@ -1,6 +1,6 @@
 # `lamp15` / YLTD003 Protocol Research
 
-Evidence snapshot: 2026-07-28.
+Evidence snapshot: 2026-07-31.
 
 ## Scope and current status
 
@@ -9,12 +9,12 @@ model YLTD003 and friendly name Yeelight Libra Pro. The identity mapping is a
 high-confidence cross-source inference documented in
 [product identity research](../research/product-identity.md).
 
-No user-supplied stock-device trace has yet been reviewed. Therefore:
+One redacted real-device session on firmware 38 has now been reviewed.
+Therefore:
 
 - generic protocol syntax listed in Yeelight's public specification is
   **officially documented**;
-- claims that a particular method/property works on `lamp15` are
-  **unverified** unless explicitly noted otherwise;
+- only the exact properties and operations recorded below are device-observed;
 - no production `lamp15` adapter exists yet, and the probe exposes no
   `lamp15`-specific private method;
 - a method advertised in `support` is eligible for a careful probe, not
@@ -31,8 +31,33 @@ No user-supplied stock-device trace has yet been reviewed. Therefore:
 | Known firmware issue | Reproduced and scoped to a firmware version |
 | Fallback required | Must reconcile by query/reconnect rather than trust one signal |
 
-At this snapshot there are no “device verified” or “known firmware issue”
-entries.
+The evidence is one device/session rather than a firmware-wide compatibility
+claim. Reconnect, power-cycle, region, and other firmware variants remain
+unverified.
+
+## Firmware 38 session evidence
+
+The 2026-07-31 session established:
+
+- multicast discovery reported exact model `lamp15`, firmware `38`, TCP port
+  55443, `get_prop`, generic main commands, and documented `bg_*` capabilities;
+- the default 17-property snapshot succeeded in two requests of at most 15
+  properties;
+- custom queries confirmed all three channel combinations: both on, main only,
+  and background only;
+- `power` remained `on` whenever either channel was on, while `main_power` and
+  `bg_power` represented the independent channels;
+- physical main brightness and colour-temperature changes produced prompt
+  partial `props` notifications;
+- an independent background off action could incorrectly notify
+  `bg_power=on`; a follow-up `get_prop` returned the correct `off` value;
+- confirmed `set_bright(50, "sudden", 0)` changed the physical main light,
+  returned `["ok"]`, emitted `bright=50`, and passed a write-after-read query.
+
+The Windows host had multiple physical, VPN/tunnel, Hyper-V, WSL, and VMware
+interfaces. Binding discovery to the physical LAN IPv4 made multicast
+discovery reliable. No device address, persistent ID, or user-supplied name is
+stored in this document.
 
 ## Generic control channel
 
@@ -62,12 +87,12 @@ read. Values in `props` are documented as partial updates and commonly strings.
 
 | Area / method | Generic source status | Open-source `lamp15` lead | Stock YLTD003 status | Production policy |
 | --- | --- | --- | --- | --- |
-| `get_prop` | Officially documented | Home Assistant, python-yeelight, kyuuri | Unverified | Probe read-only; the safe-write path additionally requires `get_prop` in advertised capabilities |
+| `get_prop` | Officially documented | Home Assistant, python-yeelight, kyuuri | Verified in one firmware-38 session | Production adapter may query only the verified bounded property set and must tolerate empty values |
 | `set_power` | Officially documented | Multiple generic clients | Unverified | Disabled in product adapter until verified |
-| `set_bright` | Officially documented | Multiple generic clients | Unverified | Same |
+| `set_bright` | Officially documented | Multiple generic clients | Verified once on firmware 38 with notification and post-read | Eligible for production adapter after repeat/reconnect coverage |
 | `set_ct_abx` | Officially documented | Multiple generic clients | Unverified | Same |
 | `toggle` | Officially documented | Multiple generic clients | Unverified | Avoid until toggle semantics are verified |
-| `bg_set_power` | Officially documented as a generic background method | Home Assistant, python-yeelight, kyuuri, NumberOneBot | Unverified; notification reliability lead exists | Probe only; reconcile by query during research |
+| `bg_set_power` | Officially documented as a generic background method | Home Assistant, python-yeelight, kyuuri, NumberOneBot | Capability advertised; write unverified; notification defect confirmed | Probe only; reconcile by query during research |
 | `bg_set_bright` | Officially documented as a generic background method | Same sources | Unverified | Probe only |
 | `bg_set_rgb` / `bg_set_hsv` | Officially documented as generic background methods | Same sources | Unverified | Probe only; validate colour model/ranges |
 | `bg_set_ct_abx` | Officially documented as a generic background method | Generic libraries | Unverified | Do not assume ambient channel supports CT |
@@ -82,9 +107,9 @@ evidence record. LibraTray does not invent parameter order or default values.
 
 | Property group | Generic documentation/reference | `lamp15` status |
 | --- | --- | --- |
-| main `power`, `bright`, `ct`, `rgb`, `hue`, `sat`, `color_mode` | Official generic protocol | Unverified on target firmware |
-| ambient `bg_power`, `bg_bright`, `bg_ct`, `bg_rgb`, `bg_hue`, `bg_sat`, `bg_lmode` | Official generic background-property model and open-source references | Unverified on target firmware |
-| firmware, model, name, support | Official discovery protocol | Exact target response unverified |
+| main `power`, `main_power`, `bright`, `ct`, `rgb`, `hue`, `sat`, `color_mode` | Official generic protocol plus device-observed `main_power` | Queried on firmware 38; empty inactive colour fields retained as empty |
+| ambient `bg_power`, `bg_bright`, `bg_ct`, `bg_rgb`, `bg_hue`, `bg_sat`, `bg_lmode` | Official generic background-property model and open-source references | Queried on firmware 38 |
+| firmware, model, name, support | Official discovery protocol | Exact model, firmware, endpoint, and capability list observed on firmware 38 |
 | segment fields/indices | Open-source lead only | Unverified; do not formalize |
 
 Unknown properties are retained as diagnostic data and ignored by domain
@@ -109,10 +134,12 @@ firmware; unsupported properties may return empty values or an error.
 Home Assistant contains a targeted re-query when a background-power update is
 suspect, and an older
 [Yeelight forum report](https://forum.yeelight.com/t/topic/23184) describes an
-incorrect status value on YLTD003 firmware. These are **open-source/user-report
-leads**, not a confirmed defect in the user's current firmware.
+incorrect status value on YLTD003 firmware. The same class of defect is now
+confirmed in the firmware-38 session: independent background off and on
+actions could both notify `bg_power=on`, while the subsequent query returned
+the physically correct value.
 
-Safe policy until verified:
+Required policy:
 
 1. record the exact notification, source connection, sequence, and timestamp;
 2. update UI only with an “unconfirmed” confidence where appropriate;
@@ -153,14 +180,14 @@ persistence, or firmware independence.
 
 ## Explicit unknowns
 
-- the exact `support` list by firmware;
-- accepted initial-state property set;
+- `support` and initial properties on firmware versions other than 38;
 - whether main and ambient channels accept every generic `bg_*` method;
 - ambient colour model and boundaries;
 - both-channel toggle/power semantics;
-- physical rotary-control notification timing and completeness;
+- repeatability of physical rotary-control notifications after reconnect and
+  power cycle;
 - reboot persistence;
-- bad-notification firmware scope;
+- bad-notification scope outside the observed firmware-38 session;
 - segment support;
 - fallback behavior for every unsupported method.
 

@@ -117,6 +117,9 @@ Do not test replacement-firmware devices as evidence for the stock protocol.
    dotnet run --project tools/LibraTray.Probe -- discover
    ```
 
+   On a multi-adapter host, add `--local-address <PC_LAN_IPV4>` to force the
+   UDP multicast request and its reply socket onto the intended physical LAN.
+
 4. Confirm friendly name, YLTD003 mapping, exact raw model, address, device ID,
    firmware, and advertised `support` list.
 5. Export a redacted discovery log and manually audit its redaction.
@@ -155,18 +158,18 @@ Record every row separately for the tested firmware:
 
 | Area | Evidence to capture | Current status |
 | --- | --- | --- |
-| discovery address/port and TCP `Location` | raw redacted response | Generic protocol documented; `lamp15` unverified |
-| message terminator and request ID | exact request/response bytes | Generic protocol documented; `lamp15` unverified |
-| initial main properties | response and physical state | Unverified |
-| initial ambient properties | response and physical state | Unverified |
-| main power/brightness/temperature | request, result, notification, query | Unverified |
-| ambient power/brightness/color | request, result, notification, query | Unverified |
-| both-channel power interaction | before/after state | Unverified |
-| one channel off, other on | before/after state | Unverified |
-| physical-knob updates | notification plus reconciliation query | Unverified |
+| discovery address/port and TCP `Location` | raw redacted response | Verified once on firmware 38; multi-NIC host required explicit local binding |
+| message terminator and request ID | exact request/response bytes | Verified for `get_prop` and `set_bright` on firmware 38 |
+| initial main properties | response and physical state | Verified once on firmware 38 |
+| initial ambient properties | response and physical state | Verified once on firmware 38 |
+| main power/brightness/temperature | request, result, notification, query | Reads and physical notifications verified; only `set_bright` write verified |
+| ambient power/brightness/color | request, result, notification, query | Reads verified; writes unverified; background-power notification is unreliable |
+| both-channel power interaction | before/after state | Three power combinations queried on firmware 38 |
+| one channel off, other on | before/after state | `main_power`/`bg_power` query semantics verified |
+| physical-knob updates | notification plus reconciliation query | Brightness/CT observed; independent background off can notify `bg_power=on` |
 | reconnect/reboot persistence | ordered timestamps and queries | Unverified |
 | malformed/unknown notification behavior | mock first; safe observation only | Unverified |
-| firmware-specific defects | repeat count and firmware | Unverified |
+| firmware-specific defects | repeat count and firmware | Firmware 38 background-power notification defect observed; query fallback required |
 
 Never promote a special method such as a segment-color command from an
 open-source lead into production solely because one implementation exposes it.

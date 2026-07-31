@@ -1,13 +1,14 @@
 # Yeelight LAN Discovery
 
-Evidence snapshot: 2026-07-28.
+Evidence snapshot: 2026-07-31.
 
 ## Status
 
 The wire format below is **officially documented** by the
 [Yeelight WiFi Light Inter-Operation Specification](https://www.yeelight.com/download/Yeelight_Inter-Operation_Spec.pdf).
-Its behavior on the user's stock YLTD003 / `lamp15` firmware is **unverified**
-until a redacted discovery capture is supplied.
+Its active-search behavior has been reproduced on one YLTD003 / `lamp15`
+device running firmware 38. Firmware and network variants remain separately
+scoped.
 
 ## Search request
 
@@ -31,17 +32,19 @@ The official specification states:
 - `HOST` is optional, but if present has the value above;
 - a valid response is unicast to the request's source IP and UDP port.
 
-The current probe binds one UDP socket to `IPAddress.Any` and lets Windows
+By default the probe binds one UDP socket to `IPAddress.Any` and lets Windows
 select the outbound interface. On a machine with several active adapters or a
-VPN, the default route may not be the LAN containing the light. If the device
-address is already known, use unicast discovery:
+VPN, explicitly bind the request/reply socket and multicast interface to the
+PC's physical LAN IPv4 address:
 
 ```powershell
-dotnet run --project tools/LibraTray.Probe -- discover --target <DEVICE_IP>
+dotnet run --project tools/LibraTray.Probe -- discover --local-address <PC_LAN_IPV4>
 ```
 
-Enumerating and sending from every eligible interface is a known limitation of
-the phase-B probe.
+`--local-address` is the PC address, not the light address. It accepts only a
+literal loopback, RFC1918, or IPv4 link-local address; binding also fails if the
+address is not assigned locally. Enumerating and sending from every eligible
+interface remains outside the phase-B probe.
 
 The probe returns at most 64 unique, valid records from one discovery run. It
 deduplicates device IDs and advertised control endpoints independently, and

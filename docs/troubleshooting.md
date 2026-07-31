@@ -40,6 +40,18 @@ Discovery responses are unicast to the source address and port of the request.
 Do not create an inbound rule for all networks or expose any router port merely
 to make discovery work.
 
+On a host with VPN/tunnel, Hyper-V, WSL, VMware, or multiple physical
+interfaces, explicitly bind the probe to the PC's trusted-LAN IPv4 address:
+
+```powershell
+# Example only: replace 192.168.1.20 with this PC's physical LAN address.
+dotnet run --project tools/LibraTray.Probe -- discover --local-address 192.168.1.20
+```
+
+The address must belong to this PC; it is not the light's address. For
+`safe-write`, discovery still validates that the UDP sender, advertised
+control endpoint, and requested device address match exactly.
+
 If the device address is already known, use the manual-address option shown by
 the probe's current `--help`. A manual IP bypasses discovery only; it does not
 prove the target is a Yeelight device.

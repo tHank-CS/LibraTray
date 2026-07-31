@@ -21,7 +21,8 @@ internal static class ProbeDiscovery
         int port,
         TimeSpan timeout,
         ProbeOutput output,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? localAddress = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(target);
         ArgumentNullException.ThrowIfNull(output);
@@ -31,9 +32,19 @@ internal static class ProbeDiscovery
             cancellationToken,
             allowDiscoveryMulticast: true).ConfigureAwait(false);
         var targetEndPoint = new IPEndPoint(targetAddress, port);
+        IPAddress bindAddress = localAddress is null
+            ? IPAddress.Any
+            : ParseLocalBindAddress(localAddress);
 
         using var client = new UdpClient(AddressFamily.InterNetwork);
-        client.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
+        client.Client.Bind(new IPEndPoint(bindAddress, 0));
+        if (localAddress is not null && IsYeelightDiscoveryMulticast(targetAddress))
+        {
+            client.Client.SetSocketOption(
+                SocketOptionLevel.IP,
+                SocketOptionName.MulticastInterface,
+                bindAddress.GetAddressBytes());
+        }
 
         byte[] request = YeelightDiscovery.CreateRequest();
         string requestText = Encoding.ASCII
@@ -233,6 +244,22 @@ internal static class ProbeDiscovery
             || (bytes[0] == 172 && bytes[1] is >= 16 and <= 31)
             || (bytes[0] == 192 && bytes[1] == 168)
             || (bytes[0] == 169 && bytes[1] == 254);
+    }
+
+    public static IPAddress ParseLocalBindAddress(string value)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(value);
+
+        if (!IPAddress.TryParse(value, out IPAddress? address)
+            || address.AddressFamily != AddressFamily.InterNetwork
+            || !IsAllowedLocalAddress(address))
+        {
+            throw new ArgumentException(
+                "--local-address 必须是本机 loopback、RFC1918 或 IPv4 link-local 地址。",
+                nameof(value));
+        }
+
+        return address;
     }
 
     private static bool IsYeelightDiscoveryMulticast(IPAddress address) =>

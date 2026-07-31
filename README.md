@@ -13,7 +13,9 @@ synchronization.
 > protocol-probe and minimal-core milestone. It does **not** yet contain the
 > production tray UI, global shortcuts, Windows automation, an installer, a
 > signed executable, or a GitHub Release. The commands and behaviors specific
-> to real `lamp15` hardware remain unverified until probe results are collected.
+> to real `lamp15` hardware remain disabled unless separately verified. One
+> firmware-38 session now verifies discovery, state reads, notifications, and
+> the generic `set_bright` path; this is not a production adapter claim.
 
 English | [简体中文](README.zh-CN.md)
 
@@ -45,7 +47,7 @@ and protocol foundation, not the finished desktop experience.
 
 | Display name | Hardware model | Internal model | Status |
 | --- | --- | --- | --- |
-| Yeelight Libra Pro | YLTD003 | `lamp15` | Primary target; identity mapping implemented, device behavior unverified |
+| Yeelight Libra Pro | YLTD003 | `lamp15` | Primary target; selected Phase-B behavior verified on firmware 38 |
 
 Official Yeelight material uses more than one retail name for YLTD003. The
 `lamp15` → YLTD003 → Yeelight Libra Pro relationship is a **high-confidence
@@ -169,7 +171,9 @@ credential, or cloud token is required to build or test it.
 
 If discovery finds nothing, check LAN-control availability, Wi-Fi client
 isolation, multicast routing, the Windows Private network profile, and local
-firewall rules. Use a manual IP only when the address is known and trusted.
+firewall rules. On a PC with VPN/tunnel or virtual adapters, bind discovery to
+the physical LAN address with `--local-address <PC_LAN_IPV4>`. Use a manual
+device IP only when the address is known and trusted.
 Yeelight's published protocol permits only a small number of concurrent TCP
 connections and rate-limits commands, so close other LAN clients while
 diagnosing.

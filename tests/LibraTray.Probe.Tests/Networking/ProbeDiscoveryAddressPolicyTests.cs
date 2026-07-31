@@ -84,4 +84,29 @@ public sealed class ProbeDiscoveryAddressPolicyTests
                 CancellationToken.None,
                 allowDiscoveryMulticast: true));
     }
+
+    [TestMethod]
+    [DataRow("127.0.0.1")]
+    [DataRow("10.1.2.3")]
+    [DataRow("172.16.0.1")]
+    [DataRow("192.168.1.20")]
+    [DataRow("169.254.1.2")]
+    public void ParseLocalBindAddressAcceptsDocumentedLocalIpv4Ranges(string value)
+    {
+        Assert.AreEqual(
+            IPAddress.Parse(value),
+            ProbeDiscovery.ParseLocalBindAddress(value));
+    }
+
+    [TestMethod]
+    [DataRow("0.0.0.0")]
+    [DataRow("8.8.8.8")]
+    [DataRow("239.255.255.250")]
+    [DataRow("::1")]
+    [DataRow("localhost")]
+    public void ParseLocalBindAddressRejectsNonLocalOrNonLiteralValues(string value)
+    {
+        Assert.ThrowsExactly<ArgumentException>(
+            () => ProbeDiscovery.ParseLocalBindAddress(value));
+    }
 }

@@ -60,6 +60,7 @@ internal static class ProbeApplication
             var output = new ProbeOutput(logger);
             output.RegisterConnectionTarget(options.Host);
             output.RegisterConnectionTarget(options.DiscoveryTarget);
+            output.RegisterConnectionTarget(options.LocalAddress);
             using var cancellation = new CancellationTokenSource();
             ConsoleCancelEventHandler cancelHandler = (_, eventArgs) =>
             {
@@ -175,7 +176,8 @@ internal static class ProbeApplication
             options.DiscoveryPort,
             options.Timeout,
             output,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            options.LocalAddress).ConfigureAwait(false);
 
         foreach (DiscoveryRecord record in records)
         {
@@ -212,7 +214,8 @@ internal static class ProbeApplication
             options.DiscoveryPort,
             options.Timeout,
             output,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            options.LocalAddress).ConfigureAwait(false);
 
         if (options.Host is not null)
         {
@@ -381,13 +384,15 @@ internal static class ProbeApplication
         }
 
         SafeWriteSpec write = ParseSafeWrite(options);
-        string discoveryTarget = options.DiscoveryTarget ?? host;
+        string discoveryTarget = options.DiscoveryTarget
+            ?? YeelightDiscovery.MulticastAddress;
         IReadOnlyList<DiscoveryRecord> records = await ProbeDiscovery.DiscoverAsync(
             discoveryTarget,
             options.DiscoveryPort,
             options.Timeout,
             output,
-            cancellationToken).ConfigureAwait(false);
+            cancellationToken,
+            options.LocalAddress).ConfigureAwait(false);
 
         IPAddress hostAddress = await ProbeDiscovery.ResolveIpv4Async(
             host,
@@ -769,6 +774,7 @@ internal static class ProbeApplication
 
             通用选项：
               --timeout-seconds N   连接、请求和 discovery 超时，默认 5 秒
+              --local-address IPv4  将 UDP discovery 绑定到指定本机局域网 IPv4
               --log-path PATH       覆盖默认 JSONL 日志路径
               --no-redact           禁用日志脱敏（会显示强警告）
               --help                显示帮助

@@ -19,6 +19,18 @@ and this project intends to follow
   diagnostic-redaction tests, plus a separately runnable mock-device surface.
 - Open-source governance, security, privacy, testing, and release
   documentation.
+- Explicit local-IPv4 binding for reliable Yeelight multicast discovery on
+  Windows hosts with VPN, tunnel, Hyper-V, WSL, VMware, or multiple NICs.
+- A redacted firmware-38 YLTD003 evidence record covering exact identity,
+  two-channel reads, physical notifications, and verified `set_bright`.
+
+### Fixed
+
+- `safe-write` now discovers through multicast by default and can bind the UDP
+  request/reply socket to a selected physical LAN interface.
+- Firmware-38 background-power notifications are documented as provisional:
+  an independent background off action may incorrectly notify
+  `bg_power=on`, while a follow-up `get_prop` returns the correct state.
 
 ### Security
 

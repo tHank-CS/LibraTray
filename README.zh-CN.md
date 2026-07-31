@@ -10,7 +10,8 @@ LibraTray 是一个正在开发中的、托盘优先、纯局域网的 Windows �
 
 > **当前状态：**仓库目前处于阶段 A 调研、阶段 B 协议探测工具与最小协议核心里程碑。
 > 现在还没有正式托盘 UI、全局快捷键、Windows 自动化、安装包、签名程序或 GitHub
-> Release。所有 `lamp15` 实机专用命令和行为在收集探测结果前都标记为未验证。
+> Release。固件 38 的一次实机会话已验证发现、状态读取、通知和通用
+> `set_bright` 路径；其他行为仍需逐项验证，这不代表生产设备适配器已经完成。
 
 [English](README.md) | 简体中文
 
@@ -36,7 +37,7 @@ LibraTray 刻意保持更窄的范围：
 
 | 显示名称 | 硬件型号 | 内部型号 | 状态 |
 | --- | --- | --- | --- |
-| Yeelight Libra Pro | YLTD003 | `lamp15` | 首要目标；已实现身份映射，设备行为尚待实机确认 |
+| Yeelight Libra Pro | YLTD003 | `lamp15` | 首要目标；固件 38 的部分阶段 B 行为已实机验证 |
 
 Yeelight 官方资料对 YLTD003 使用了不止一个商品名。`lamp15` → YLTD003 →
 Yeelight Libra Pro 是基于多个官方来源形成的**高可信跨来源推断**，而不是 Yeelight
@@ -145,7 +146,9 @@ powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\script
 ## 故障排除
 
 如果发现不到设备，请检查局域网控制是否可用、Wi-Fi 客户端隔离、组播转发、
-Windows“专用网络”配置以及本地防火墙规则。只有在地址已知且可信时才手动填写 IP。
+Windows“专用网络”配置以及本地防火墙规则。存在 VPN、隧道或虚拟网卡时，可用
+`--local-address <电脑局域网IPv4>` 将 discovery 绑定到物理局域网地址。只有在设备
+地址已知且可信时才手动填写设备 IP。
 Yeelight 公开协议限制同时 TCP 连接数量和命令速率，诊断时应关闭其他局域网客户端。
 
 详见[故障排除](docs/troubleshooting.md)。切勿公开未脱敏的诊断日志。

@@ -27,6 +27,7 @@ internal sealed class ProbeOptions
         "discovery-port",
         "host",
         "listen-seconds",
+        "local-address",
         "log-path",
         "method",
         "port",
@@ -51,6 +52,8 @@ internal sealed class ProbeOptions
     public string? Host => GetValue("host");
 
     public string? DiscoveryTarget => GetValue("target");
+
+    public string? LocalAddress => GetValue("local-address");
 
     public int Port => GetInteger("port", 55_443, 1, 65_535);
 

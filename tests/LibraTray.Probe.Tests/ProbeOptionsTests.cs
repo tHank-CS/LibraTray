@@ -88,6 +88,15 @@ public sealed class ProbeOptionsTests
     }
 
     [TestMethod]
+    public void ParseAcceptsExplicitLocalDiscoveryAddress()
+    {
+        ProbeOptions parsed = ProbeOptions.Parse(
+            ["discover", "--local-address", "192.168.1.20"]);
+
+        Assert.AreEqual("192.168.1.20", parsed.LocalAddress);
+    }
+
+    [TestMethod]
     [DataRow("0")]
     [DataRow("301")]
     [DataRow("-1")]
@@ -181,6 +190,7 @@ public sealed class ProbeOptionsTests
     [DataRow("--method=")]
     [DataRow("--value=")]
     [DataRow("--props=")]
+    [DataRow("--local-address=")]
     public void ParseRejectsExplicitlyEmptyValues(string token)
     {
         Assert.ThrowsExactly<ArgumentException>(

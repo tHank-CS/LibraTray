@@ -116,6 +116,8 @@ public sealed class MockDeviceIntegrationTests
                 fixture.TcpPort.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 "--target",
                 IPAddress.Loopback.ToString(),
+                "--local-address",
+                IPAddress.Loopback.ToString(),
                 "--discovery-port",
                 fixture.DiscoveryPort.ToString(
                     System.Globalization.CultureInfo.InvariantCulture),

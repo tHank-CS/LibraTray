@@ -4,8 +4,9 @@
 
 This is the synchronization contract for the future Libra Pro adapter. The
 generic request/result/`props` model is officially documented. Physical-knob
-behavior, two-channel property reliability, and firmware-specific conflicts on
-stock YLTD003 are currently **unverified**.
+brightness/temperature notifications and two-channel queries were observed on
+one firmware-38 YLTD003 session. Independent background-power notifications
+are not reliable on that firmware and require query reconciliation.
 
 ## Goals
 
@@ -117,11 +118,16 @@ This prevents backlog and ensures the physical final position is sent.
 Unknown fields are retained for diagnostics. Each known field is independently
 parsed and range-checked, so one invalid property does not discard valid peers.
 
-Until hardware tests establish reliability:
+Based on the firmware-38 hardware record:
 
-- a main-channel notification may be applied provisionally;
-- background-power updates associated with known open-source suspicion trigger
-  a debounced query;
+- `power` is aggregate activity: it is `on` when either `main_power` or
+  `bg_power` is `on`;
+- `main_power` and `bg_power`, not aggregate `power`, drive the two UI toggles;
+- power notifications are provisional;
+- any background-power notification triggers one debounced query of
+  `power`, `main_power`, and `bg_power`;
+- a valid query supersedes the notification because an independent background
+  off action was observed notifying `bg_power=on`;
 - physical-knob inference is never based solely on timing;
 - the log records exact redacted notification and later query result.
 
