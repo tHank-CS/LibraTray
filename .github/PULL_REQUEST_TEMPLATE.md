@@ -14,9 +14,8 @@ Commands actually run:
 <command and result>
 ```
 
-- [ ] `dotnet restore LibraTray.slnx`
-- [ ] `dotnet build LibraTray.slnx -c Release --no-restore`
-- [ ] `dotnet test LibraTray.slnx -c Release --no-build`
+- [ ] `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\restore.ps1 -Locked`
+- [ ] `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\verify.ps1 -SkipRestore`
 - [ ] Relevant error and edge cases were tested
 - [ ] Full diff was inspected for unrelated changes and private data
 

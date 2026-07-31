@@ -1,0 +1,39 @@
+version: 2
+
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    groups:
+      security-nuget-updates:
+        applies-to: security-updates
+        patterns:
+          - '*'
+      routine-nuget-updates:
+        applies-to: version-updates
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    groups:
+      security-action-updates:
+        applies-to: security-updates
+        patterns:
+          - '*'
+      routine-action-updates:
+        applies-to: version-updates
+        patterns:
+          - '*'

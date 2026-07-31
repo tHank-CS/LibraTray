@@ -25,8 +25,8 @@ TestResults/
 *.sln.docstates
 
 # Local application data and diagnostics
-logs/
-diagnostics/
+/logs/
+/diagnostics/
 *.log
 appsettings.local.json
 device-profile.json
