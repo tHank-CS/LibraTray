@@ -35,6 +35,9 @@ and this project intends to follow
   connection epoch, and restoration of confirmed background appearance.
 - A `cold-start-silent` mock mode and real-TCP integration coverage for the
   firmware-38 recovery path.
+- An initial .NET 10 WPF tray application shell with native
+  `Shell_NotifyIcon` integration, a compact offline quick panel, explicit
+  unavailable states, tray-first startup, and graceful shutdown.
 
 ### Fixed
 

@@ -94,6 +94,10 @@ The 2026-07-31 session established:
   control in the running session, but the background failed again after the
   next cold power cycle. It is therefore only a temporary recovery aid, not a
   repair for the persistent state;
+- on 2026-07-31, the bounded application recovery sequence (scene
+  initialization, appearance verification, and return to ordinary background
+  control) was physically confirmed to restore visible output and manual
+  control for the affected running session;
 - a Xiaomi Home scene likewise restored the running session but did not survive
   the next cold cycle. No clean pre-experiment cold-cycle baseline or factory
   reset was performed, so the evidence does not establish whether segment
