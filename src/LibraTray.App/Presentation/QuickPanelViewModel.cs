@@ -1,6 +1,8 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Threading;
+using LibraTray.Core.Configuration;
 using LibraTray.Core.Devices.LibraPro;
 using LibraTray.Core.Identity;
 
@@ -8,17 +10,16 @@ namespace LibraTray.App.Presentation;
 
 internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
 {
-    private const int MainBrightnessStep = 5;
-    private const int MainColorTemperatureStep = 200;
-
     private readonly LibraProDeviceSession _session;
     private readonly Dispatcher _dispatcher;
     private readonly SemaphoreSlim _operationLock = new(1, 1);
     private readonly CancellationToken _lifetimeToken;
 
     private string _connectionStatus = "正在等待局域网设备";
+    private string _deviceName;
     private string? _errorMessage;
     private string? _hotkeyStatus;
+    private LibraProPreset? _selectedPreset;
     private bool _isDeviceOnline;
     private bool _isBusy;
     private bool _mainPower;
@@ -27,26 +28,40 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     private int _mainColorTemperature = 4_000;
     private int _backgroundBrightness = 50;
     private int _backgroundRgb = 13_395_711;
+    private int _mainBrightnessStep;
+    private int _mainColorTemperatureStep;
     private bool _disposed;
 
     public QuickPanelViewModel(
         LibraProDeviceSession session,
         Dispatcher dispatcher,
+        LibraTraySettings settings,
         CancellationToken lifetimeToken)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(dispatcher);
+        ArgumentNullException.ThrowIfNull(settings);
         _session = session;
         _dispatcher = dispatcher;
         _lifetimeToken = lifetimeToken;
-        DeviceName = ProductIdentityCatalog.LibraProFriendlyProductName;
+        _deviceName = ResolveDeviceName(settings.UserAlias);
+        _mainBrightnessStep = settings.BrightnessStep;
+        _mainColorTemperatureStep = settings.ColorTemperatureStep;
+        Presets = new ObservableCollection<LibraProPreset>(settings.Presets);
+        _selectedPreset = Presets.FirstOrDefault();
         _session.StatusChanged += OnSessionStatusChanged;
         _session.StateChanged += OnSessionStateChanged;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public string DeviceName { get; }
+    public event EventHandler? PresetsChanged;
+
+    public string DeviceName
+    {
+        get => _deviceName;
+        private set => SetField(ref _deviceName, value);
+    }
 
     public string ConnectionStatus
     {
@@ -95,6 +110,14 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     public bool CanControl => IsDeviceOnline && !IsBusy;
 
     public bool CanRetry => !IsDeviceOnline && !IsBusy;
+
+    public ObservableCollection<LibraProPreset> Presets { get; }
+
+    public LibraProPreset? SelectedPreset
+    {
+        get => _selectedPreset;
+        set => SetField(ref _selectedPreset, value);
+    }
 
     public bool MainPower
     {
@@ -217,7 +240,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
             int current = _session.CurrentState?.MainBrightness
                 ?? MainBrightness;
             int value = Math.Clamp(
-                current + normalizedDirection * MainBrightnessStep,
+                current + normalizedDirection * _mainBrightnessStep,
                 1,
                 100);
             if (value != current)
@@ -242,7 +265,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
             int current = _session.CurrentState?.MainColorTemperature
                 ?? MainColorTemperature;
             int value = Math.Clamp(
-                current + normalizedDirection * MainColorTemperatureStep,
+                current + normalizedDirection * _mainColorTemperatureStep,
                 3_000,
                 6_500);
             if (value != current)
@@ -272,6 +295,76 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
         HotkeyStatus = failedHotkeys.Count == 0
             ? null
             : $"快捷键冲突：{string.Join("、", failedHotkeys)}";
+    }
+
+    public void ApplySettings(LibraTraySettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        DeviceName = ResolveDeviceName(settings.UserAlias);
+        _mainBrightnessStep = settings.BrightnessStep;
+        _mainColorTemperatureStep = settings.ColorTemperatureStep;
+    }
+
+    public Task ApplySelectedPresetAsync() =>
+        SelectedPreset is { } preset && IsDeviceOnline
+            ? RunAsync(
+                () => _session.ApplyTargetStateAsync(
+                    preset.ToTargetState(),
+                    _lifetimeToken),
+                _lifetimeToken)
+            : Task.CompletedTask;
+
+    public bool TrySaveCurrentPreset(string name, out string? error)
+    {
+        error = null;
+        if (_session.CurrentState is not { } state)
+        {
+            error = "设备尚未提供可保存的确认状态。";
+            return false;
+        }
+
+        string normalizedName = name.Trim();
+        if (normalizedName.Length == 0 || normalizedName.Length > 64)
+        {
+            error = "预设名称必须包含 1–64 个字符。";
+            return false;
+        }
+
+        if (Presets.Count >= 20)
+        {
+            error = "最多可以保存 20 个本地预设。";
+            return false;
+        }
+
+        var preset = new LibraProPreset
+        {
+            Name = normalizedName,
+            MainPower = state.MainPower,
+            MainBrightness = state.MainBrightness,
+            MainColorTemperature = state.MainColorTemperature,
+            BackgroundPower = state.BackgroundPower,
+            BackgroundBrightness = state.BackgroundBrightness,
+            BackgroundRgb = state.BackgroundRgb,
+        };
+        Presets.Add(preset);
+        SelectedPreset = preset;
+        PresetsChanged?.Invoke(this, EventArgs.Empty);
+        return true;
+    }
+
+    public void DeleteSelectedPreset()
+    {
+        if (SelectedPreset is not { } preset)
+        {
+            return;
+        }
+
+        int index = Presets.IndexOf(preset);
+        _ = Presets.Remove(preset);
+        SelectedPreset = Presets.Count == 0
+            ? null
+            : Presets[Math.Min(index, Presets.Count - 1)];
+        PresetsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public void Dispose()
@@ -398,6 +491,12 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
         cancellationToken.CanBeCanceled
             ? cancellationToken
             : _lifetimeToken;
+
+    private static string ResolveDeviceName(string? userAlias) =>
+        ProductIdentityMapper
+            .Resolve(ProductIdentityCatalog.LibraProInternalModel)
+            .WithUserAlias(userAlias)
+            .DisplayName;
 
     private bool SetField<T>(
         ref T field,

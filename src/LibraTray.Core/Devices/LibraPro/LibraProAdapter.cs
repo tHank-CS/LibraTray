@@ -269,6 +269,99 @@ public sealed class LibraProAdapter : IDisposable
             cancellationToken);
     }
 
+    public async Task<LibraProCommandResult> ApplyTargetStateAsync(
+        LibraProTargetState target,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ThrowIfDisposed();
+        await _commandLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await SendOkAsync(
+                    "set_bright",
+                    [target.MainBrightness, "sudden", 0],
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await SendOkAsync(
+                    "set_ct_abx",
+                    [target.MainColorTemperature, "sudden", 0],
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await SendOkAsync(
+                    "bg_set_bright",
+                    [target.BackgroundBrightness, "sudden", 0],
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await SendOkAsync(
+                    "bg_set_rgb",
+                    [target.BackgroundRgb, "sudden", 0],
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await SendOkAsync(
+                    "set_power",
+                    [target.MainPower ? "on" : "off", "sudden", 0],
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await SendOkAsync(
+                    "bg_set_power",
+                    [target.BackgroundPower ? "on" : "off", "sudden", 0],
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            LibraProState state = await QueryStateAsync(
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (MatchesTarget(state, target))
+            {
+                return new LibraProCommandResult(
+                    state,
+                    RecoveryAttempted: false,
+                    ConnectionEpoch);
+            }
+
+            if (target.BackgroundPower
+                && state.BackgroundPower != target.BackgroundPower
+                && _options.ColdStartRecoveryMode
+                    == LibraProColdStartRecoveryMode.OnVerifiedFailure
+                && TryClaimRecovery())
+            {
+                state = await RecoverBackgroundCoreAsync(
+                        state,
+                        new LibraProBackgroundSnapshot(
+                            target.BackgroundBrightness,
+                            target.BackgroundRgb),
+                        desiredPower: true,
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (MatchesTarget(state, target))
+                {
+                    return new LibraProCommandResult(
+                        state,
+                        RecoveryAttempted: true,
+                        ConnectionEpoch);
+                }
+            }
+
+            throw new LibraProStateVerificationException(
+                "Preset verification failed after reading the complete device state.");
+        }
+        finally
+        {
+            _commandLock.Release();
+        }
+    }
+
     /// <summary>
     /// Explicitly initializes the background renderer and restores the
     /// requested power state. This may create a brief visible flash when the
@@ -488,6 +581,16 @@ public sealed class LibraProAdapter : IDisposable
             return true;
         }
     }
+
+    private static bool MatchesTarget(
+        LibraProState state,
+        LibraProTargetState target) =>
+        state.MainPower == target.MainPower
+        && state.MainBrightness == target.MainBrightness
+        && state.MainColorTemperature == target.MainColorTemperature
+        && state.BackgroundPower == target.BackgroundPower
+        && state.BackgroundBrightness == target.BackgroundBrightness
+        && state.BackgroundRgb == target.BackgroundRgb;
 
     private void EnsureCapability(string method)
     {

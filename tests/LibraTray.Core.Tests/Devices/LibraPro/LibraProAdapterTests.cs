@@ -206,6 +206,42 @@ public sealed class LibraProAdapterTests
     }
 
     [TestMethod]
+    public async Task ApplyTargetStateWritesAppearanceBeforePowerAndVerifiesAllFields()
+    {
+        var transport = new FakeTransport();
+        LibraProAdapter adapter = CreateAdapter(transport);
+        var target = new LibraProTargetState(
+            mainPower: false,
+            mainBrightness: 64,
+            mainColorTemperature: 4_800,
+            backgroundPower: true,
+            backgroundBrightness: 38,
+            backgroundRgb: 0x3366CC);
+
+        LibraProCommandResult result = await adapter.ApplyTargetStateAsync(
+            target,
+            TimeSpan.FromSeconds(1));
+
+        Assert.IsFalse(result.State.MainPower);
+        Assert.AreEqual(64, result.State.MainBrightness);
+        Assert.AreEqual(4_800, result.State.MainColorTemperature);
+        Assert.IsTrue(result.State.BackgroundPower);
+        Assert.AreEqual(38, result.State.BackgroundBrightness);
+        Assert.AreEqual(0x3366CC, result.State.BackgroundRgb);
+        string[] expectedMethods =
+        [
+            "set_bright",
+            "set_ct_abx",
+            "bg_set_bright",
+            "bg_set_rgb",
+            "set_power",
+            "bg_set_power",
+            "get_prop",
+        ];
+        CollectionAssert.AreEqual(expectedMethods, transport.Methods);
+    }
+
+    [TestMethod]
     public async Task AppearanceCommandsRejectOutOfRangeValuesBeforeSending()
     {
         var transport = new FakeTransport();

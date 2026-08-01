@@ -20,6 +20,8 @@ public partial class QuickPanelWindow : Window
         DataContext = viewModel;
     }
 
+    internal event EventHandler? SettingsRequested;
+
     protected override void OnClosing(CancelEventArgs e)
     {
         if (!_allowClose)
@@ -49,6 +51,13 @@ public partial class QuickPanelWindow : Window
         _ = sender;
         _ = e;
         Hide();
+    }
+
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        SettingsRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private async void RetryButton_Click(object sender, RoutedEventArgs e)
@@ -123,6 +132,71 @@ public partial class QuickPanelWindow : Window
                 out int rgb))
         {
             await _viewModel.SetBackgroundRgbAsync(rgb);
+        }
+    }
+
+    private async void CustomBackgroundColor_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        var dialog = new CustomColorWindow(_viewModel.BackgroundRgb)
+        {
+            Owner = this,
+        };
+        if (dialog.ShowDialog() == true)
+        {
+            await _viewModel.SetBackgroundRgbAsync(dialog.RgbValue);
+        }
+    }
+
+    private async void ApplyPresetButton_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        await _viewModel.ApplySelectedPresetAsync();
+    }
+
+    private void SavePresetButton_Click(object sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        var dialog = new PresetNameWindow { Owner = this };
+        if (dialog.ShowDialog() == true
+            && !_viewModel.TrySaveCurrentPreset(
+                dialog.PresetName,
+                out string? error))
+        {
+            MessageBox.Show(
+                this,
+                error,
+                "LibraTray",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
+    private void DeletePresetButton_Click(object sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (_viewModel.SelectedPreset is null)
+        {
+            return;
+        }
+
+        MessageBoxResult result = MessageBox.Show(
+            this,
+            $"删除预设“{_viewModel.SelectedPreset.Name}”？",
+            "LibraTray",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (result == MessageBoxResult.Yes)
+        {
+            _viewModel.DeleteSelectedPreset();
         }
     }
 }

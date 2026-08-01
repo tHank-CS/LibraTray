@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
+using LibraTray.Core.Configuration;
 
 namespace LibraTray.App.Interop;
 
@@ -21,6 +22,8 @@ internal enum GlobalHotkeyModifiers : uint
 {
     Alt = 0x0001,
     Control = 0x0002,
+    Shift = 0x0004,
+    Windows = 0x0008,
     NoRepeat = 0x4000,
 }
 
@@ -48,66 +51,18 @@ internal sealed class GlobalHotkeyPressedEventArgs : EventArgs
 internal sealed class GlobalHotkeyService : IDisposable
 {
     private const int HotkeyMessage = 0x0312;
-    private static readonly GlobalHotkeyDefinition[] DefaultDefinitions =
-    [
-        new(
-            0x4C01,
-            GlobalHotkeyAction.ToggleMainPower,
-            GlobalHotkeyModifiers.Control
-                | GlobalHotkeyModifiers.Alt
-                | GlobalHotkeyModifiers.NoRepeat,
-            Key.L,
-            "Ctrl+Alt+L"),
-        new(
-            0x4C02,
-            GlobalHotkeyAction.ToggleBackgroundPower,
-            GlobalHotkeyModifiers.Control
-                | GlobalHotkeyModifiers.Alt
-                | GlobalHotkeyModifiers.NoRepeat,
-            Key.A,
-            "Ctrl+Alt+A"),
-        new(
-            0x4C03,
-            GlobalHotkeyAction.IncreaseMainBrightness,
-            GlobalHotkeyModifiers.Control
-                | GlobalHotkeyModifiers.Alt
-                | GlobalHotkeyModifiers.NoRepeat,
-            Key.Up,
-            "Ctrl+Alt+Up"),
-        new(
-            0x4C04,
-            GlobalHotkeyAction.DecreaseMainBrightness,
-            GlobalHotkeyModifiers.Control
-                | GlobalHotkeyModifiers.Alt
-                | GlobalHotkeyModifiers.NoRepeat,
-            Key.Down,
-            "Ctrl+Alt+Down"),
-        new(
-            0x4C05,
-            GlobalHotkeyAction.IncreaseMainColorTemperature,
-            GlobalHotkeyModifiers.Control
-                | GlobalHotkeyModifiers.Alt
-                | GlobalHotkeyModifiers.NoRepeat,
-            Key.Right,
-            "Ctrl+Alt+Right"),
-        new(
-            0x4C06,
-            GlobalHotkeyAction.DecreaseMainColorTemperature,
-            GlobalHotkeyModifiers.Control
-                | GlobalHotkeyModifiers.Alt
-                | GlobalHotkeyModifiers.NoRepeat,
-            Key.Left,
-            "Ctrl+Alt+Left"),
-    ];
 
     private readonly nint _windowHandle;
     private readonly HwndSource _source;
     private readonly Dictionary<int, GlobalHotkeyDefinition> _registered = [];
     private bool _disposed;
 
-    public GlobalHotkeyService(Window owner)
+    public GlobalHotkeyService(
+        Window owner,
+        GlobalHotkeySettings settings)
     {
         ArgumentNullException.ThrowIfNull(owner);
+        ArgumentNullException.ThrowIfNull(settings);
         _windowHandle = new WindowInteropHelper(owner).EnsureHandle();
         _source = HwndSource.FromHwnd(_windowHandle)
             ?? throw new InvalidOperationException(
@@ -115,8 +70,23 @@ internal sealed class GlobalHotkeyService : IDisposable
         _source.AddHook(WndProc);
 
         var failures = new List<GlobalHotkeyRegistrationFailure>();
-        foreach (GlobalHotkeyDefinition definition in DefaultDefinitions)
+        foreach ((int id, GlobalHotkeyAction action, string gesture) in
+            EnumerateSettings(settings))
         {
+            if (!TryCreateDefinition(id, action, gesture, out var definition))
+            {
+                failures.Add(
+                    new GlobalHotkeyRegistrationFailure(
+                        new GlobalHotkeyDefinition(
+                            id,
+                            action,
+                            GlobalHotkeyModifiers.NoRepeat,
+                            Key.None,
+                            gesture),
+                        87));
+                continue;
+            }
+
             int virtualKey = KeyInterop.VirtualKeyFromKey(definition.Key);
             if (RegisterHotKey(
                     _windowHandle,
@@ -138,11 +108,103 @@ internal sealed class GlobalHotkeyService : IDisposable
         RegistrationFailures = failures;
     }
 
+    internal static bool TryNormalizeGesture(
+        string gesture,
+        [NotNullWhen(true)] out string? normalized)
+    {
+        bool parsed = TryCreateDefinition(
+            0,
+            GlobalHotkeyAction.ToggleMainPower,
+            gesture,
+            out GlobalHotkeyDefinition? definition);
+        normalized = definition?.DisplayText;
+        return parsed;
+    }
+
     public event EventHandler<GlobalHotkeyPressedEventArgs>? HotkeyPressed;
 
     public IReadOnlyList<GlobalHotkeyRegistrationFailure> RegistrationFailures
     {
         get;
+    }
+
+    private static IEnumerable<(
+        int Id,
+        GlobalHotkeyAction Action,
+        string Gesture)> EnumerateSettings(GlobalHotkeySettings settings)
+    {
+        yield return (0x4C01, GlobalHotkeyAction.ToggleMainPower, settings.ToggleMainPower);
+        yield return (0x4C02, GlobalHotkeyAction.ToggleBackgroundPower, settings.ToggleBackgroundPower);
+        yield return (0x4C03, GlobalHotkeyAction.IncreaseMainBrightness, settings.IncreaseMainBrightness);
+        yield return (0x4C04, GlobalHotkeyAction.DecreaseMainBrightness, settings.DecreaseMainBrightness);
+        yield return (0x4C05, GlobalHotkeyAction.IncreaseMainColorTemperature, settings.IncreaseMainColorTemperature);
+        yield return (0x4C06, GlobalHotkeyAction.DecreaseMainColorTemperature, settings.DecreaseMainColorTemperature);
+    }
+
+    private static bool TryCreateDefinition(
+        int id,
+        GlobalHotkeyAction action,
+        string gesture,
+        [NotNullWhen(true)] out GlobalHotkeyDefinition? definition)
+    {
+        definition = null;
+        if (string.IsNullOrWhiteSpace(gesture))
+        {
+            return false;
+        }
+
+        KeyGesture parsed;
+        try
+        {
+            var converter = new KeyGestureConverter();
+            if (converter.ConvertFromInvariantString(gesture.Trim())
+                    is not KeyGesture converted)
+            {
+                return false;
+            }
+
+            parsed = converted;
+        }
+        catch (Exception exception) when (
+            exception is FormatException or NotSupportedException)
+        {
+            return false;
+        }
+
+        if (parsed.Key == Key.None || parsed.Modifiers == ModifierKeys.None)
+        {
+            return false;
+        }
+
+        GlobalHotkeyModifiers modifiers = GlobalHotkeyModifiers.NoRepeat;
+        if (parsed.Modifiers.HasFlag(ModifierKeys.Alt))
+        {
+            modifiers |= GlobalHotkeyModifiers.Alt;
+        }
+
+        if (parsed.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            modifiers |= GlobalHotkeyModifiers.Control;
+        }
+
+        if (parsed.Modifiers.HasFlag(ModifierKeys.Shift))
+        {
+            modifiers |= GlobalHotkeyModifiers.Shift;
+        }
+
+        if (parsed.Modifiers.HasFlag(ModifierKeys.Windows))
+        {
+            modifiers |= GlobalHotkeyModifiers.Windows;
+        }
+
+        definition = new GlobalHotkeyDefinition(
+            id,
+            action,
+            modifiers,
+            parsed.Key,
+            parsed.GetDisplayStringForCulture(
+                System.Globalization.CultureInfo.InvariantCulture));
+        return true;
     }
 
     public void Dispose()

@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="LibraTray"
         Width="408"
-        Height="580"
+        Height="670"
         MinWidth="368"
         ResizeMode="NoResize"
         WindowStyle="None"
@@ -20,6 +20,8 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="16" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="12" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="12" />
                 <RowDefinition Height="Auto" />
@@ -250,6 +252,7 @@
                         </Button>
                         <Button Width="30"
                                 Height="30"
+                                Margin="0,0,8,0"
                                 Padding="2"
                                 Tag="8388736"
                                 ToolTip="紫色"
@@ -259,11 +262,56 @@
                                      Height="20"
                                      Fill="#FF9B66D9" />
                         </Button>
+                        <Button Height="30"
+                                Padding="8,2"
+                                Content="自定义"
+                                ToolTip="输入 RGB 十六进制颜色"
+                                Style="{StaticResource QuietButtonStyle}"
+                                Click="CustomBackgroundColor_Click" />
                     </StackPanel>
                 </StackPanel>
             </Border>
 
             <Border Grid.Row="6"
+                    Style="{StaticResource SectionCardStyle}">
+                <StackPanel>
+                    <TextBlock Text="本地预设"
+                               FontSize="15"
+                               FontWeight="SemiBold" />
+                    <Grid Margin="0,11,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox MinHeight="30"
+                                  Padding="7,4"
+                                  ItemsSource="{Binding Presets}"
+                                  SelectedItem="{Binding SelectedPreset}"
+                                  DisplayMemberPath="Name" />
+                        <Button Grid.Column="1"
+                                Margin="8,0,0,0"
+                                Content="应用"
+                                IsEnabled="{Binding CanControl}"
+                                Style="{StaticResource QuietButtonStyle}"
+                                Click="ApplyPresetButton_Click" />
+                        <Button Grid.Column="2"
+                                Margin="6,0,0,0"
+                                Content="保存"
+                                IsEnabled="{Binding IsDeviceOnline}"
+                                Style="{StaticResource QuietButtonStyle}"
+                                Click="SavePresetButton_Click" />
+                        <Button Grid.Column="3"
+                                Margin="6,0,0,0"
+                                Content="删除"
+                                Style="{StaticResource QuietButtonStyle}"
+                                Click="DeletePresetButton_Click" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="8"
                     Padding="13,11"
                     Background="{StaticResource AccentSoftBrush}"
                     CornerRadius="8">
@@ -286,7 +334,7 @@
                 </Grid>
             </Border>
 
-            <Grid Grid.Row="8">
+            <Grid Grid.Row="10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -316,10 +364,10 @@
                     </TextBlock>
                 </StackPanel>
                 <Button Grid.Column="1"
-                        IsEnabled="False"
                         Content="设置"
                         Style="{StaticResource QuietButtonStyle}"
-                        ToolTip="设备发现接入后开放" />
+                        ToolTip="打开本地设置"
+                        Click="SettingsButton_Click" />
             </Grid>
         </Grid>
     </Border>
