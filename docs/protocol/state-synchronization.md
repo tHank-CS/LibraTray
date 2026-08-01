@@ -143,6 +143,7 @@ Brightness, temperature, and colour sliders use bounded commit behavior:
 - send only on pointer release, whether the value came from a track click or a
   completed drag;
 - disable additional UI writes while the verified command is in flight;
+- queue global-hotkey input while a verified command is in flight;
 - never cancel an already written command because a read-back is delayed;
 - a failure marks uncertainty and triggers bounded reconciliation.
 
@@ -150,15 +151,17 @@ This prevents intermediate slider traffic and ensures the physical final
 position is sent.
 
 The production session additionally serializes every protocol request with a
-1.1-second minimum start-to-start interval. A write's notification is absorbed
-by its mandatory post-read instead of scheduling another query. Rapid physical
-updates coalesce behind the active reconciliation query, so the UI converges
-to the latest confirmed state without replaying every intermediate value.
+500 ms minimum start-to-start interval and a rolling ceiling of 55 requests per
+minute on its connection. A write's notification is absorbed by its mandatory
+post-read instead of scheduling another query. Rapid physical updates coalesce
+behind the active reconciliation query, so the UI converges to the latest
+confirmed state without replaying every intermediate value.
 
 Transient timeout, device-busy (`-1`), protocol, disconnect, and verified
 postcondition failures receive two retries after 300 ms and 900 ms. Idempotent
 setting commands are resent, then re-read. The UI remains online and exposes
-retry progress; only exhaustion produces an operation error.
+retry progress. A successful re-read publishes the complete state and resets
+the session status to connected; only exhaustion produces an operation error.
 
 ## Notifications
 

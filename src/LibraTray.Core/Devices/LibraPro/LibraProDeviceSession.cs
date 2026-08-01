@@ -57,7 +57,12 @@ public sealed class LibraProStateChangedEventArgs : EventArgs
 public sealed record LibraProDeviceSessionOptions
 {
     public TimeSpan MinimumCommandInterval { get; init; } =
-        TimeSpan.FromMilliseconds(1_100);
+        TimeSpan.FromMilliseconds(500);
+
+    public int MaximumCommandsPerWindow { get; init; } = 55;
+
+    public TimeSpan CommandQuotaWindow { get; init; } =
+        TimeSpan.FromMinutes(1);
 }
 
 /// <summary>
@@ -98,6 +103,15 @@ public sealed class LibraProDeviceSession : IAsyncDisposable
                 nameof(options),
                 "The minimum command interval cannot be negative.");
         }
+
+        ArgumentOutOfRangeException.ThrowIfLessThan(
+            _options.MaximumCommandsPerWindow,
+            1,
+            nameof(options));
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(
+            _options.CommandQuotaWindow,
+            TimeSpan.Zero,
+            nameof(options));
     }
 
     public event EventHandler<LibraProSessionStatusChangedEventArgs>? StatusChanged;
@@ -192,7 +206,9 @@ public sealed class LibraProDeviceSession : IAsyncDisposable
                     .ConfigureAwait(false);
                 transport = new RateLimitedYeelightCommandTransport(
                     new YeelightCommandTransport(client),
-                    _options.MinimumCommandInterval);
+                    _options.MinimumCommandInterval,
+                    _options.MaximumCommandsPerWindow,
+                    _options.CommandQuotaWindow);
                 adapter = new LibraProAdapter(
                     transport,
                     identity.InternalModel!,

@@ -144,8 +144,9 @@ field. Only a trimmed, case-insensitive exact internal-model match maps to
 - Buffer and message size limits are enforced before JSON materialization.
 - Phase-B probe writes require the method and `get_prop` to appear in the
   advertised `support` capabilities. The production session serializes every
-  request and enforces a 1.1-second start-to-start interval below Yeelight's
-  60-command-per-minute per-connection ceiling.
+  request, spaces messages by at least 500 ms, and enforces a rolling ceiling
+  of 55 messages per minute below Yeelight's 60-command-per-minute
+  per-connection limit.
 - No network operation blocks the UI thread.
 
 ## State reconciliation
@@ -176,6 +177,12 @@ postcondition mismatches receive at most two delayed retries. Idempotent setting
 commands are resent and re-read; retry UI remains online. Notifications caused
 by an in-flight write do not add a redundant query, while rapid physical input
 coalesces behind one bounded reconciliation read.
+
+Global hotkeys use `RegisterHotKey` with no-repeat semantics. A process-scoped
+operation queue retains input received while a prior write is being verified,
+then computes the next target from the latest confirmed session state. A named
+per-session mutex prevents duplicate application instances from competing for
+the same registrations.
 
 See [state synchronization](protocol/state-synchronization.md).
 

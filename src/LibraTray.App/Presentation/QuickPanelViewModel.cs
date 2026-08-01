@@ -8,6 +8,9 @@ namespace LibraTray.App.Presentation;
 
 internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
 {
+    private const int MainBrightnessStep = 5;
+    private const int MainColorTemperatureStep = 200;
+
     private readonly LibraProDeviceSession _session;
     private readonly Dispatcher _dispatcher;
     private readonly SemaphoreSlim _operationLock = new(1, 1);
@@ -15,6 +18,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
 
     private string _connectionStatus = "正在等待局域网设备";
     private string? _errorMessage;
+    private string? _hotkeyStatus;
     private bool _isDeviceOnline;
     private bool _isBusy;
     private bool _mainPower;
@@ -54,6 +58,12 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     {
         get => _errorMessage;
         private set => SetField(ref _errorMessage, value);
+    }
+
+    public string? HotkeyStatus
+    {
+        get => _hotkeyStatus;
+        private set => SetField(ref _hotkeyStatus, value);
     }
 
     public bool IsDeviceOnline
@@ -181,6 +191,88 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
                 rgb,
                 ResolveToken(cancellationToken)),
             ResolveToken(cancellationToken));
+
+    public Task ToggleMainPowerFromHotkeyAsync() =>
+        QueueHotkeyAsync(
+            cancellationToken => _session.SetMainPowerAsync(
+                !(_session.CurrentState?.MainPower ?? MainPower),
+                cancellationToken));
+
+    public Task ToggleBackgroundPowerFromHotkeyAsync() =>
+        QueueHotkeyAsync(
+            cancellationToken => _session.SetBackgroundPowerAsync(
+                !(_session.CurrentState?.BackgroundPower ?? BackgroundPower),
+                cancellationToken));
+
+    public Task AdjustMainBrightnessFromHotkeyAsync(int direction)
+    {
+        if (direction == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        int normalizedDirection = Math.Sign(direction);
+        return QueueHotkeyAsync(async cancellationToken =>
+        {
+            int current = _session.CurrentState?.MainBrightness
+                ?? MainBrightness;
+            int value = Math.Clamp(
+                current + normalizedDirection * MainBrightnessStep,
+                1,
+                100);
+            if (value != current)
+            {
+                _ = await _session.SetMainBrightnessAsync(
+                    value,
+                    cancellationToken);
+            }
+        });
+    }
+
+    public Task AdjustMainColorTemperatureFromHotkeyAsync(int direction)
+    {
+        if (direction == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        int normalizedDirection = Math.Sign(direction);
+        return QueueHotkeyAsync(async cancellationToken =>
+        {
+            int current = _session.CurrentState?.MainColorTemperature
+                ?? MainColorTemperature;
+            int value = Math.Clamp(
+                current + normalizedDirection * MainColorTemperatureStep,
+                3_000,
+                6_500);
+            if (value != current)
+            {
+                _ = await _session.SetMainColorTemperatureAsync(
+                    value,
+                    cancellationToken);
+            }
+        });
+    }
+
+    private Task QueueHotkeyAsync(
+        Func<CancellationToken, Task> operation)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        return IsDeviceOnline
+            ? RunAsync(
+                () => operation(_lifetimeToken),
+                _lifetimeToken)
+            : Task.CompletedTask;
+    }
+
+    public void SetHotkeyRegistrationFailures(
+        IReadOnlyList<string> failedHotkeys)
+    {
+        ArgumentNullException.ThrowIfNull(failedHotkeys);
+        HotkeyStatus = failedHotkeys.Count == 0
+            ? null
+            : $"快捷键冲突：{string.Join("、", failedHotkeys)}";
+    }
 
     public void Dispose()
     {

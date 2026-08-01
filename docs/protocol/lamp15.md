@@ -210,12 +210,12 @@ The official generic limits are:
 - 144 LAN command messages per minute overall.
 
 The production session provides one receive loop, request correlation,
-timeouts, cancellation, bounded reconnect support, and a serialized
-1.1-second request interval. Notification reads are coalesced and redundant
-write notifications are absorbed by mandatory post-read verification. Rapid
-unlimited requests caused firmware 38 to stop responding temporarily; stopping
-the client restored immediate read-only responses. The exact device-side
-limit error behavior remains unverified.
+timeouts, cancellation, bounded reconnect support, a serialized 500 ms request
+interval, and a rolling ceiling of 55 messages per minute. Notification reads
+are coalesced and redundant write notifications are absorbed by mandatory
+post-read verification. Rapid unlimited requests caused firmware 38 to stop
+responding temporarily; stopping the client restored immediate read-only
+responses. The exact device-side limit error behavior remains unverified.
 
 ## Probe acceptance criteria
 
