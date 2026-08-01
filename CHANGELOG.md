@@ -49,6 +49,10 @@ and this project intends to follow
   colour temperature, including conflict reporting and no-repeat registration.
 - Single-instance protection and queued shortcut input evaluated from the
   latest confirmed device state.
+- Versioned local settings with atomic replacement, corruption fallback,
+  device alias, adjustment steps, and captured shortcut rebinding.
+- Up to 20 local dual-channel presets, custom whole-background RGB input, and
+  verified preset application with cold-start recovery integration.
 
 ### Fixed
 

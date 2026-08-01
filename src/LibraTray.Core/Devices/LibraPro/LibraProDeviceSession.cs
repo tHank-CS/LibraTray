@@ -359,6 +359,19 @@ public sealed class LibraProDeviceSession : IAsyncDisposable
                 operationToken),
             cancellationToken);
 
+    public Task<LibraProState> ApplyTargetStateAsync(
+        LibraProTargetState target,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return ExecuteAsync(
+            (adapter, token) => adapter.ApplyTargetStateAsync(
+                target,
+                CommandTimeout,
+                token),
+            cancellationToken);
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_disposed)

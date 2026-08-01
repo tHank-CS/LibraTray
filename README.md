@@ -13,8 +13,9 @@ synchronization.
 > repository now contains a tray-first WPF application with trusted local
 > discovery, verified main/background controls, notification reconciliation,
 > bounded retry/rate limiting, cold-start recovery, and fixed global shortcuts.
-> Shortcut configuration, settings, Windows automation, packaging, signing,
-> and a GitHub Release are still pending. The two-zone RGB command remains
+> Shortcut configuration, versioned local settings, and local presets are also
+> implemented. Windows automation, packaging, signing, and a GitHub Release
+> are still pending. The two-zone RGB command remains
 > disabled because its relationship to the observed cold-start failure has not
 > been isolated.
 
@@ -77,12 +78,15 @@ Available at the current milestone:
 - bounded retry, notification reconciliation, and per-connection rate limiting;
 - fixed global shortcuts with conflict reporting, queued input, and
   single-instance protection;
+- captured shortcut rebinding, configurable adjustment steps, and device alias;
+- local presets plus validated custom whole-background RGB input;
+- versioned settings with corruption fallback and atomic replacement;
 - automated tests and a mock-device test surface.
 
 Planned next:
 
-- shortcut configuration and optional OSD;
-- local presets;
+- optional OSD;
+- configuration import/export, device details, theme, and language settings;
 - opt-in lock, unlock, sleep, wake, and display-power automation;
 - portable packages and an installer.
 
@@ -154,14 +158,20 @@ implemented:
 | Main brightness up/down | `Ctrl+Alt+Up` / `Ctrl+Alt+Down` |
 | Main colour temperature up/down | `Ctrl+Alt+Right` / `Ctrl+Alt+Left` |
 
-The current shortcuts are fixed and use Win32 no-repeat registration. A key
-conflict is reported in the panel without terminating the application. Inputs
+The default shortcuts use Win32 no-repeat registration and can be rebound by
+focusing a capture field and pressing a new key combination. A key conflict is
+reported in the panel without terminating the application. Inputs
 received while a prior command is being verified are queued and evaluated
 against the latest confirmed state. Only one LibraTray instance may run in a
 Windows session, preventing a second instance from falsely reporting every key
-as occupied. Shortcut configuration remains planned. Lifecycle automation will
-be individually opt-in and debounced. No normal UI exposes `lamp15` as the
-device name.
+as occupied. Lifecycle automation will be individually opt-in and debounced.
+No normal UI exposes `lamp15` as the device name.
+
+Settings are stored in `%LOCALAPPDATA%\LibraTray\settings.json`. The current
+schema stores only local preferences: alias, adjustment steps, shortcut
+bindings, and at most 20 local presets. Corrupt or unsupported settings fall
+back to safe defaults. No account credential, cloud token, or device address is
+stored.
 
 ## Build from source
 

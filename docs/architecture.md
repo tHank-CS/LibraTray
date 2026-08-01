@@ -189,11 +189,13 @@ See [state synchronization](protocol/state-synchronization.md).
 ## Configuration
 
 Configuration is stored under the current user's application-data area with
-atomic replace and corruption recovery. It may include device selection,
-manual local endpoint, the separate identity fields, aliases, shortcuts,
-increments, presets, automation, startup preference, theme, language, and log
-level. It must not contain vendor accounts, passwords, cloud tokens, or
-unrelated personal data.
+schema versioning, atomic replace, validation, and corruption recovery. The
+initial schema contains a user alias, brightness/temperature increments,
+captured shortcut gestures, and up to 20 local Libra Pro presets. Device
+selection, import/export, automation, startup preference, theme, language, and
+log level remain later schema additions. Settings must not contain vendor
+accounts, passwords, cloud tokens, device addresses, or unrelated personal
+data.
 
 Exports warn that local network metadata may be present. Schema versioning and
 migrations are required before public releases.

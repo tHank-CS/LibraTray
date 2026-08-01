@@ -163,6 +163,13 @@ setting commands are resent, then re-read. The UI remains online and exposes
 retry progress. A successful re-read publishes the complete state and resets
 the session status to connected; only exhaustion produces an operation error.
 
+A local preset is one idempotent target-state operation. The adapter writes
+main appearance, background appearance, main power, and background power in
+that order, then reads the complete state once. Background power is last so the
+vendor-app follow-main policy cannot overwrite the requested independent final
+state. A mismatch enters the same bounded retry path; a verified cold-start
+background failure may use the established once-per-connection recovery.
+
 ## Notifications
 
 `props` is a partial update. Missing fields mean unchanged/unknown, never zero.

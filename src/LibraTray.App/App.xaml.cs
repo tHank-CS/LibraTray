@@ -1,10 +1,12 @@
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Threading;
 using LibraTray.App.Interop;
 using LibraTray.App.Presentation;
+using LibraTray.Core.Configuration;
 using LibraTray.Core.Devices.LibraPro;
 
 namespace LibraTray.App;
@@ -21,6 +23,9 @@ public partial class App : Application
     private QuickPanelViewModel? _quickPanelViewModel;
     private LibraProDeviceSession? _deviceSession;
     private GlobalHotkeyService? _hotkeys;
+    private LibraTraySettings _settings = new();
+    private LibraTraySettingsStore? _settingsStore;
+    private SettingsWindow? _settingsWindow;
     private Mutex? _singleInstanceMutex;
     private bool _ownsSingleInstanceMutex;
     private TrayIconService? _trayIcon;
@@ -47,12 +52,17 @@ public partial class App : Application
             || Environment.GetCommandLineArgs()
                 .Skip(1)
                 .Contains("--show", StringComparer.OrdinalIgnoreCase);
+        _settingsStore = new LibraTraySettingsStore();
+        _settings = _settingsStore.Load();
         _deviceSession = new LibraProDeviceSession();
         _quickPanelViewModel = new QuickPanelViewModel(
             _deviceSession,
             Dispatcher,
+            _settings,
             _appCancellation.Token);
+        _quickPanelViewModel.PresetsChanged += OnPresetsChanged;
         _quickPanel = new QuickPanelWindow(_quickPanelViewModel);
+        _quickPanel.SettingsRequested += OnSettingsRequested;
         if (showRequested)
         {
             _quickPanel.ShowInTaskbar = true;
@@ -64,12 +74,7 @@ public partial class App : Application
             "LibraTray — Yeelight Libra Pro");
         _trayIcon.PrimaryActivated += OnTrayPrimaryActivated;
         _trayIcon.ContextRequested += OnTrayContextRequested;
-        _hotkeys = new GlobalHotkeyService(_quickPanel);
-        _hotkeys.HotkeyPressed += OnHotkeyPressed;
-        _quickPanelViewModel.SetHotkeyRegistrationFailures(
-            _hotkeys.RegistrationFailures
-                .Select(failure => failure.Definition.DisplayText)
-                .ToArray());
+        RegisterHotkeys();
         _trayMenu = CreateTrayMenu();
         _ = _quickPanelViewModel.ConnectAsync(_appCancellation.Token);
 
@@ -90,7 +95,16 @@ public partial class App : Application
             _hotkeys.Dispose();
         }
 
-        _quickPanelViewModel?.Dispose();
+        if (_quickPanelViewModel is not null)
+        {
+            _quickPanelViewModel.PresetsChanged -= OnPresetsChanged;
+            _quickPanelViewModel.Dispose();
+        }
+        if (_quickPanel is not null)
+        {
+            _quickPanel.SettingsRequested -= OnSettingsRequested;
+        }
+
         if (_deviceSession is not null)
         {
             _deviceSession.DisposeAsync().AsTask().GetAwaiter().GetResult();
@@ -135,6 +149,41 @@ public partial class App : Application
     private void OnTrayPrimaryActivated(object? sender, EventArgs e) =>
         ShowQuickPanel();
 
+    private void OnSettingsRequested(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        ShowSettings();
+    }
+
+    private void OnPresetsChanged(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (_settingsStore is null || _quickPanelViewModel is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _settings = _settingsStore.Save(
+                _settings with
+                {
+                    Presets = _quickPanelViewModel.Presets.ToArray(),
+                });
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException)
+        {
+            MessageBox.Show(
+                "预设无法保存，请确认当前用户对本地应用数据目录具有写入权限。",
+                "LibraTray",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
     private void OnHotkeyPressed(
         object? sender,
         GlobalHotkeyPressedEventArgs eventArgs)
@@ -170,6 +219,69 @@ public partial class App : Application
             workArea.Bottom - _quickPanel.Height - 16);
         _quickPanel.Show();
         _quickPanel.Activate();
+    }
+
+    private void ShowSettings()
+    {
+        if (_quickPanel is null || _settingsStore is null)
+        {
+            return;
+        }
+
+        if (_settingsWindow is not null)
+        {
+            _settingsWindow.Activate();
+            return;
+        }
+
+        _settingsWindow = new SettingsWindow(_settings)
+        {
+            Owner = _quickPanel,
+        };
+        try
+        {
+            if (_settingsWindow.ShowDialog() == true
+                && _settingsWindow.SavedSettings is { } changed)
+            {
+                _settings = _settingsStore.Save(changed);
+                _quickPanelViewModel?.ApplySettings(_settings);
+                RegisterHotkeys();
+            }
+        }
+        catch (Exception exception) when (
+            exception is IOException or UnauthorizedAccessException)
+        {
+            MessageBox.Show(
+                "设置无法保存，请确认当前用户对本地应用数据目录具有写入权限。",
+                "LibraTray",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            _settingsWindow = null;
+        }
+    }
+
+    private void RegisterHotkeys()
+    {
+        if (_quickPanel is null)
+        {
+            return;
+        }
+
+        if (_hotkeys is not null)
+        {
+            _hotkeys.HotkeyPressed -= OnHotkeyPressed;
+            _hotkeys.Dispose();
+        }
+
+        _hotkeys = new GlobalHotkeyService(_quickPanel, _settings.Hotkeys);
+        _hotkeys.HotkeyPressed += OnHotkeyPressed;
+        _quickPanelViewModel?.SetHotkeyRegistrationFailures(
+            _hotkeys.RegistrationFailures
+                .Select(failure => failure.Definition.DisplayText)
+                .ToArray());
     }
 
     private ContextMenu CreateTrayMenu()
