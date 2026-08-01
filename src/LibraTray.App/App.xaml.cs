@@ -12,19 +12,34 @@ namespace LibraTray.App;
 [SuppressMessage(
     "Design",
     "CA1001:Types that own disposable fields should be disposable",
-    Justification = "WPF owns the Application lifetime; OnExit deterministically disposes the tray icon.")]
+    Justification = "WPF owns the Application lifetime; OnExit deterministically disposes owned resources.")]
 public partial class App : Application
 {
+    private const string SingleInstanceMutexName = @"Local\LibraTray.App";
     private readonly CancellationTokenSource _appCancellation = new();
     private QuickPanelWindow? _quickPanel;
     private QuickPanelViewModel? _quickPanelViewModel;
     private LibraProDeviceSession? _deviceSession;
+    private GlobalHotkeyService? _hotkeys;
+    private Mutex? _singleInstanceMutex;
+    private bool _ownsSingleInstanceMutex;
     private TrayIconService? _trayIcon;
     private ContextMenu? _trayMenu;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        if (!TryAcquireSingleInstance())
+        {
+            MessageBox.Show(
+                "LibraTray 已在运行。请使用系统托盘图标打开控制面板。",
+                "LibraTray",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            Shutdown();
+            return;
+        }
 
         bool showRequested = e.Args.Contains(
             "--show",
@@ -49,6 +64,12 @@ public partial class App : Application
             "LibraTray — Yeelight Libra Pro");
         _trayIcon.PrimaryActivated += OnTrayPrimaryActivated;
         _trayIcon.ContextRequested += OnTrayContextRequested;
+        _hotkeys = new GlobalHotkeyService(_quickPanel);
+        _hotkeys.HotkeyPressed += OnHotkeyPressed;
+        _quickPanelViewModel.SetHotkeyRegistrationFailures(
+            _hotkeys.RegistrationFailures
+                .Select(failure => failure.Definition.DisplayText)
+                .ToArray());
         _trayMenu = CreateTrayMenu();
         _ = _quickPanelViewModel.ConnectAsync(_appCancellation.Token);
 
@@ -63,6 +84,12 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _appCancellation.Cancel();
+        if (_hotkeys is not null)
+        {
+            _hotkeys.HotkeyPressed -= OnHotkeyPressed;
+            _hotkeys.Dispose();
+        }
+
         _quickPanelViewModel?.Dispose();
         if (_deviceSession is not null)
         {
@@ -77,11 +104,44 @@ public partial class App : Application
         }
 
         _appCancellation.Dispose();
+        if (_ownsSingleInstanceMutex)
+        {
+            _singleInstanceMutex?.ReleaseMutex();
+            _ownsSingleInstanceMutex = false;
+        }
+
+        _singleInstanceMutex?.Dispose();
         base.OnExit(e);
+    }
+
+    private bool TryAcquireSingleInstance()
+    {
+        _singleInstanceMutex = new Mutex(
+            initiallyOwned: false,
+            SingleInstanceMutexName);
+
+        try
+        {
+            _ownsSingleInstanceMutex = _singleInstanceMutex.WaitOne(0);
+        }
+        catch (AbandonedMutexException)
+        {
+            _ownsSingleInstanceMutex = true;
+        }
+
+        return _ownsSingleInstanceMutex;
     }
 
     private void OnTrayPrimaryActivated(object? sender, EventArgs e) =>
         ShowQuickPanel();
+
+    private void OnHotkeyPressed(
+        object? sender,
+        GlobalHotkeyPressedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = ExecuteHotkeyAsync(eventArgs.Action);
+    }
 
     private void OnTrayContextRequested(object? sender, EventArgs e)
     {
@@ -143,5 +203,32 @@ public partial class App : Application
         menu.Items.Add(new Separator());
         menu.Items.Add(exitItem);
         return menu;
+    }
+
+    private Task ExecuteHotkeyAsync(GlobalHotkeyAction action)
+    {
+        if (_quickPanelViewModel is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        return action switch
+        {
+            GlobalHotkeyAction.ToggleMainPower =>
+                _quickPanelViewModel.ToggleMainPowerFromHotkeyAsync(),
+            GlobalHotkeyAction.ToggleBackgroundPower =>
+                _quickPanelViewModel.ToggleBackgroundPowerFromHotkeyAsync(),
+            GlobalHotkeyAction.IncreaseMainBrightness =>
+                _quickPanelViewModel.AdjustMainBrightnessFromHotkeyAsync(1),
+            GlobalHotkeyAction.DecreaseMainBrightness =>
+                _quickPanelViewModel.AdjustMainBrightnessFromHotkeyAsync(-1),
+            GlobalHotkeyAction.IncreaseMainColorTemperature =>
+                _quickPanelViewModel
+                    .AdjustMainColorTemperatureFromHotkeyAsync(1),
+            GlobalHotkeyAction.DecreaseMainColorTemperature =>
+                _quickPanelViewModel
+                    .AdjustMainColorTemperatureFromHotkeyAsync(-1),
+            _ => Task.CompletedTask,
+        };
     }
 }

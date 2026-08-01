@@ -291,10 +291,30 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock VerticalAlignment="Center"
-                           Text="纯局域网 · 无需账号"
-                           FontSize="12"
-                           Foreground="{StaticResource TextSecondaryBrush}" />
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="纯局域网 · 无需账号"
+                               FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}" />
+                    <TextBlock Margin="0,4,12,0"
+                               MaxWidth="280"
+                               Text="{Binding HotkeyStatus}"
+                               TextWrapping="Wrap"
+                               FontSize="11"
+                               Foreground="#FFB06B20">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock"
+                                   BasedOn="{StaticResource {x:Type TextBlock}}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HotkeyStatus}"
+                                                 Value="{x:Null}">
+                                        <Setter Property="Visibility"
+                                                Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
                 <Button Grid.Column="1"
                         IsEnabled="False"
                         Content="设置"

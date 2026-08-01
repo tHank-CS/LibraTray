@@ -12,10 +12,11 @@ synchronization.
 > **Current status:** phases A/B are complete and Phase C is in progress. The
 > repository now contains a tray-first WPF application with trusted local
 > discovery, verified main/background controls, notification reconciliation,
-> bounded retry/rate limiting, and cold-start recovery. Global shortcuts,
-> settings, Windows automation, packaging, signing, and a GitHub Release are
-> still pending. The two-zone RGB command remains disabled because its
-> relationship to the observed cold-start failure has not been isolated.
+> bounded retry/rate limiting, cold-start recovery, and fixed global shortcuts.
+> Shortcut configuration, settings, Windows automation, packaging, signing,
+> and a GitHub Release are still pending. The two-zone RGB command remains
+> disabled because its relationship to the observed cold-start failure has not
+> been isolated.
 
 English | [简体中文](README.zh-CN.md)
 
@@ -74,11 +75,13 @@ Available at the current milestone:
 - verified main power, brightness, and 3000–6500 K colour-temperature control;
 - verified background power, brightness, and whole-background RGB presets;
 - bounded retry, notification reconciliation, and per-connection rate limiting;
+- fixed global shortcuts with conflict reporting, queued input, and
+  single-instance protection;
 - automated tests and a mock-device test surface.
 
-Planned after real-device verification:
+Planned next:
 
-- configurable global shortcuts and optional OSD;
+- shortcut configuration and optional OSD;
 - local presets;
 - opt-in lock, unlock, sleep, wake, and display-power automation;
 - portable packages and an installer.
@@ -140,20 +143,25 @@ nonexistent file; the probe never appends to or overwrites an existing log.
 
 ## Tray, shortcuts, and Windows automation
 
-The tray icon, context menu, trusted device discovery, verified controls, and
-physical-control reconciliation are implemented. Shortcuts and Windows
-automation are not implemented yet. Planned shortcut defaults are:
+The tray icon, context menu, trusted device discovery, verified controls,
+physical-control reconciliation, and the following global shortcuts are
+implemented:
 
-| Action | Planned default |
+| Action | Current default |
 | --- | --- |
 | Toggle main light | `Ctrl+Alt+L` |
 | Toggle ambient light | `Ctrl+Alt+A` |
 | Main brightness up/down | `Ctrl+Alt+Up` / `Ctrl+Alt+Down` |
 | Main colour temperature up/down | `Ctrl+Alt+Right` / `Ctrl+Alt+Left` |
 
-Shortcuts will be configurable, registration failures will not terminate the
-application, and lifecycle automation will be individually opt-in and
-debounced. No normal UI will expose `lamp15` as the device name.
+The current shortcuts are fixed and use Win32 no-repeat registration. A key
+conflict is reported in the panel without terminating the application. Inputs
+received while a prior command is being verified are queued and evaluated
+against the latest confirmed state. Only one LibraTray instance may run in a
+Windows session, preventing a second instance from falsely reporting every key
+as occupied. Shortcut configuration remains planned. Lifecycle automation will
+be individually opt-in and debounced. No normal UI exposes `lamp15` as the
+device name.
 
 ## Build from source
 

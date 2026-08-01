@@ -215,6 +215,63 @@ public sealed class LibraProDeviceSessionTests
     }
 
     [TestMethod]
+    public async Task CommandStateMismatchResendsAndResetsRetryStatus()
+    {
+        using var testCancellation = new CancellationTokenSource(TestTimeout);
+        await using var server = new LoopbackYeelightServer();
+        await using var session = CreateSession();
+        var observedStatuses = new List<LibraProSessionStatus>();
+        session.StatusChanged += (_, eventArgs) =>
+            observedStatuses.Add(eventArgs.Status);
+        YeelightDiscoveredDevice device = CreateDevice(server.EndPoint);
+        Task connectTask = session.ConnectAsync(device, testCancellation.Token);
+        await using LoopbackYeelightConnection connection =
+            await server.AcceptAsync(testCancellation.Token);
+        ReceivedRequest initialQuery =
+            await connection.ReadRequestAsync(testCancellation.Token);
+        await WriteStateAsync(
+            connection,
+            initialQuery.Id,
+            mainBrightness: 50,
+            testCancellation.Token);
+        await connectTask;
+
+        Task<LibraProState> command =
+            session.SetMainBrightnessAsync(42, testCancellation.Token);
+        ReceivedRequest firstWrite =
+            await connection.ReadRequestAsync(testCancellation.Token);
+        Assert.AreEqual("set_bright", firstWrite.Method);
+        await WriteOkAsync(connection, firstWrite.Id, testCancellation.Token);
+        ReceivedRequest mismatchedVerification =
+            await connection.ReadRequestAsync(testCancellation.Token);
+        await WriteStateAsync(
+            connection,
+            mismatchedVerification.Id,
+            mainBrightness: 50,
+            testCancellation.Token);
+
+        ReceivedRequest retriedWrite =
+            await connection.ReadRequestAsync(testCancellation.Token);
+        Assert.AreEqual("set_bright", retriedWrite.Method);
+        await WriteOkAsync(connection, retriedWrite.Id, testCancellation.Token);
+        ReceivedRequest successfulVerification =
+            await connection.ReadRequestAsync(testCancellation.Token);
+        await WriteStateAsync(
+            connection,
+            successfulVerification.Id,
+            mainBrightness: 42,
+            testCancellation.Token);
+
+        LibraProState state = await command;
+        Assert.AreEqual(42, state.MainBrightness);
+        Assert.AreEqual(42, session.CurrentState?.MainBrightness);
+        CollectionAssert.Contains(
+            observedStatuses,
+            LibraProSessionStatus.Retrying);
+        Assert.AreEqual(LibraProSessionStatus.Connected, session.Status);
+    }
+
+    [TestMethod]
     public async Task CommandReportsFailureOnlyAfterRetryBudgetIsExhausted()
     {
         using var testCancellation = new CancellationTokenSource(TestTimeout);
@@ -299,6 +356,64 @@ public sealed class LibraProDeviceSessionTests
             mainBrightness: 42,
             testCancellation.Token);
         _ = await command;
+    }
+
+    [TestMethod]
+    public async Task SessionDefersRequestsThatReachRollingWindowQuota()
+    {
+        using var testCancellation = new CancellationTokenSource(TestTimeout);
+        await using var server = new LoopbackYeelightServer();
+        await using var session = new LibraProDeviceSession(
+            new LibraProDeviceSessionOptions
+            {
+                MinimumCommandInterval = TimeSpan.Zero,
+                MaximumCommandsPerWindow = 3,
+                CommandQuotaWindow = TimeSpan.FromMilliseconds(300),
+            });
+        YeelightDiscoveredDevice device = CreateDevice(server.EndPoint);
+        Task connectTask = session.ConnectAsync(device, testCancellation.Token);
+        await using LoopbackYeelightConnection connection =
+            await server.AcceptAsync(testCancellation.Token);
+        ReceivedRequest initialQuery =
+            await connection.ReadRequestAsync(testCancellation.Token);
+        long initialReceived = Stopwatch.GetTimestamp();
+        await WriteStateAsync(
+            connection,
+            initialQuery.Id,
+            mainBrightness: 50,
+            testCancellation.Token);
+        await connectTask;
+
+        Task<LibraProState> firstCommand =
+            session.SetMainBrightnessAsync(42, testCancellation.Token);
+        ReceivedRequest firstWrite =
+            await connection.ReadRequestAsync(testCancellation.Token);
+        await WriteOkAsync(connection, firstWrite.Id, testCancellation.Token);
+        ReceivedRequest firstVerification =
+            await connection.ReadRequestAsync(testCancellation.Token);
+        await WriteStateAsync(
+            connection,
+            firstVerification.Id,
+            mainBrightness: 42,
+            testCancellation.Token);
+        _ = await firstCommand;
+
+        Task<LibraProState> secondCommand =
+            session.SetMainBrightnessAsync(43, testCancellation.Token);
+        ReceivedRequest secondWrite =
+            await connection.ReadRequestAsync(testCancellation.Token);
+        Assert.IsGreaterThanOrEqualTo(
+            TimeSpan.FromMilliseconds(200),
+            Stopwatch.GetElapsedTime(initialReceived));
+        await WriteOkAsync(connection, secondWrite.Id, testCancellation.Token);
+        ReceivedRequest secondVerification =
+            await connection.ReadRequestAsync(testCancellation.Token);
+        await WriteStateAsync(
+            connection,
+            secondVerification.Id,
+            mainBrightness: 43,
+            testCancellation.Token);
+        _ = await secondCommand;
     }
 
     [TestMethod]
