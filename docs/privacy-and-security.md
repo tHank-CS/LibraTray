@@ -50,6 +50,12 @@ that it can contain local-network metadata.
 
 ## Diagnostic logs
 
+The desktop application's Device > Diagnostics tab creates a bounded text
+summary in memory. Before display or copy it replaces the device ID, LAN
+endpoint, reported device name, and user alias. It is not uploaded or written
+to a new file automatically. Users should still review the summary before
+sharing it.
+
 Shareable logs are redacted by default. Redaction covers at least:
 
 - IPv4 and IPv6 addresses;

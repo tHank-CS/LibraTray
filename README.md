@@ -81,12 +81,13 @@ Available at the current milestone:
 - local presets plus validated custom whole-background RGB input;
 - versioned settings with corruption fallback and atomic replacement;
 - opt-in lock/display power automation plus guarded shutdown/startup restore;
+- an advanced device-details window and bounded redacted diagnostic summary;
 - automated tests and a mock-device test surface.
 
 Planned next:
 
 - optional OSD;
-- configuration import/export, device details, theme, and language settings;
+- configuration import/export, theme, and language settings;
 - portable packages and an installer.
 
 Screen sampling, music/game effects, and a general-purpose Yeelight client are
@@ -192,6 +193,13 @@ LAN device, re-reads it, and restores only when the exact expected off state is
 still present. Session ending is never held for more than three seconds for a
 best-effort device operation. Enabling “start with Windows” writes the current
 user's standard `Run` entry and does not require elevation.
+
+The Device entry in the quick panel or tray menu opens advanced identity,
+firmware, capability, endpoint, and last-confirmed-state details. This is an
+explicit advanced surface where the protocol identifier `lamp15` may appear.
+Its Diagnostics tab generates a bounded summary that replaces the device ID,
+LAN endpoint, reported name, and user alias before copy. Probe logs are separate
+artifacts and must still be reviewed before sharing.
 
 Settings are stored in `%LOCALAPPDATA%\LibraTray\settings.json`. The current
 schema stores only local preferences: alias, adjustment steps, shortcut

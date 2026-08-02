@@ -44,7 +44,7 @@
                                  Padding="8,6"
                                  ToolTip="留空时恢复 Yeelight Libra Pro" />
                         <TextBlock Margin="0,7,0,0"
-                                   Text="产品：Yeelight Libra Pro · 型号：YLTD003"
+                                   Text="产品：Yeelight Libra Pro · 型号：YLTD003 · 内部型号：lamp15"
                                    FontSize="11"
                                    Foreground="{StaticResource TextSecondaryBrush}" />
                     </StackPanel>

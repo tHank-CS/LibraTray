@@ -65,6 +65,42 @@ public sealed record LibraProDeviceSessionOptions
         TimeSpan.FromMinutes(1);
 }
 
+public sealed record LibraProConnectionInfo
+{
+    public LibraProConnectionInfo(
+        string? deviceId,
+        string internalModel,
+        string? firmwareVersion,
+        IEnumerable<string> capabilities,
+        IPEndPoint controlEndPoint,
+        DateTimeOffset connectedAtUtc)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(internalModel);
+        ArgumentNullException.ThrowIfNull(capabilities);
+        ArgumentNullException.ThrowIfNull(controlEndPoint);
+        DeviceId = string.IsNullOrWhiteSpace(deviceId) ? null : deviceId;
+        InternalModel = internalModel;
+        FirmwareVersion = string.IsNullOrWhiteSpace(firmwareVersion)
+            ? null
+            : firmwareVersion;
+        Capabilities = Array.AsReadOnly(capabilities.ToArray());
+        ControlEndPoint = controlEndPoint;
+        ConnectedAtUtc = connectedAtUtc;
+    }
+
+    public string? DeviceId { get; }
+
+    public string InternalModel { get; }
+
+    public string? FirmwareVersion { get; }
+
+    public IReadOnlyList<string> Capabilities { get; }
+
+    public IPEndPoint ControlEndPoint { get; }
+
+    public DateTimeOffset ConnectedAtUtc { get; }
+}
+
 /// <summary>
 /// Owns one trusted Libra Pro discovery, TCP client, product adapter, and
 /// notification reconciliation lifetime for a desktop host.
@@ -124,6 +160,8 @@ public sealed class LibraProDeviceSession : IAsyncDisposable
     public DeviceIdentity? Identity { get; private set; }
 
     public string? DeviceId { get; private set; }
+
+    public LibraProConnectionInfo? ConnectionInfo { get; private set; }
 
     public LibraProState? CurrentState => Volatile.Read(ref _currentState);
 
@@ -226,6 +264,16 @@ public sealed class LibraProDeviceSession : IAsyncDisposable
                 _transport = transport;
                 Identity = identity;
                 DeviceId = device.Response.Id;
+                _ = device.Response.Headers.TryGetValue(
+                    "fw_ver",
+                    out string? firmwareVersion);
+                ConnectionInfo = new LibraProConnectionInfo(
+                    device.Response.Id,
+                    identity.InternalModel!,
+                    firmwareVersion,
+                    capabilities,
+                    device.Response.ControlEndPoint,
+                    DateTimeOffset.UtcNow);
                 PublishState(state);
                 SetStatus(LibraProSessionStatus.Connected, "Connected.");
             }
@@ -397,6 +445,7 @@ public sealed class LibraProDeviceSession : IAsyncDisposable
             _transport = null;
             Identity = null;
             DeviceId = null;
+            ConnectionInfo = null;
             Volatile.Write(ref _currentState, null);
 
             if (client is not null)

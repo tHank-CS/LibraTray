@@ -37,6 +37,12 @@ public sealed class LibraProDeviceSessionTests
 
         Assert.AreEqual(LibraProSessionStatus.Connected, session.Status);
         Assert.AreEqual("Yeelight Libra Pro", session.Identity?.DisplayName);
+        Assert.AreEqual("0x0000000000000001", session.ConnectionInfo?.DeviceId);
+        Assert.AreEqual("38", session.ConnectionInfo?.FirmwareVersion);
+        Assert.AreEqual(server.EndPoint, session.ConnectionInfo?.ControlEndPoint);
+        CollectionAssert.Contains(
+            session.ConnectionInfo?.Capabilities.ToArray(),
+            "bg_set_scene");
         Assert.AreEqual(50, session.CurrentState?.MainBrightness);
 
         Task<LibraProState> command =
@@ -456,6 +462,7 @@ public sealed class LibraProDeviceSessionTests
             + $"Location: yeelight://{endpoint.Address}:{endpoint.Port}\r\n"
             + "id: 0x0000000000000001\r\n"
             + $"model: {model}\r\n"
+            + "fw_ver: 38\r\n"
             + "support: get_prop set_power set_bright set_ct_abx "
             + "bg_set_power bg_set_bright bg_set_ct_abx bg_set_rgb bg_set_scene\r\n"
             + "\r\n";

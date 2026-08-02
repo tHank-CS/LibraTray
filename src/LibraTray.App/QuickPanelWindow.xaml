@@ -382,11 +382,17 @@
                         </TextBlock.Style>
                     </TextBlock>
                 </StackPanel>
-                <Button Grid.Column="1"
-                        Content="设置"
-                        Style="{StaticResource QuietButtonStyle}"
-                        ToolTip="打开本地设置"
-                        Click="SettingsButton_Click" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="设备"
+                            Margin="0,0,8,0"
+                            Style="{StaticResource QuietButtonStyle}"
+                            ToolTip="打开设备详情和诊断"
+                            Click="DeviceDetailsButton_Click" />
+                    <Button Content="设置"
+                            Style="{StaticResource QuietButtonStyle}"
+                            ToolTip="打开本地设置"
+                            Click="SettingsButton_Click" />
+                </StackPanel>
             </Grid>
         </Grid>
     </Border>

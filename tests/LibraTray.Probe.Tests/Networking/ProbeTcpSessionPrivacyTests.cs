@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace LibraTray.Probe.Tests.Networking;
 
 [TestClass]
+[DoNotParallelize]
 public sealed class ProbeTcpSessionPrivacyTests
 {
     private const string Secret = "fixture-token-that-must-never-reach-output";
