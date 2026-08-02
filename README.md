@@ -1,5 +1,9 @@
 # LibraTray
 
+<p align="center">
+  <img src="assets/branding/libratray-icon.png" width="128" height="128" alt="LibraTray app icon">
+</p>
+
 ![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Platform: Windows 10 and 11](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4.svg)
 
@@ -9,14 +13,14 @@ LibraTray is a tray-first, local-only Windows controller being built for the
 `lamp15`. It is focused on instant control and reliable two-channel state
 synchronization.
 
-> **Current status:** phases A/B are complete and Phase C is in progress. The
-> repository now contains a tray-first WPF application with trusted local
-> discovery, verified main/background controls, notification reconciliation,
-> bounded retry/rate limiting, cold-start recovery, and fixed global shortcuts.
-> implemented. Opt-in Windows lifecycle automation is implemented; packaging,
-> signing, and a GitHub Release are still pending. The two-zone RGB command remains
-> disabled because its relationship to the observed cold-start failure has not
-> been isolated.
+> **Current status:** implementation through Phase D is complete. The repository
+> contains the tray-first WPF application, verified two-channel controls,
+> reconciliation and recovery, configurable shortcuts and presets, Windows
+> lifecycle automation, branded portable/MSI packaging, and release automation.
+> Final release-candidate installation testing, signing (if a certificate becomes
+> available), and publication of the first GitHub Release remain. The two-zone RGB
+> command remains disabled because its relationship to the observed cold-start
+> failure has not been isolated.
 
 English | [简体中文](README.zh-CN.md)
 
@@ -35,14 +39,14 @@ narrower:
 - local LAN operation without a Xiaomi or Yeelight account, cloud token, or
   public-facing service;
 - separate main-light and ambient-light state;
-- a future compact Windows tray workflow instead of a permanent dashboard;
+- a compact Windows tray workflow instead of a permanent dashboard;
 - explicit reconciliation of software commands, device notifications, queries,
   and physical-knob changes;
 - a diagnostic probe before product-specific behavior is promoted into the
   application.
 
-The last three items are design goals. The current milestone provides the probe
-and protocol foundation, not the finished desktop experience.
+These constraints are implemented across the protocol probe, testable core,
+and tray application rather than being deferred product goals.
 
 ## Supported devices and identity
 
@@ -92,7 +96,8 @@ Available at the current milestone:
 
 Planned next:
 
-- portable packages and an installer.
+- validate the first release candidate on supported Windows hosts and publish
+  the reviewed GitHub Release.
 
 Screen sampling, music/game effects, and a general-purpose Yeelight client are
 out of scope for the first stable release.
@@ -111,14 +116,18 @@ support. Later operation on an out-of-service Windows build is best effort.
 
 ## Download and installation
 
-There is no packaged download or GitHub Release yet. Do not obtain LibraTray
-binaries from unofficial download sites.
+There is no published GitHub Release yet. Do not obtain LibraTray binaries from
+unofficial download sites. Once a reviewed release is available, its assets are:
 
-The eventual portable distribution will be a self-contained `win-x64` archive:
-extract it to a user-writable folder and run the included executable without
-administrator rights. These instructions become actionable only after an
-official release exists. Windows may warn about unsigned builds unless the
-project obtains a code-signing certificate.
+- `LibraTray-<version>-win-x64.zip`: self-contained portable build; extract it
+  to a user-writable folder and run `LibraTray.exe`;
+- `LibraTray-<version>-win-x64.msi`: current-user installer under
+  `%LOCALAPPDATA%\Programs\LibraTray`, with no administrator permission required;
+- `SHA256SUMS.txt`: checksums for both packages.
+
+The project does not currently have a code-signing certificate. Windows may
+therefore display an unknown-publisher or SmartScreen warning; verify the
+download against `SHA256SUMS.txt` before running it.
 
 ## First connection and protocol probe
 
@@ -195,8 +204,9 @@ device ID rather than its address, expires after seven days, and is consumed or
 discarded on the next eligible launch. Startup waits up to one minute for the
 LAN device, re-reads it, and restores only when the exact expected off state is
 still present. Session ending is never held for more than three seconds for a
-best-effort device operation. Enabling “start with Windows” writes the current
-user's standard `Run` entry and does not require elevation.
+best-effort device operation. Enabling “start with Windows” creates a
+current-user Startup-folder shortcut and does not require elevation. The MSI
+removes that shortcut during uninstall.
 
 The Device entry in the quick panel or tray menu opens advanced identity,
 firmware, capability, endpoint, and last-confirmed-state details. This is an
@@ -244,6 +254,13 @@ checks formatting and analyzers, builds Release, runs all test projects with
 TRX/Cobertura output, and audits vulnerable dependencies. The project uses
 .NET 10 LTS and targets Windows x64. No private file, device IP, account
 credential, or cloud token is required to build or test it.
+
+To produce the same self-contained ZIP, current-user MSI, and checksum manifest
+used by release automation:
+
+```powershell
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version 1.0.0 -Locked
+```
 
 To run the current tray application during development:
 

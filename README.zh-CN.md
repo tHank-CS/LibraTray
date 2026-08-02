@@ -1,5 +1,9 @@
 # LibraTray
 
+<p align="center">
+  <img src="assets/branding/libratray-icon.png" width="128" height="128" alt="LibraTray 应用图标">
+</p>
+
 ![许可证：Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![平台：Windows 10 和 11](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4.svg)
 
@@ -8,12 +12,11 @@ LibraTray 是一个正在开发中的、托盘优先、纯局域网的 Windows �
 或 **Yeelight Monitor Light Bar Pro** 销售，硬件型号为 **YLTD003**，局域网协议
 内部型号为 `lamp15`。项目重点是即时控制和可靠的双通道状态同步。
 
-> **当前状态：**仓库已完成阶段 A/B，阶段 C 正在进行。初版托盘优先 WPF 外壳、
-> 可信局域网发现、已验证的主灯/氛围灯控制、通知复读、受限重试/节流和冷启动恢复
-> 以及全局快捷键均已实现。快捷键配置、版本化本地设置和本地预设也已完成。
-> Windows 生命周期自动化已实现；打包、签名和 GitHub Release 仍待完成。氛围灯左右分区 RGB
-> 命令虽能即时生效，但它与已观察到的
-> 冷启动故障之间尚未完成因果隔离，因此仍未开放。
+> **当前状态：**阶段 D 以内的实现已经完成，包括托盘优先 WPF 应用、已验证的双通道
+> 控制、状态复读与恢复、可配置快捷键和预设、Windows 生命周期自动化、带品牌图标的
+> 便携版/MSI 打包及 Release 自动化。首个 GitHub Release 发布前仍需完成候选安装包的
+> Windows 实机验证，并在将来取得证书后补充签名。氛围灯左右分区 RGB 命令虽能即时
+> 生效，但它与已观察到的冷启动故障之间尚未完成因果隔离，因此仍未开放。
 
 [English](README.md) | 简体中文
 
@@ -29,11 +32,11 @@ LibraTray 刻意保持更窄的范围：
 
 - 只通过局域网工作，不要求小米/Yeelight 账号、云端 Token 或公网服务；
 - 分别维护主灯与氛围灯状态；
-- 未来提供紧凑的 Windows 托盘工作流，而非常驻仪表盘；
+- 提供紧凑的 Windows 托盘工作流，而非常驻仪表盘；
 - 明确协调软件命令、设备通知、状态查询与实体旋钮产生的变化；
 - 先通过诊断探测工具验证协议，再把产品专用行为放入正式应用。
 
-后三项是设计目标。当前里程碑提供探测与协议基础，并非完整桌面应用。
+这些约束已经落实在协议探针、可测试核心与托盘应用中，不再只是后续设计目标。
 
 ## 支持设备与身份
 
@@ -75,9 +78,9 @@ Yeelight Libra Pro 是基于多个官方来源形成的**高可信跨来源推�
 - 高级设备详情窗口和有界的脱敏诊断摘要；
 - 自动化测试与模拟设备测试面。
 
-下一步计划实现：
+下一步计划：
 
-- 便携包和安装程序。
+- 在受支持的 Windows 主机上验收首个候选版本，并发布经维护者复核的 GitHub Release。
 
 屏幕拾色、音乐/游戏灯效以及通用 Yeelight 客户端不属于首个稳定版范围。
 
@@ -94,11 +97,17 @@ Windows 构建上运行只能视为尽力兼容。
 
 ## 下载、安装与便携版
 
-目前没有可下载的安装包或 GitHub Release。请不要从非官方软件下载站获取 LibraTray。
+目前尚未发布 GitHub Release。请不要从非官方软件下载站获取 LibraTray。正式发布后
+将提供以下文件：
 
-未来的便携版计划提供自包含 `win-x64` 压缩包：解压到当前用户可写目录后直接运行，
-不需要管理员权限。只有正式 Release 发布后，这些步骤才可实际执行。项目未获得代码
-签名证书前，Windows 可能对未签名程序显示警告。
+- `LibraTray-<版本>-win-x64.zip`：自包含便携版，解压到当前用户可写目录后运行
+  `LibraTray.exe`；
+- `LibraTray-<版本>-win-x64.msi`：仅为当前用户安装到
+  `%LOCALAPPDATA%\Programs\LibraTray`，无需管理员权限；
+- `SHA256SUMS.txt`：两个软件包的 SHA-256 校验值。
+
+项目目前没有代码签名证书，Windows 可能显示未知发布者或 SmartScreen 警告。运行前
+请使用 `SHA256SUMS.txt` 校验下载文件。
 
 ## 首次连接与协议探测
 
@@ -159,7 +168,8 @@ Windows 自动化默认全部关闭，可分别启用锁定/解锁、显示器�
 双通道关灯得到确认后才会写入；凭据只保存精确设备 ID 的哈希而非地址，七天后过期，
 并会在下一次符合条件的启动时消费或丢弃。启动后最多等待局域网设备一分钟，复读确认
 设备仍为预期关灯状态后才恢复。关机阶段的尽力控制最多占用三秒，不会无限拖住系统。
-“登录 Windows 时自动启动”使用当前用户的标准启动项，无需管理员权限。
+“登录 Windows 时自动启动”使用当前用户的“启动”文件夹快捷方式，无需管理员权限；
+使用 MSI 卸载时会一并清理该快捷方式。
 
 快速面板或托盘菜单中的“设备”入口会打开高级详情，显示产品身份、固件、声明能力、
 控制端点和最近确认状态。这是允许显示协议内部型号 `lamp15` 的明确高级界面。诊断页
@@ -197,6 +207,12 @@ powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\script
 构建、运行全部测试项目并生成 TRX/Cobertura 结果，同时审计存在漏洞的依赖。项目使用
 .NET 10 LTS，主要目标为 Windows x64。构建和测试不需要任何私有文件、真实设备 IP、
 账号凭据或云端 Token。
+
+如需生成与 Release 自动化相同的自包含 ZIP、当前用户 MSI 和校验清单：
+
+```powershell
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version 1.0.0 -Locked
+```
 
 开发阶段可用以下命令运行当前托盘应用：
 

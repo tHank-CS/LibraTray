@@ -18,7 +18,7 @@ jobs:
   verify:
     name: Verify on Windows
     runs-on: windows-2022
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       NUGET_PACKAGES: ${{ github.workspace }}\.nuget\packages
 
@@ -40,6 +40,10 @@ jobs:
       - name: Verify formatting, build, tests, and dependency audit
         shell: pwsh
         run: ./scripts/verify.ps1 -SkipRestore
+
+      - name: Build and verify release packages
+        shell: pwsh
+        run: ./scripts/package-release.ps1 -Version 0.0.0 -Locked
 
       - name: Upload test report
         if: ${{ always() && hashFiles('TestResults/**/*.trx') != '' }}

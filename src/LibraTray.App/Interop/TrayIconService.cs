@@ -49,12 +49,19 @@ internal sealed class TrayIconService : IDisposable
         _source.AddHook(WndProc);
         _mouseHookProcedure = MouseHookProcedure;
 
-        nint icon = LoadIconW(0, DefaultApplicationIcon);
+        nint icon = LoadIconW(
+            GetModuleHandleW(null),
+            DefaultApplicationIcon);
+        if (icon == 0)
+        {
+            icon = LoadIconW(0, DefaultApplicationIcon);
+        }
+
         if (icon == 0)
         {
             throw new Win32Exception(
                 Marshal.GetLastWin32Error(),
-                "Windows did not provide the default tray icon.");
+                "Windows did not provide an application tray icon.");
         }
 
         _iconData = new NotifyIconData
@@ -327,7 +334,7 @@ internal sealed class TrayIconService : IDisposable
     [SuppressMessage(
         "Interoperability",
         "SYSLIB1054:Use LibraryImportAttribute instead of DllImportAttribute",
-        Justification = "This loads a shared Windows system icon and uses no managed string marshalling.")]
+        Justification = "This loads a shared icon resource and uses no managed string marshalling.")]
     private static extern nint LoadIconW(nint instance, nint iconName);
 
     [DllImport(

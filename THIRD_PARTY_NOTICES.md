@@ -1,6 +1,6 @@
 # Third-Party Research Notices
 
-Research snapshot: 2026-07-28.
+Research snapshot: 2026-08-02.
 
 ## Scope
 
@@ -82,6 +82,25 @@ Before every release, regenerate the resolved graph from locked restore
 metadata, audit every package license/notice, and compare the published
 application payload to ensure test tooling is absent.
 
+## Redistributed runtime
+
+The self-contained Windows x64 application redistributes the Microsoft .NET
+10 runtime selected by the locked SDK (10.0.10 in the current candidate). Each
+portable and MSI payload includes `DOTNET-LICENSE.txt` and
+`DOTNET-THIRD-PARTY-NOTICES.txt` copied from that SDK. Those files govern the
+redistributed runtime components; LibraTray's own source remains Apache-2.0.
+
+## Installer build dependency (not redistributed as code)
+
+`WixToolset.Sdk` 6.0.2 builds the MSI. WiX is a build-time dependency: no WiX
+custom action or WiX runtime binary is included in the application payload.
+Use of this WiX version to generate an installer is governed by the WiX Open
+Source Maintenance Fee EULA, including its revenue-dependent terms;
+contributors and commercial redistributors must review those terms before
+generating installers. The portable ZIP does not require WiX. Replacing WiX
+would have medium cost because installer authoring, upgrade identity,
+validation, and CI packaging would need to be recreated.
+
 ## CI and bootstrap tooling (not redistributed)
 
 These tools execute repository automation but are not linked into or shipped
@@ -92,6 +111,8 @@ with LibraTray application artifacts:
 | `actions/checkout` | v6.1.0, commit `d23441a48e516b6c34aea4fa41551a30e30af803` | Check out the repository on GitHub Actions | MIT | Official GitHub Action; low replacement cost with another source checkout step | None |
 | `actions/setup-dotnet` | v5.3.0, commit `9a946fdbd5fb07b82b2f5a4466058b876ab72bb2` | Install the SDK selected by `global.json` and cache locked NuGet inputs | MIT | Official GitHub Action; medium replacement cost because SDK setup and cache behavior must be reproduced | None |
 | `actions/upload-artifact` | v7.0.1, commit `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` | Retain CI TRX and coverage evidence | MIT | Official GitHub Action; low replacement cost, with different retention semantics to revalidate | None |
+| WiX Toolset SDK | 6.0.2, locked NuGet SDK | Build and validate the current-user MSI | OSMF EULA | Build-only; medium replacement cost. Revenue-dependent terms require review by anyone generating the MSI | None; generated MSI uses standard Windows Installer tables |
+| GitHub CLI (`gh`) | GitHub-hosted runner version | Create a draft Release from a validated tag and upload assets | MIT | Official GitHub CLI; low replacement cost through the GitHub API or another maintained action | None |
 | Microsoft `dotnet-install.ps1` | Official `https://dot.net/v1/dotnet-install.ps1` endpoint; downloaded only on explicit bootstrap | Install exact SDK `10.0.302` into the ignored local `.dotnet` directory | MIT (`dotnet/install-scripts`) | Microsoft-maintained; medium replacement cost via a system SDK or verified offline installer. The bootstrap refuses scripts without a valid Microsoft Authenticode signature | None |
 
 GitHub Actions are pinned to immutable commits; Dependabot may propose reviewed
