@@ -61,6 +61,9 @@ and this project intends to follow
 - Individually opt-in Windows lock/display automation, current-user startup
   registration, and guarded shutdown/startup restore using a short-lived,
   exact-device, one-time state ticket.
+- An advanced device-details and diagnostics window with live confirmed state,
+  firmware/capability metadata, masked local identifiers, and a bounded copied
+  summary that redacts names, device ID, and LAN endpoint.
 
 ### Fixed
 

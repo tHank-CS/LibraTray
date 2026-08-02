@@ -29,6 +29,7 @@ public partial class App : Application
     private LibraTraySettings _settings = new();
     private LibraTraySettingsStore? _settingsStore;
     private SettingsWindow? _settingsWindow;
+    private DeviceDetailsWindow? _deviceDetailsWindow;
     private Mutex? _singleInstanceMutex;
     private bool _ownsSingleInstanceMutex;
     private TrayIconService? _trayIcon;
@@ -88,6 +89,7 @@ public partial class App : Application
         _shutdownRestore.StatusChanged += OnShutdownRestoreStatusChanged;
         _quickPanel = new QuickPanelWindow(_quickPanelViewModel);
         _quickPanel.SettingsRequested += OnSettingsRequested;
+        _quickPanel.DeviceDetailsRequested += OnDeviceDetailsRequested;
         if (showRequested)
         {
             _quickPanel.ShowInTaskbar = true;
@@ -153,6 +155,13 @@ public partial class App : Application
         if (_quickPanel is not null)
         {
             _quickPanel.SettingsRequested -= OnSettingsRequested;
+            _quickPanel.DeviceDetailsRequested -= OnDeviceDetailsRequested;
+        }
+        if (_deviceDetailsWindow is not null)
+        {
+            _deviceDetailsWindow.Closed -= OnDeviceDetailsWindowClosed;
+            _deviceDetailsWindow.Close();
+            _deviceDetailsWindow = null;
         }
 
         if (_deviceSession is not null)
@@ -219,6 +228,13 @@ public partial class App : Application
         _ = sender;
         _ = e;
         ShowSettings();
+    }
+
+    private void OnDeviceDetailsRequested(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        ShowDeviceInfo();
     }
 
     private void OnTrayMiddleClicked(object? sender, EventArgs e)
@@ -784,18 +800,37 @@ public partial class App : Application
 
     private void ShowDeviceInfo()
     {
-        string displayName = _quickPanelViewModel?.DeviceName
-            ?? "Yeelight Libra Pro";
-        string? reportedName = _deviceSession?.Identity?.ReportedName;
-        MessageBox.Show(
-            $"设备名称：{displayName}\n"
-            + "产品名称：Yeelight Libra Pro\n"
-            + "硬件型号：YLTD003\n"
-            + $"设备上报名：{(string.IsNullOrWhiteSpace(reportedName) ? "未提供" : reportedName)}\n"
-            + $"连接状态：{_quickPanelViewModel?.ConnectionStatus ?? "未连接"}",
-            "LibraTray · 设备信息",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
+        if (_deviceSession is null || _quickPanelViewModel is null)
+        {
+            return;
+        }
+
+        if (_deviceDetailsWindow is not null)
+        {
+            _deviceDetailsWindow.Activate();
+            return;
+        }
+
+        _deviceDetailsWindow = new DeviceDetailsWindow(
+            _deviceSession,
+            _quickPanelViewModel);
+        if (_quickPanel?.IsVisible == true)
+        {
+            _deviceDetailsWindow.Owner = _quickPanel;
+        }
+        _deviceDetailsWindow.Closed += OnDeviceDetailsWindowClosed;
+        _deviceDetailsWindow.Show();
+    }
+
+    private void OnDeviceDetailsWindowClosed(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (_deviceDetailsWindow is not null)
+        {
+            _deviceDetailsWindow.Closed -= OnDeviceDetailsWindowClosed;
+            _deviceDetailsWindow = null;
+        }
     }
 
     private Task ExecuteHotkeyAsync(GlobalHotkeyAction action)

@@ -22,6 +22,8 @@ public partial class QuickPanelWindow : Window
 
     internal event EventHandler? SettingsRequested;
 
+    internal event EventHandler? DeviceDetailsRequested;
+
     protected override void OnClosing(CancelEventArgs e)
     {
         if (!_allowClose)
@@ -58,6 +60,13 @@ public partial class QuickPanelWindow : Window
         _ = sender;
         _ = e;
         SettingsRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void DeviceDetailsButton_Click(object sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        DeviceDetailsRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private async void RetryButton_Click(object sender, RoutedEventArgs e)
