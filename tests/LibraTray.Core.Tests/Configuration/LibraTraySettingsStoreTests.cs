@@ -37,6 +37,7 @@ public sealed class LibraTraySettingsStoreTests
             UserAlias = "Work light",
             BrightnessStep = 8,
             ColorTemperatureStep = 250,
+            AdjustBrightnessWithTrayWheel = false,
             Hotkeys = new GlobalHotkeySettings
             {
                 ToggleMainPower = "Ctrl+Shift+L",
@@ -65,6 +66,9 @@ public sealed class LibraTraySettingsStoreTests
         Assert.AreEqual(
             saved.ColorTemperatureStep,
             loaded.ColorTemperatureStep);
+        Assert.AreEqual(
+            saved.AdjustBrightnessWithTrayWheel,
+            loaded.AdjustBrightnessWithTrayWheel);
         Assert.AreEqual(saved.Hotkeys, loaded.Hotkeys);
         CollectionAssert.AreEqual(
             saved.Presets.ToArray(),
@@ -88,6 +92,7 @@ public sealed class LibraTraySettingsStoreTests
         Assert.IsNull(loaded.UserAlias);
         Assert.AreEqual(5, loaded.BrightnessStep);
         Assert.AreEqual(200, loaded.ColorTemperatureStep);
+        Assert.IsTrue(loaded.AdjustBrightnessWithTrayWheel);
         Assert.AreEqual("Ctrl+Alt+L", loaded.Hotkeys.ToggleMainPower);
         Assert.IsEmpty(loaded.Presets);
     }

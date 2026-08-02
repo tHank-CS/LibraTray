@@ -151,6 +151,18 @@ The tray icon, context menu, trusted device discovery, verified controls,
 physical-control reconciliation, and the following global shortcuts are
 implemented:
 
+- left-click the tray icon to show or hide the quick panel immediately;
+- middle-click it to toggle the main light;
+- optionally scroll over it to adjust main brightness using the configured
+  step;
+- right-click for current connection state, both channel switches, all-on/off,
+  local presets, state refresh/reconnect, settings, safe device information,
+  and explicit exit.
+
+Double-click is intentionally not assigned: reliably distinguishing it would
+delay every single-click action by the Windows double-click interval. Rapid
+wheel input is coalesced before it reaches the device request queue.
+
 | Action | Current default |
 | --- | --- |
 | Toggle main light | `Ctrl+Alt+L` |
@@ -169,9 +181,9 @@ No normal UI exposes `lamp15` as the device name.
 
 Settings are stored in `%LOCALAPPDATA%\LibraTray\settings.json`. The current
 schema stores only local preferences: alias, adjustment steps, shortcut
-bindings, and at most 20 local presets. Corrupt or unsupported settings fall
-back to safe defaults. No account credential, cloud token, or device address is
-stored.
+bindings, tray-wheel preference, and at most 20 local presets. Corrupt or
+unsupported settings fall back to safe defaults. No account credential, cloud
+token, or device address is stored.
 
 ## Build from source
 

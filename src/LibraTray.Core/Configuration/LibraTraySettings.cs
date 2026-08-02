@@ -15,6 +15,8 @@ public sealed record LibraTraySettings
 
     public int ColorTemperatureStep { get; init; } = 200;
 
+    public bool AdjustBrightnessWithTrayWheel { get; init; } = true;
+
     public GlobalHotkeySettings Hotkeys { get; init; } = new();
 
     public IReadOnlyList<LibraProPreset> Presets { get; init; } = [];
@@ -95,6 +97,8 @@ internal static class LibraTraySettingsNormalizer
                 IsInRange(settings.ColorTemperatureStep, 50, 1_000)
                     ? settings.ColorTemperatureStep
                     : defaults.ColorTemperatureStep,
+            AdjustBrightnessWithTrayWheel =
+                settings.AdjustBrightnessWithTrayWheel,
             Hotkeys = NormalizeHotkeys(settings.Hotkeys, defaults.Hotkeys),
             Presets = NormalizePresets(settings.Presets),
         };

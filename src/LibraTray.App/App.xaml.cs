@@ -30,6 +30,8 @@ public partial class App : Application
     private bool _ownsSingleInstanceMutex;
     private TrayIconService? _trayIcon;
     private ContextMenu? _trayMenu;
+    private DispatcherTimer? _trayWheelTimer;
+    private int _pendingTrayWheelSteps;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -73,7 +75,17 @@ public partial class App : Application
             _quickPanel,
             "LibraTray — Yeelight Libra Pro");
         _trayIcon.PrimaryActivated += OnTrayPrimaryActivated;
+        _trayIcon.MiddleClicked += OnTrayMiddleClicked;
         _trayIcon.ContextRequested += OnTrayContextRequested;
+        _trayIcon.MouseWheelScrolled += OnTrayMouseWheelScrolled;
+        _trayWheelTimer = new DispatcherTimer(
+            TimeSpan.FromMilliseconds(120),
+            DispatcherPriority.Input,
+            OnTrayWheelTimerTick,
+            Dispatcher);
+        _trayWheelTimer.Stop();
+        _ = _trayIcon.TrySetMouseWheelEnabled(
+            _settings.AdjustBrightnessWithTrayWheel);
         RegisterHotkeys();
         _trayMenu = CreateTrayMenu();
         _ = _quickPanelViewModel.ConnectAsync(_appCancellation.Token);
@@ -113,9 +125,13 @@ public partial class App : Application
         if (_trayIcon is not null)
         {
             _trayIcon.PrimaryActivated -= OnTrayPrimaryActivated;
+            _trayIcon.MiddleClicked -= OnTrayMiddleClicked;
             _trayIcon.ContextRequested -= OnTrayContextRequested;
+            _trayIcon.MouseWheelScrolled -= OnTrayMouseWheelScrolled;
             _trayIcon.Dispose();
         }
+
+        _trayWheelTimer?.Stop();
 
         _appCancellation.Dispose();
         if (_ownsSingleInstanceMutex)
@@ -146,14 +162,61 @@ public partial class App : Application
         return _ownsSingleInstanceMutex;
     }
 
-    private void OnTrayPrimaryActivated(object? sender, EventArgs e) =>
-        ShowQuickPanel();
+    private void OnTrayPrimaryActivated(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (_quickPanel?.IsVisible == true)
+        {
+            _quickPanel.Hide();
+        }
+        else
+        {
+            ShowQuickPanel();
+        }
+    }
 
     private void OnSettingsRequested(object? sender, EventArgs e)
     {
         _ = sender;
         _ = e;
         ShowSettings();
+    }
+
+    private void OnTrayMiddleClicked(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (_quickPanelViewModel is not null)
+        {
+            _ = _quickPanelViewModel.ToggleMainPowerFromHotkeyAsync();
+        }
+    }
+
+    private void OnTrayMouseWheelScrolled(
+        object? sender,
+        TrayMouseWheelEventArgs eventArgs)
+    {
+        _ = sender;
+        _pendingTrayWheelSteps = Math.Clamp(
+            _pendingTrayWheelSteps + eventArgs.Steps,
+            -20,
+            20);
+        _trayWheelTimer?.Stop();
+        _trayWheelTimer?.Start();
+    }
+
+    private void OnTrayWheelTimerTick(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        _trayWheelTimer?.Stop();
+        int steps = _pendingTrayWheelSteps;
+        _pendingTrayWheelSteps = 0;
+        if (steps != 0 && _quickPanelViewModel is not null)
+        {
+            _ = _quickPanelViewModel.AdjustMainBrightnessFromHotkeyAsync(steps);
+        }
     }
 
     private void OnPresetsChanged(object? sender, EventArgs e)
@@ -194,11 +257,14 @@ public partial class App : Application
 
     private void OnTrayContextRequested(object? sender, EventArgs e)
     {
-        if (_trayMenu is null)
+        _ = sender;
+        _ = e;
+        if (_quickPanelViewModel is null)
         {
             return;
         }
 
+        _trayMenu = CreateTrayMenu();
         _trayMenu.Placement = PlacementMode.MousePoint;
         _trayMenu.IsOpen = true;
     }
@@ -245,6 +311,8 @@ public partial class App : Application
             {
                 _settings = _settingsStore.Save(changed);
                 _quickPanelViewModel?.ApplySettings(_settings);
+                _ = _trayIcon?.TrySetMouseWheelEnabled(
+                    _settings.AdjustBrightnessWithTrayWheel);
                 RegisterHotkeys();
             }
         }
@@ -286,6 +354,7 @@ public partial class App : Application
 
     private ContextMenu CreateTrayMenu()
     {
+        QuickPanelViewModel? viewModel = _quickPanelViewModel;
         var openItem = new MenuItem
         {
             Header = "打开快速控制",
@@ -295,9 +364,114 @@ public partial class App : Application
 
         var statusItem = new MenuItem
         {
-            Header = "设备：尚未连接",
+            Header = viewModel is null
+                ? "Yeelight Libra Pro · 尚未连接"
+                : $"{viewModel.DeviceName} · {viewModel.ConnectionStatus}",
             IsEnabled = false,
         };
+
+        var mainPowerItem = new MenuItem
+        {
+            Header = "主灯",
+            IsCheckable = true,
+            IsChecked = viewModel?.MainPower == true,
+            IsEnabled = viewModel?.CanControl == true,
+        };
+        mainPowerItem.Click += async (_, _) =>
+        {
+            if (viewModel is not null)
+            {
+                await viewModel.SetMainPowerAsync(!viewModel.MainPower);
+            }
+        };
+
+        var backgroundPowerItem = new MenuItem
+        {
+            Header = "氛围灯",
+            IsCheckable = true,
+            IsChecked = viewModel?.BackgroundPower == true,
+            IsEnabled = viewModel?.CanControl == true,
+        };
+        backgroundPowerItem.Click += async (_, _) =>
+        {
+            if (viewModel is not null)
+            {
+                await viewModel.SetBackgroundPowerAsync(
+                    !viewModel.BackgroundPower);
+            }
+        };
+
+        var allOnItem = new MenuItem
+        {
+            Header = "全部开启",
+            IsEnabled = viewModel?.CanControl == true,
+        };
+        allOnItem.Click += async (_, _) =>
+        {
+            if (viewModel is not null)
+            {
+                await viewModel.SetAllPowerAsync(enabled: true);
+            }
+        };
+
+        var allOffItem = new MenuItem
+        {
+            Header = "全部关闭",
+            IsEnabled = viewModel?.CanControl == true,
+        };
+        allOffItem.Click += async (_, _) =>
+        {
+            if (viewModel is not null)
+            {
+                await viewModel.SetAllPowerAsync(enabled: false);
+            }
+        };
+
+        var presetsItem = new MenuItem { Header = "预设" };
+        if (viewModel is null || viewModel.Presets.Count == 0)
+        {
+            presetsItem.Items.Add(
+                new MenuItem
+                {
+                    Header = "尚未保存预设",
+                    IsEnabled = false,
+                });
+        }
+        else
+        {
+            foreach (LibraProPreset preset in viewModel.Presets)
+            {
+                var presetItem = new MenuItem
+                {
+                    Header = preset.Name,
+                    IsEnabled = viewModel.CanControl,
+                };
+                presetItem.Click += async (_, _) =>
+                    await viewModel.ApplyPresetAsync(preset);
+                presetsItem.Items.Add(presetItem);
+            }
+        }
+
+        var refreshItem = new MenuItem
+        {
+            Header = viewModel?.IsDeviceOnline == true
+                ? "刷新真实状态"
+                : "重新连接",
+            IsEnabled = viewModel?.IsBusy != true,
+        };
+        refreshItem.Click += async (_, _) =>
+        {
+            if (viewModel is not null)
+            {
+                await viewModel.RefreshStateAsync();
+            }
+        };
+
+        var settingsItem = new MenuItem { Header = "设置" };
+        settingsItem.Click += (_, _) => ShowSettings();
+
+        var deviceInfoItem = new MenuItem { Header = "设备信息" };
+        deviceInfoItem.Click += (_, _) => ShowDeviceInfo();
 
         var exitItem = new MenuItem
         {
@@ -313,8 +487,34 @@ public partial class App : Application
         menu.Items.Add(openItem);
         menu.Items.Add(statusItem);
         menu.Items.Add(new Separator());
+        menu.Items.Add(mainPowerItem);
+        menu.Items.Add(backgroundPowerItem);
+        menu.Items.Add(allOnItem);
+        menu.Items.Add(allOffItem);
+        menu.Items.Add(presetsItem);
+        menu.Items.Add(new Separator());
+        menu.Items.Add(refreshItem);
+        menu.Items.Add(settingsItem);
+        menu.Items.Add(deviceInfoItem);
+        menu.Items.Add(new Separator());
         menu.Items.Add(exitItem);
         return menu;
+    }
+
+    private void ShowDeviceInfo()
+    {
+        string displayName = _quickPanelViewModel?.DeviceName
+            ?? "Yeelight Libra Pro";
+        string? reportedName = _deviceSession?.Identity?.ReportedName;
+        MessageBox.Show(
+            $"设备名称：{displayName}\n"
+            + "产品名称：Yeelight Libra Pro\n"
+            + "硬件型号：YLTD003\n"
+            + $"设备上报名：{(string.IsNullOrWhiteSpace(reportedName) ? "未提供" : reportedName)}\n"
+            + $"连接状态：{_quickPanelViewModel?.ConnectionStatus ?? "未连接"}",
+            "LibraTray · 设备信息",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
     private Task ExecuteHotkeyAsync(GlobalHotkeyAction action)

@@ -227,20 +227,20 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
                 !(_session.CurrentState?.BackgroundPower ?? BackgroundPower),
                 cancellationToken));
 
-    public Task AdjustMainBrightnessFromHotkeyAsync(int direction)
+    public Task AdjustMainBrightnessFromHotkeyAsync(int steps)
     {
-        if (direction == 0)
+        if (steps == 0)
         {
             return Task.CompletedTask;
         }
 
-        int normalizedDirection = Math.Sign(direction);
+        int boundedSteps = Math.Clamp(steps, -20, 20);
         return QueueHotkeyAsync(async cancellationToken =>
         {
             int current = _session.CurrentState?.MainBrightness
                 ?? MainBrightness;
             int value = Math.Clamp(
-                current + normalizedDirection * _mainBrightnessStep,
+                current + boundedSteps * _mainBrightnessStep,
                 1,
                 100);
             if (value != current)
@@ -306,13 +306,43 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     }
 
     public Task ApplySelectedPresetAsync() =>
-        SelectedPreset is { } preset && IsDeviceOnline
+        SelectedPreset is { } preset
+            ? ApplyPresetAsync(preset)
+            : Task.CompletedTask;
+
+    public Task ApplyPresetAsync(LibraProPreset preset)
+    {
+        ArgumentNullException.ThrowIfNull(preset);
+        return IsDeviceOnline
             ? RunAsync(
                 () => _session.ApplyTargetStateAsync(
                     preset.ToTargetState(),
                     _lifetimeToken),
                 _lifetimeToken)
             : Task.CompletedTask;
+    }
+
+    public Task SetAllPowerAsync(bool enabled) =>
+        IsDeviceOnline
+            ? RunAsync(
+                async () =>
+                {
+                    _ = await _session.SetMainPowerAsync(
+                        enabled,
+                        _lifetimeToken);
+                    _ = await _session.SetBackgroundPowerAsync(
+                        enabled,
+                        _lifetimeToken);
+                },
+                _lifetimeToken)
+            : Task.CompletedTask;
+
+    public Task RefreshStateAsync() =>
+        IsDeviceOnline
+            ? RunAsync(
+                () => _session.RefreshAsync(_lifetimeToken),
+                _lifetimeToken)
+            : ConnectAsync(_lifetimeToken);
 
     public bool TrySaveCurrentPreset(string name, out string? error)
     {

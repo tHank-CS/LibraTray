@@ -53,6 +53,11 @@ and this project intends to follow
   device alias, adjustment steps, and captured shortcut rebinding.
 - Up to 20 local dual-channel presets, custom whole-background RGB input, and
   verified preset application with cold-start recovery integration.
+- A state-aware tray menu with independent channel switches, all-on/off,
+  presets, refresh/reconnect, settings, safe device information, and explicit
+  exit.
+- Immediate left-click panel toggling, middle-click main-power control, and an
+  optional coalesced tray-wheel brightness gesture.
 
 ### Fixed
 
