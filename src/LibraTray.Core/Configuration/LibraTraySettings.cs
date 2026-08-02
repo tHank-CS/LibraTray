@@ -21,6 +21,8 @@ public sealed record LibraTraySettings
 
     public AppLanguage Language { get; init; } = AppLanguage.System;
 
+    public bool ShowOnScreenDisplay { get; init; } = true;
+
     public WindowsAutomationSettings WindowsAutomation { get; init; } = new();
 
     public GlobalHotkeySettings Hotkeys { get; init; } = new();
@@ -146,6 +148,7 @@ internal static class LibraTraySettingsNormalizer
             Language = Enum.IsDefined(settings.Language)
                 ? settings.Language
                 : defaults.Language,
+            ShowOnScreenDisplay = settings.ShowOnScreenDisplay,
             WindowsAutomation = NormalizeWindowsAutomation(
                 settings.WindowsAutomation,
                 defaults.WindowsAutomation),

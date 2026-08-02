@@ -35,6 +35,7 @@ public partial class SettingsWindow : Window
         AliasTextBox.Text = settings.UserAlias ?? string.Empty;
         ThemeComboBox.SelectedIndex = (int)settings.Theme;
         LanguageComboBox.SelectedIndex = (int)settings.Language;
+        ShowOsdCheckBox.IsChecked = settings.ShowOnScreenDisplay;
         BrightnessStepTextBox.Text = settings.BrightnessStep.ToString(
             CultureInfo.InvariantCulture);
         TemperatureStepTextBox.Text = settings.ColorTemperatureStep.ToString(
@@ -200,6 +201,7 @@ public partial class SettingsWindow : Window
             AdjustBrightnessWithTrayWheel = TrayWheelCheckBox.IsChecked == true,
             Theme = (AppTheme)Math.Max(0, ThemeComboBox.SelectedIndex),
             Language = (AppLanguage)Math.Max(0, LanguageComboBox.SelectedIndex),
+            ShowOnScreenDisplay = ShowOsdCheckBox.IsChecked == true,
             WindowsAutomation = _workingSettings.WindowsAutomation with
             {
                 LockAndUnlockEnabled =

@@ -40,6 +40,7 @@ public sealed class LibraTraySettingsStoreTests
             AdjustBrightnessWithTrayWheel = false,
             Theme = AppTheme.Dark,
             Language = AppLanguage.English,
+            ShowOnScreenDisplay = false,
             WindowsAutomation = new WindowsAutomationSettings
             {
                 LockAndUnlockEnabled = true,
@@ -81,6 +82,7 @@ public sealed class LibraTraySettingsStoreTests
             loaded.AdjustBrightnessWithTrayWheel);
         Assert.AreEqual(AppTheme.Dark, loaded.Theme);
         Assert.AreEqual(AppLanguage.English, loaded.Language);
+        Assert.IsFalse(loaded.ShowOnScreenDisplay);
         Assert.AreEqual(saved.WindowsAutomation, loaded.WindowsAutomation);
         Assert.AreEqual(saved.Hotkeys, loaded.Hotkeys);
         CollectionAssert.AreEqual(
@@ -108,6 +110,7 @@ public sealed class LibraTraySettingsStoreTests
         Assert.IsTrue(loaded.AdjustBrightnessWithTrayWheel);
         Assert.AreEqual(AppTheme.System, loaded.Theme);
         Assert.AreEqual(AppLanguage.System, loaded.Language);
+        Assert.IsTrue(loaded.ShowOnScreenDisplay);
         Assert.IsFalse(loaded.WindowsAutomation.IsAnyEnabled);
         Assert.IsFalse(loaded.WindowsAutomation.StartWithWindows);
         Assert.AreEqual(5, loaded.WindowsAutomation.ManualSuppressionSeconds);

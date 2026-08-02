@@ -82,6 +82,9 @@
                                    FontSize="11"
                                    TextWrapping="Wrap"
                                    Foreground="{DynamicResource TextSecondaryBrush}" />
+                        <CheckBox x:Name="ShowOsdCheckBox"
+                                  Margin="0,10,0,0"
+                                  Content="{DynamicResource Text.ShowOsd}" />
                     </StackPanel>
                 </Border>
 
