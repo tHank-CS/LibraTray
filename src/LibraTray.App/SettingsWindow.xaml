@@ -77,6 +77,9 @@
                                          Padding="8,6" />
                             </StackPanel>
                         </Grid>
+                        <CheckBox x:Name="TrayWheelCheckBox"
+                                  Margin="0,12,0,0"
+                                  Content="在托盘图标上滚动滚轮时调节主灯亮度" />
                     </StackPanel>
                 </Border>
 

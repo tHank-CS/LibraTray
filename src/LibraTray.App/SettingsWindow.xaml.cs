@@ -22,6 +22,8 @@ public partial class SettingsWindow : Window
             CultureInfo.InvariantCulture);
         TemperatureStepTextBox.Text = settings.ColorTemperatureStep.ToString(
             CultureInfo.InvariantCulture);
+        TrayWheelCheckBox.IsChecked =
+            settings.AdjustBrightnessWithTrayWheel;
         MainPowerHotkeyTextBox.Text = settings.Hotkeys.ToggleMainPower;
         BackgroundPowerHotkeyTextBox.Text =
             settings.Hotkeys.ToggleBackgroundPower;
@@ -151,6 +153,7 @@ public partial class SettingsWindow : Window
             UserAlias = AliasTextBox.Text,
             BrightnessStep = brightnessStep,
             ColorTemperatureStep = temperatureStep,
+            AdjustBrightnessWithTrayWheel = TrayWheelCheckBox.IsChecked == true,
             Hotkeys = new GlobalHotkeySettings
             {
                 ToggleMainPower = gestures[0],

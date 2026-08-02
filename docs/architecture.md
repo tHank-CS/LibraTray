@@ -110,10 +110,15 @@ application-level events. Interop handles are scoped and disposed
 deterministically. A failure to register one shortcut degrades that shortcut,
 not the entire process.
 
-The initial host creates the tray icon through a small disposable
-`Shell_NotifyIcon` adapter and exposes a compact quick panel. Until trusted
-discovery and the product adapter are connected to presentation state, all
-device controls are visibly disabled rather than simulated.
+The host creates the tray icon through a small disposable `Shell_NotifyIcon`
+adapter and exposes a compact quick panel. Its context menu is rebuilt from
+confirmed presentation state whenever it opens. Left click toggles the panel
+without waiting for a double-click timeout; middle click toggles main power.
+An optional low-level mouse hook observes wheel input only while the pointer is
+inside the icon rectangle returned by `Shell_NotifyIconGetRect`; it never
+suppresses or rewrites system input, and rapid deltas are coalesced before a
+device command is queued. All device controls remain visibly disabled until a
+trusted device session is available.
 
 ## Identity model
 
@@ -191,11 +196,11 @@ See [state synchronization](protocol/state-synchronization.md).
 Configuration is stored under the current user's application-data area with
 schema versioning, atomic replace, validation, and corruption recovery. The
 initial schema contains a user alias, brightness/temperature increments,
-captured shortcut gestures, and up to 20 local Libra Pro presets. Device
-selection, import/export, automation, startup preference, theme, language, and
-log level remain later schema additions. Settings must not contain vendor
-accounts, passwords, cloud tokens, device addresses, or unrelated personal
-data.
+captured shortcut gestures, a tray-wheel preference, and up to 20 local Libra
+Pro presets. Device selection, import/export, automation, startup preference,
+theme, language, and log level remain later schema additions. Settings must
+not contain vendor accounts, passwords, cloud tokens, device addresses, or
+unrelated personal data.
 
 Exports warn that local network metadata may be present. Schema versioning and
 migrations are required before public releases.
