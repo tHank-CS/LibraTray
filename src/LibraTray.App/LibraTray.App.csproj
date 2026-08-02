@@ -7,9 +7,13 @@
     <RootNamespace>LibraTray.App</RootNamespace>
     <Description>Tray-first Windows desktop host for Yeelight Libra Pro.</Description>
     <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <ApplicationIcon>..\..\assets\branding\libratray.ico</ApplicationIcon>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\LibraTray.Core\LibraTray.Core.csproj" />
+    <Resource Include="..\..\assets\branding\libratray.ico"
+              Link="Assets\libratray.ico" />
   </ItemGroup>
 </Project>

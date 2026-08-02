@@ -1,7 +1,8 @@
 # Troubleshooting
 
-This guide applies to the current protocol probe. Tray UI and packaged releases
-do not exist yet.
+This guide applies to the protocol probe, tray application, and locally built
+release candidates. Published GitHub Release availability is documented in the
+README files.
 
 ## Confirm the local toolchain
 

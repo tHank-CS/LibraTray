@@ -124,8 +124,9 @@ maintenance change.
 
 ## Expected publication and resources
 
-The intended first public artifact is a self-contained `win-x64` portable
-directory compressed as ZIP. An installer is optional for a later phase.
+The first public release is built as both a self-contained `win-x64` portable
+ZIP and a current-user MSI installed under `%LOCALAPPDATA%\Programs\LibraTray`.
+The MSI uses the build-only WiX Toolset SDK 6.0.2 and requires no elevation.
 There is no code-signing certificate; documentation must warn that unsigned
 artifacts may trigger Windows publisher/SmartScreen warnings.
 

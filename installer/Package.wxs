@@ -1,0 +1,134 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="LibraTray"
+           Manufacturer="hank-wang-cs"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="0FF4B58A-D283-454C-8189-77A7C53B1810"
+           Scope="perUser"
+           Compressed="yes">
+    <SummaryInformation Description="Tray-first local controller for Yeelight Libra Pro"
+                        Manufacturer="hank-wang-cs" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of LibraTray is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+    <Icon Id="LibraTrayIcon" SourceFile="!(bindpath.branding)\libratray.ico" />
+    <Property Id="ARPPRODUCTICON" Value="LibraTrayIcon" />
+
+    <StandardDirectory Id="PerUserProgramFilesFolder">
+      <Directory Id="INSTALLFOLDER" Name="LibraTray" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="LibraTray" />
+    </StandardDirectory>
+
+    <Component Id="ApplicationExecutable"
+               Directory="INSTALLFOLDER"
+               Guid="ECDF82DB-36BC-408E-868F-B7A10AFE358B">
+      <File Id="ApplicationExecutableFile"
+            Source="!(bindpath.publish)\LibraTray.exe" />
+      <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
+      <RemoveFolder Id="RemoveEmptyPerUserProgramsFolder"
+                    Directory="PerUserProgramFilesFolder"
+                    On="uninstall" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\LibraTray\Installer\Components"
+                     Name="ApplicationExecutable"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="ProjectLicense"
+               Directory="INSTALLFOLDER"
+               Guid="0CA74A1B-DB79-4613-BC71-60D1473C2418">
+      <File Source="!(bindpath.publish)\LICENSE.txt" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\LibraTray\Installer\Components"
+                     Name="ProjectLicense"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="ProjectNotices"
+               Directory="INSTALLFOLDER"
+               Guid="D44CE309-A7E3-4BAD-B47F-B564D7E8D783">
+      <File Source="!(bindpath.publish)\THIRD_PARTY_NOTICES.md" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\LibraTray\Installer\Components"
+                     Name="ProjectNotices"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="DotNetLicense"
+               Directory="INSTALLFOLDER"
+               Guid="74C41832-53F6-42B4-92A8-E115726122B2">
+      <File Source="!(bindpath.publish)\DOTNET-LICENSE.txt" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\LibraTray\Installer\Components"
+                     Name="DotNetLicense"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="DotNetNotices"
+               Directory="INSTALLFOLDER"
+               Guid="EDA40D0D-FF17-4641-8967-B15C72D39240">
+      <File Source="!(bindpath.publish)\DOTNET-THIRD-PARTY-NOTICES.txt" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\LibraTray\Installer\Components"
+                     Name="DotNetNotices"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="EnglishReadme"
+               Directory="INSTALLFOLDER"
+               Guid="88F46551-0966-45F0-B750-69607E2B4FF8">
+      <File Source="!(bindpath.publish)\README.md" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\LibraTray\Installer\Components"
+                     Name="EnglishReadme"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="ChineseReadme"
+               Directory="INSTALLFOLDER"
+               Guid="1A39DE2A-9E57-4A2A-A3FE-4588CD750F22">
+      <File Source="!(bindpath.publish)\README.zh-CN.md" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\LibraTray\Installer\Components"
+                     Name="ChineseReadme"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="ApplicationShortcut"
+               Directory="ApplicationProgramsFolder"
+               Guid="EE98DFC3-28FB-4CD7-99C5-93C2B1818129">
+      <Shortcut Id="ApplicationStartMenuShortcut"
+                Name="LibraTray"
+                Description="Yeelight Libra Pro local controller"
+                Target="[INSTALLFOLDER]LibraTray.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="LibraTrayIcon" />
+      <RemoveFile Id="RemoveApplicationStartupShortcut"
+                  Directory="StartupFolder"
+                  Name="LibraTray.lnk"
+                  On="uninstall" />
+      <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\LibraTray\Installer\Components"
+                     Name="ApplicationShortcut"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+  </Package>
+</Wix>

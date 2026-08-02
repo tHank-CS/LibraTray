@@ -5,8 +5,8 @@
 This document defines the intended architecture of LibraTray. The repository
 contains research, a protocol probe, a UI-independent protocol core, the
 initial product-specific adapter, and a live WPF tray host with trusted
-discovery and verified controls. Shortcuts and settings remain under Phase-C
-development.
+discovery and verified controls. Phase-D packaging and release automation are
+implemented; release-candidate installation validation remains.
 
 The architecture optimizes for:
 
@@ -245,11 +245,12 @@ failures into actionable status while retaining a redacted technical cause.
 
 - **Phase A:** research, ADRs, governance, identity rules.
 - **Phase B:** probe, minimal protocol core, mock device, automated tests.
-- **Phase C (in progress):** Libra Pro adapter, bounded cold-start recovery,
-  tray host, trusted discovery/control binding, notification reconciliation,
-  retry, and request scheduling implemented; shortcuts, settings, and presets
-  remain.
-- **Phase D:** Windows lifecycle automation, packaging, CI/release hardening.
+- **Phase C (complete):** Libra Pro adapter, bounded cold-start recovery, tray
+  host, trusted discovery/control binding, notification reconciliation, retry,
+  request scheduling, shortcuts, settings, and presets.
+- **Phase D (release validation):** Windows lifecycle automation, branded
+  portable/MSI packaging, checksums, and CI/release hardening are implemented;
+  clean install/upgrade/uninstall and final release publication remain.
 
 An unverified `lamp15` behavior cannot cross from the probe into the production
 adapter merely because another project implements it.

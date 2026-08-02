@@ -4,10 +4,10 @@
 
 Current automated tests establish generic framing/parsing, request correlation,
 timeouts/cancellation/disconnect and explicit reconnect, product identity,
-probe option/address policy, and diagnostic-redaction behavior. The Phase-C
-state machine and its tests do not exist yet. No automated test can establish
-how a particular YLTD003 firmware responds to a command or physical-knob
-action. This guide keeps those evidence types separate.
+probe option/address policy, diagnostic redaction, the Phase-C state engine,
+configuration, automation, and mock-device integration. No automated test can
+establish how a particular YLTD003 firmware responds to a command or
+physical-knob action. This guide keeps those evidence types separate.
 
 Status vocabulary used in protocol documents:
 
@@ -19,8 +19,8 @@ Status vocabulary used in protocol documents:
 - **known firmware issue** — reproducible and scoped to recorded firmware;
 - **fallback required** — the application must use a safer query/reconnect path.
 
-At this milestone, product-specific command and physical-knob behavior is
-**unverified**.
+Product-specific command and physical-knob behavior is considered verified only
+where the protocol evidence documents exact hardware, firmware, and results.
 
 ## Automated checks
 
@@ -34,7 +34,7 @@ powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\script
 The verification script checks formatting/analyzers, builds Release, runs all
 test projects with TRX/Cobertura output, and audits vulnerable dependencies.
 
-Current Phase-B automated coverage includes:
+Current automated coverage includes:
 
 ### Protocol
 
@@ -61,18 +61,22 @@ Current Phase-B automated coverage includes:
 - clearing an alias or recovering corrupt configuration restores the friendly
   default.
 
-### Phase-C state and configuration coverage
+### State and configuration coverage
 
-The following remains planned and is not part of the current automated suite:
+The current automated suite includes:
 
 - channel-independent power, brightness, temperature, and color boundaries;
-- throttling/coalescing with a final-value send;
+- bounded scheduling, throttling/coalescing, retry, and final-state verification;
 - queue and state merge ordering;
 - physical-control notification simulation;
 - main-off/ambient-on, main-on/ambient-off, and both-off cases;
 - stale/incorrect notification reconciliation;
 - configuration read/write, corruption recovery, migration, import/export,
-  and absence of account credentials.
+  presets, automation tickets, and absence of account credentials.
+
+Native tray/window interactions, global registration with the live Windows
+desktop, packaged-icon rendering, and MSI install/upgrade/uninstall remain
+manual Windows smoke-test responsibilities.
 
 ### Mock device
 

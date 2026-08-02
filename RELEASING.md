@@ -36,8 +36,14 @@ powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\script
 ```
 
 The second command verifies formatting/analyzers, builds Release, runs all test
-projects with reports and coverage, and performs the dependency audit. Then run
-the repository's packaging script once it exists. Verify:
+projects with reports and coverage, and performs the dependency audit. Then
+build the candidate assets:
+
+```powershell
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version 1.0.0 -Locked
+```
+
+Verify:
 
 - the publish directory exists;
 - the expected launcher exists;
@@ -45,6 +51,13 @@ the repository's packaging script once it exists. Verify:
 - no development-only settings or symbols are included unintentionally;
 - ZIP contents use relative paths;
 - SHA-256 checksums match freshly generated artifacts.
+- the MSI installs for the current user without elevation, launches the app,
+  upgrades the previous candidate, and removes its program files and Start menu
+  shortcut on uninstall;
+- if “start with Windows” was enabled, uninstall also removes the
+  `LibraTray.lnk` Startup-folder shortcut;
+- both portable and installed builds display the branded executable, window,
+  and tray icon at normal Windows scaling.
 
 Never report a step as passed unless it was actually run for the tagged commit.
 
@@ -54,16 +67,18 @@ Never report a step as passed unless it was actually run for the tagged commit.
 2. Commit the release metadata.
 3. Create and push the signed or annotated version tag according to maintainer
    policy.
-4. Let the tag-triggered workflow rebuild from source.
+4. Let the tag-triggered workflow rebuild from source and create a **draft**
+   GitHub Release.
 5. Compare workflow artifacts and checksums with the expected manifest.
-6. Draft release notes from the changelog, including known limitations and all
+6. Review the generated notes, including known limitations and all
    still-unverified device behavior.
-7. Publish only after a maintainer reviews the artifacts.
+7. Publish the draft only after a maintainer reviews the artifacts.
 
-The planned release is a self-contained Windows x64 portable ZIP and, when the
-installer work is complete, an installer. Code signing is not currently
-required. State plainly that unsigned artifacts may trigger Windows
-SmartScreen or publisher warnings; never imply a trusted publisher signature.
+The release contains a self-contained Windows x64 portable ZIP, a current-user
+MSI that installs under `%LOCALAPPDATA%\Programs\LibraTray`, and a checksum
+manifest. Code signing is not currently available. State plainly that unsigned
+artifacts may trigger Windows SmartScreen or publisher warnings; never imply a
+trusted publisher signature.
 
 ## Rollback
 

@@ -72,6 +72,13 @@ and this project intends to follow
 - An optional no-activate, click-through OSD for confirmed shortcut and
   tray-wheel brightness/colour-temperature feedback, with active-monitor
   placement and automatic hiding.
+- Original LibraTray branding integrated into the executable, application
+  windows, notification-area icon, Start menu shortcut, and installer.
+- Reproducible self-contained `win-x64` ZIP and current-user MSI packaging,
+  SHA-256 manifests, and a tag-triggered workflow that creates a draft GitHub
+  Release for maintainer review.
+- Startup-folder shortcut registration with legacy `Run`-value cleanup and MSI
+  uninstall cleanup.
 
 ### Fixed
 

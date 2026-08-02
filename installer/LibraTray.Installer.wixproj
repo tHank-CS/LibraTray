@@ -1,0 +1,22 @@
+<Project Sdk="WixToolset.Sdk/6.0.2">
+  <PropertyGroup>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <OutputName>LibraTray-$(ProductVersion)-win-x64</OutputName>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">0.0.0</ProductVersion>
+    <DefineConstants>ProductVersion=$(ProductVersion)</DefineConstants>
+    <PublishDir Condition="'$(PublishDir)' == ''">$(MSBuildThisFileDirectory)..\artifacts\publish-probe</PublishDir>
+    <SuppressPdbOutput>true</SuppressPdbOutput>
+    <!-- ICE91 assumes the package might be installed per-machine. This MSI is
+         deliberately fixed to per-user scope so it never requests elevation. -->
+    <SuppressIces>ICE91</SuppressIces>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <BindPath Include="$(PublishDir)">
+      <BindName>publish</BindName>
+    </BindPath>
+    <BindPath Include="$(MSBuildThisFileDirectory)..\assets\branding">
+      <BindName>branding</BindName>
+    </BindPath>
+  </ItemGroup>
+</Project>
