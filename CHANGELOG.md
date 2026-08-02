@@ -8,6 +8,8 @@ and this project intends to follow
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-02
+
 ### Added
 
 - Phase-A product-identity, protocol, competitive, architecture, and licensing
@@ -110,5 +112,5 @@ and this project intends to follow
 - Diagnostic data is designed to be redacted before export.
 - Network parsing is bounded and treats device data as untrusted input.
 
-No version has been released yet. Version headings and compare links will be
-added only when corresponding tags exist.
+[Unreleased]: https://github.com/hank-wang-cs/LibraTray/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/hank-wang-cs/LibraTray/releases/tag/v1.0.0

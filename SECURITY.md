@@ -2,8 +2,14 @@
 
 ## Supported versions
 
-LibraTray has not published a release. Security fixes currently target the
-`main` branch only. A version-support table will be added when releases exist.
+Security fixes target the current `1.0.x` release line and `main`. Until a
+`1.0.x` build appears on the project's GitHub Releases page, only `main` is a
+publicly available support target.
+
+| Version | Supported |
+| --- | --- |
+| `1.0.x` | Yes |
+| `< 1.0` | No |
 
 ## Reporting a vulnerability
 
@@ -49,4 +55,4 @@ See [privacy and security](docs/privacy-and-security.md).
 Dependencies must have an explicit compatible license, a documented purpose,
 and a maintained upstream. Restore from committed project metadata; do not run
 unreviewed scripts or publish artifacts produced from a dirty or unverifiable
-source tree. Release checksums are planned but no official release exists yet.
+source tree. Official release assets include a SHA-256 manifest.
