@@ -64,6 +64,32 @@ Verify:
 
 Never report a step as passed unless it was actually run for the tagged commit.
 
+## v1.0.0 candidate record
+
+The 2026-08-02 candidate has completed the repository's automated suite and
+maintainer testing on Windows with real YLTD003 hardware. The exercised surface
+includes discovery, both light channels, brightness, colour temperature,
+whole-background RGB, presets, shortcut capture and execution, tray controls,
+Windows lifecycle behavior, the install/uninstall wizard, dark-theme controls,
+and normal-versus-startup launch behavior.
+
+The following limitations remain explicit and are not release blockers unless
+the maintainer decides otherwise:
+
+- artifacts are unsigned;
+- validation used the maintainer's Windows host rather than a separate clean VM;
+- target-device evidence is primarily firmware 38;
+- two-zone background RGB remains disabled;
+- firmware-38 background-off notifications can be incorrect and require query
+  reconciliation;
+- the firmware-38 ambient renderer may require the bounded reconnect recovery
+  documented in the protocol notes.
+
+Reviewed release notes are stored in `docs/releases/v1.0.0.md`, with a Chinese
+translation in `docs/releases/v1.0.0.zh-CN.md`. The remaining approval-gated
+steps are: merge the release-preparation PR, create and push the annotated
+`v1.0.0` tag, inspect the workflow-built draft and checksums, and publish it.
+
 ## Tag and GitHub release
 
 1. Update `CHANGELOG.md` with the release date.

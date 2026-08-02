@@ -13,22 +13,20 @@ LibraTray is a tray-first, local-only Windows controller being built for the
 `lamp15`. It is focused on instant control and reliable two-channel state
 synchronization.
 
-> **Current status:** implementation through Phase D is complete. The repository
-> contains the tray-first WPF application, verified two-channel controls,
-> reconciliation and recovery, configurable shortcuts and presets, Windows
-> lifecycle automation, branded portable/MSI packaging, and release automation.
-> Final release-candidate installation testing, signing (if a certificate becomes
-> available), and publication of the first GitHub Release remain. The two-zone RGB
-> command remains disabled because its relationship to the observed cold-start
-> failure has not been isolated.
+> **Current status:** the v1.0.0 implementation has passed maintainer hardware,
+> installation, uninstall, control, automation, and interface checks on Windows.
+> The authoritative publication status is shown on the project's
+> [GitHub Releases](https://github.com/hank-wang-cs/LibraTray/releases) page.
+> Code signing is not available for this release. The two-zone RGB command
+> remains disabled because its relationship to the observed cold-start failure
+> has not been isolated.
 
 English | [简体中文](README.zh-CN.md)
 
 ## Screenshot
 
-The initial quick-panel UI is implemented. A verified capture will replace this
-notice after visual QA is completed; no mock-up is presented as implemented
-software.
+The first-release interface has completed visual QA. Adding a stable release
+capture is tracked separately; no mock-up is presented as implemented software.
 
 ## Why LibraTray?
 
@@ -91,13 +89,11 @@ Available at the current milestone:
 - an optional, no-activate brightness/colour-temperature OSD for shortcut and
   tray-wheel adjustments;
 - opt-in lock/display power automation plus guarded shutdown/startup restore;
-- an advanced device-details window and bounded redacted diagnostic summary;
+- a focused device-information window and optional bounded redacted diagnostic
+  summary;
 - automated tests and a mock-device test surface.
 
-Planned next:
-
-- validate the first release candidate on supported Windows hosts and publish
-  the reviewed GitHub Release.
+Release information: [v1.0.0 notes](docs/releases/v1.0.0.md).
 
 Screen sampling, music/game effects, and a general-purpose Yeelight client are
 out of scope for the first stable release.
@@ -116,8 +112,10 @@ support. Later operation on an out-of-service Windows build is best effort.
 
 ## Download and installation
 
-There is no published GitHub Release yet. Do not obtain LibraTray binaries from
-unofficial download sites. Once a reviewed release is available, its assets are:
+Official binaries are distributed only through the project's
+[GitHub Releases](https://github.com/hank-wang-cs/LibraTray/releases) page. If no
+Release is listed there, no official binary has been published. Do not obtain
+LibraTray from unofficial download sites. Each reviewed release provides:
 
 - `LibraTray-<version>-win-x64.zip`: self-contained portable build; extract it
   to a user-writable folder and run `LibraTray.exe`;

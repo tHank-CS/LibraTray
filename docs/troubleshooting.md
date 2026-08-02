@@ -117,8 +117,11 @@ path under `%LOCALAPPDATA%\LibraTray\logs` normally avoids collisions.
 
 ## State differs after using the physical knob
 
-This is an expected research target and is still unverified for the user's
-device/firmware. Record:
+Firmware 38 has been observed sending an incorrect `bg_power=on` notification
+when the ambient light was independently switched off. LibraTray reconciles
+notifications with a follow-up state query instead of treating that notification
+as authoritative. If the interface still differs from the physical light, use
+**Refresh state** once and record:
 
 - firmware version;
 - starting main and ambient state;
@@ -127,10 +130,8 @@ device/firmware. Record:
 - a state query immediately after the action and again after a short delay;
 - whether reconnect changes the result.
 
-An old vendor-forum report and Home Assistant handling suggest that some
-background-state notifications may be unreliable, but this is not proof for
-all YLTD003 firmware. Do not treat a single notification as authoritative until
-the behavior is reproduced.
+This observation does not establish behavior for every YLTD003 firmware. A
+single notification must not override a conflicting confirmed query.
 
 ## Parser reports malformed or oversized data
 
