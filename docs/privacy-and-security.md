@@ -137,14 +137,15 @@ fields are preserved or ignored according to schema policy; they never become
 executable input.
 
 The current version exports only local preferences: the device alias,
-adjustment steps, shortcut bindings, tray-wheel preference, local presets, and
-Windows automation switches. It does not export an account credential, cloud
-token, device address, or protocol device ID. Import accepts at most 1 MiB of
-valid UTF-8, validates both the envelope version and settings schema, shows a
-summary, and requires an explicit Save before applying changes. Export warns
-before opening the destination picker and replaces the destination through a
-same-directory temporary file. Users must inspect a configuration export before
-sharing it because aliases and usage preferences may still be sensitive.
+adjustment steps, shortcut bindings, tray-wheel preference, local presets,
+theme and language preferences, and Windows automation switches. It does not
+export an account credential, cloud token, device address, or protocol device
+ID. Import accepts at most 1 MiB of valid UTF-8, validates both the envelope
+version and settings schema, shows a summary, and requires an explicit Save
+before applying changes. Export warns before opening the destination picker and
+replaces the destination through a same-directory temporary file. Users must
+inspect a configuration export before sharing it because aliases and usage
+preferences may still be sensitive.
 
 ## Windows integration
 

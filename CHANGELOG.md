@@ -67,6 +67,8 @@ and this project intends to follow
 - Versioned settings import/export with bounded UTF-8 input, schema validation,
   a pre-apply summary, explicit save, privacy warning, and atomic destination
   replacement.
+- Light, dark, and system-following themes with live resource updates, plus
+  system-following, Simplified Chinese, and English interface languages.
 
 ### Fixed
 

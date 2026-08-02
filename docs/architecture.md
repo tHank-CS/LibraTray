@@ -195,15 +195,17 @@ See [state synchronization](protocol/state-synchronization.md).
 
 Configuration is stored under the current user's application-data area with
 schema versioning, atomic replace, validation, and corruption recovery. The
-initial schema contains a user alias, brightness/temperature increments,
-captured shortcut gestures, a tray-wheel preference, and up to 20 local Libra
-Pro presets. Device selection, import/export, automation, startup preference,
-theme, language, and log level remain later schema additions. Settings must
-not contain vendor accounts, passwords, cloud tokens, device addresses, or
-unrelated personal data.
+current schema contains a user alias, brightness/temperature increments,
+captured shortcut gestures, a tray-wheel preference, up to 20 local Libra Pro
+presets, Windows automation/startup switches, and theme/language preferences.
+Validated versioned import/export requires an explicit preview and save.
+Settings must not contain vendor accounts, passwords, cloud tokens, device
+addresses, or unrelated personal data.
 
-Exports warn that local network metadata may be present. Schema versioning and
-migrations are required before public releases.
+WPF dynamic resource dictionaries provide Simplified Chinese and English text
+alongside light and dark palettes. System language is resolved at startup;
+system theme changes are observed while the application is running. Export
+warns about local preferences before the destination is selected.
 
 ## Logging and diagnostics
 

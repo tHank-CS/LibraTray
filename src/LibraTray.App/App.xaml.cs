@@ -45,10 +45,15 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        _settingsStore = new LibraTraySettingsStore();
+        _settings = _settingsStore.Load();
+        AppearanceManager.Apply(this, _settings);
+        SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
+
         if (!TryAcquireSingleInstance())
         {
             MessageBox.Show(
-                "LibraTray 已在运行。请使用系统托盘图标打开控制面板。",
+                UiText.Get("Message.AlreadyRunning"),
                 "LibraTray",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -62,8 +67,6 @@ public partial class App : Application
             || Environment.GetCommandLineArgs()
                 .Skip(1)
                 .Contains("--show", StringComparer.OrdinalIgnoreCase);
-        _settingsStore = new LibraTraySettingsStore();
-        _settings = _settingsStore.Load();
         _deviceSession = new LibraProDeviceSession();
         _quickPanelViewModel = new QuickPanelViewModel(
             _deviceSession,
@@ -127,6 +130,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
         _appCancellation.Cancel();
         DisposeWindowsLifecycleEvents();
         if (_automation is not null)
@@ -295,7 +299,7 @@ public partial class App : Application
             exception is IOException or UnauthorizedAccessException)
         {
             MessageBox.Show(
-                "预设无法保存，请确认当前用户对本地应用数据目录具有写入权限。",
+                UiText.Get("Message.SavePresetFailed"),
                 "LibraTray",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
@@ -370,18 +374,21 @@ public partial class App : Application
                     changed.WindowsAutomation.StartWithWindows
                     != _settings.WindowsAutomation.StartWithWindows;
                 _settings = _settingsStore.Save(changed);
+                AppearanceManager.Apply(this, _settings);
                 if (startupRegistrationChanged)
                 {
                     WindowsStartupRegistrationService.SetEnabled(
                         _settings.WindowsAutomation.StartWithWindows);
                 }
                 _quickPanelViewModel?.ApplySettings(_settings);
+                _deviceDetailsWindow?.RefreshLocalizedText();
                 _ = _trayIcon?.TrySetMouseWheelEnabled(
                     _settings.AdjustBrightnessWithTrayWheel);
                 _automation?.Configure(_settings.WindowsAutomation);
                 _shutdownRestore?.Configure(_settings.WindowsAutomation);
                 ConfigureWindowsLifecycleEvents();
                 RegisterHotkeys();
+                _trayMenu = CreateTrayMenu();
             }
         }
         catch (Exception exception) when (
@@ -390,7 +397,7 @@ public partial class App : Application
                 or SecurityException)
         {
             MessageBox.Show(
-                "设置或开机启动项无法保存，请确认当前用户具有写入权限。",
+                UiText.Get("Message.SaveSettingsFailed"),
                 "LibraTray",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
@@ -407,6 +414,20 @@ public partial class App : Application
         }
     }
 
+    private void OnUserPreferenceChanged(
+        object sender,
+        UserPreferenceChangedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (_settings.Theme != AppTheme.System)
+        {
+            return;
+        }
+
+        _ = Dispatcher.BeginInvoke(() => AppearanceManager.Apply(this, _settings));
+    }
+
     private void OnSettingsImportRequested(object? sender, EventArgs e)
     {
         _ = sender;
@@ -421,9 +442,9 @@ public partial class App : Application
             AddExtension = true,
             CheckFileExists = true,
             DefaultExt = LibraTraySettingsTransferService.FileExtension,
-            Filter = "LibraTray 配置 (*.libratray-settings.json)|*.libratray-settings.json|JSON 文件 (*.json)|*.json",
+            Filter = UiText.Get("Message.ImportFilter"),
             Multiselect = false,
-            Title = "导入 LibraTray 配置",
+            Title = UiText.Get("Message.ImportTitle"),
         };
         if (dialog.ShowDialog(_settingsWindow) != true)
         {
@@ -437,7 +458,7 @@ public partial class App : Application
             MessageBoxResult confirmation = MessageBox.Show(
                 _settingsWindow,
                 BuildImportPreview(imported),
-                "确认载入配置",
+                UiText.Get("Message.ImportConfirmTitle"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question,
                 MessageBoxResult.No);
@@ -453,7 +474,7 @@ public partial class App : Application
         {
             MessageBox.Show(
                 _settingsWindow,
-                "配置文件无法读取、格式不受支持或内容无效。现有设置未被修改。",
+                UiText.Get("Message.ImportFailed"),
                 "LibraTray",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
@@ -474,10 +495,8 @@ public partial class App : Application
 
         MessageBoxResult privacyConfirmation = MessageBox.Show(
             _settingsWindow,
-            "导出文件包含设备别名、快捷键、预设和 Windows 自动化偏好，"
-            + "未来版本也可能包含局域网设备信息。当前版本不会导出账号、Token 或设备地址。\n\n"
-            + "分享前请自行检查文件内容。是否继续？",
-            "导出配置前的隐私提示",
+            UiText.Get("Message.ExportPrivacy"),
+            UiText.Get("Message.ExportPrivacyTitle"),
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning,
             MessageBoxResult.No);
@@ -491,9 +510,9 @@ public partial class App : Application
             AddExtension = true,
             DefaultExt = LibraTraySettingsTransferService.FileExtension,
             FileName = $"LibraTray-settings-{DateTime.Now:yyyyMMdd}",
-            Filter = "LibraTray 配置 (*.libratray-settings.json)|*.libratray-settings.json",
+            Filter = UiText.Get("Message.ExportFilter"),
             OverwritePrompt = true,
-            Title = "导出 LibraTray 配置",
+            Title = UiText.Get("Message.ExportTitle"),
         };
         if (dialog.ShowDialog(_settingsWindow) != true)
         {
@@ -505,7 +524,7 @@ public partial class App : Application
             LibraTraySettingsTransferService.Export(dialog.FileName, pending);
             MessageBox.Show(
                 _settingsWindow,
-                "配置已导出。分享前请再次检查文件内容。",
+                UiText.Get("Message.ExportSucceeded"),
                 "LibraTray",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -518,7 +537,7 @@ public partial class App : Application
         {
             MessageBox.Show(
                 _settingsWindow,
-                "配置导出失败；原有目标文件不会被部分内容替换。",
+                UiText.Get("Message.ExportFailed"),
                 "LibraTray",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
@@ -543,13 +562,33 @@ public partial class App : Application
             automationCount++;
         }
 
-        return "配置已通过格式与版本校验，尚未应用。\n\n"
-            + $"设备别名：{(settings.UserAlias is null ? "未设置" : "已设置")}\n"
-            + $"本地预设：{settings.Presets.Count} 个\n"
-            + $"Windows 自动化：启用 {automationCount} 项\n"
-            + $"登录时自启：{(settings.WindowsAutomation.StartWithWindows ? "启用" : "关闭")}\n\n"
-            + "选择“是”只会把内容载入设置窗口；必须再点击“保存”才会应用。";
+        return UiText.Format(
+            "Message.ImportPreview",
+            UiText.Get(settings.UserAlias is null ? "Message.NotSet" : "Message.Set"),
+            settings.Presets.Count,
+            automationCount,
+            UiText.Get(settings.WindowsAutomation.StartWithWindows
+                ? "Message.Enabled"
+                : "Message.Disabled"),
+            DescribeTheme(settings.Theme),
+            DescribeLanguage(settings.Language));
     }
+
+    private static string DescribeTheme(AppTheme theme) => UiText.Get(
+        theme switch
+        {
+            AppTheme.Light => "Text.ThemeLight",
+            AppTheme.Dark => "Text.ThemeDark",
+            _ => "Text.ThemeSystem",
+        });
+
+    private static string DescribeLanguage(AppLanguage language) => UiText.Get(
+        language switch
+        {
+            AppLanguage.ChineseSimplified => "Text.LanguageChinese",
+            AppLanguage.English => "Text.LanguageEnglish",
+            _ => "Text.LanguageSystem",
+        });
 
     private void RegisterHotkeys()
     {
@@ -584,13 +623,15 @@ public partial class App : Application
             DisposeWindowsLifecycleEvents();
             _quickPanelViewModel?.SetAutomationStatus(
                 _settings.WindowsAutomation.ShutdownAndStartupEnabled
-                    ? "Windows 自动化已启用 · 关机恢复采用一次性凭据"
+                    ? UiText.Get("Message.AutomationShutdownEnabled")
                     : null);
             return;
         }
 
         if (_lifecycleEvents is not null)
         {
+            _quickPanelViewModel?.SetAutomationStatus(
+                UiText.Get("Message.AutomationEnabled"));
             return;
         }
 
@@ -599,12 +640,12 @@ public partial class App : Application
             _lifecycleEvents = new WindowsLifecycleEventService(_quickPanel);
             _lifecycleEvents.LifecycleEvent += OnWindowsLifecycleEvent;
             _quickPanelViewModel?.SetAutomationStatus(
-                "Windows 自动化已启用 · 近期手动操作优先");
+                UiText.Get("Message.AutomationEnabled"));
         }
         catch (Win32Exception)
         {
             _quickPanelViewModel?.SetAutomationStatus(
-                "Windows 自动化不可用：系统事件注册失败");
+                UiText.Get("Message.AutomationUnavailable"));
         }
     }
 
@@ -677,19 +718,21 @@ public partial class App : Application
         string? status = eventArgs.Outcome switch
         {
             WindowsAutomationOutcome.StateCaptured =>
-                "Windows 自动化：已保存恢复状态",
+                UiText.Get("Message.AutomationCaptured"),
             WindowsAutomationOutcome.LightsTurnedOff =>
-                $"Windows 自动化：{DescribeTrigger(eventArgs.Trigger)}，灯光已关闭",
+                UiText.Format(
+                    "Message.AutomationLightsOff",
+                    DescribeTrigger(eventArgs.Trigger)),
             WindowsAutomationOutcome.StateAlreadyCurrent =>
-                "Windows 自动化：设备已处于预期状态",
+                UiText.Get("Message.AutomationAlreadyCurrent"),
             WindowsAutomationOutcome.StateRestored =>
-                "Windows 自动化：已复读并恢复先前状态",
+                UiText.Get("Message.AutomationRestored"),
             WindowsAutomationOutcome.SkippedRecentManualControl =>
-                "Windows 自动化：检测到近期手动操作，已跳过",
+                UiText.Get("Message.AutomationSkippedManual"),
             WindowsAutomationOutcome.SkippedNewerState =>
-                "Windows 自动化：发现更新的设备状态，未覆盖",
+                UiText.Get("Message.AutomationSkippedNewer"),
             WindowsAutomationOutcome.Failed =>
-                "Windows 自动化未完成；设备状态未被盲目覆盖",
+                UiText.Get("Message.AutomationFailed"),
             _ => null,
         };
         if (status is not null)
@@ -707,21 +750,21 @@ public partial class App : Application
         string? status = eventArgs.Outcome switch
         {
             ShutdownRestoreOutcome.TicketSaved =>
-                "Windows 自动化：关灯已确认，下次启动可恢复",
+                UiText.Get("Message.ShutdownTicketSaved"),
             ShutdownRestoreOutcome.StateAlreadyCurrent =>
-                "Windows 自动化：设备已处于保存状态",
+                UiText.Get("Message.ShutdownAlreadyCurrent"),
             ShutdownRestoreOutcome.StateRestored =>
-                "Windows 自动化：已恢复关机前状态",
+                UiText.Get("Message.ShutdownRestored"),
             ShutdownRestoreOutcome.SkippedDifferentDevice =>
-                "Windows 自动化：设备身份不匹配，未恢复",
+                UiText.Get("Message.ShutdownDifferentDevice"),
             ShutdownRestoreOutcome.SkippedExpired =>
-                "Windows 自动化：恢复记录已过期",
+                UiText.Get("Message.ShutdownExpired"),
             ShutdownRestoreOutcome.SkippedNewerState =>
-                "Windows 自动化：设备状态已改变，未覆盖",
+                UiText.Get("Message.ShutdownNewerState"),
             ShutdownRestoreOutcome.SkippedManualControl =>
-                "Windows 自动化：检测到手动操作，未恢复",
+                UiText.Get("Message.ShutdownManual"),
             ShutdownRestoreOutcome.Failed =>
-                "Windows 自动化未完成；不会盲目恢复状态",
+                UiText.Get("Message.ShutdownFailed"),
             _ => null,
         };
         if (status is not null)
@@ -762,7 +805,7 @@ public partial class App : Application
             }
 
             _quickPanelViewModel.SetAutomationStatus(
-                "Windows 自动化：等待网络和灯具上线后恢复");
+                UiText.Get("Message.WaitingRestore"));
             await Task.Delay(
                 TimeSpan.FromSeconds(3),
                 _appCancellation.Token);
@@ -797,9 +840,11 @@ public partial class App : Application
     private static string DescribeTrigger(WindowsLifecycleEventKind trigger) =>
         trigger switch
         {
-            WindowsLifecycleEventKind.SessionLocked => "Windows 已锁定",
-            WindowsLifecycleEventKind.DisplayOff => "显示器已关闭",
-            _ => "系统状态已变化",
+            WindowsLifecycleEventKind.SessionLocked =>
+                UiText.Get("Message.TriggerLocked"),
+            WindowsLifecycleEventKind.DisplayOff =>
+                UiText.Get("Message.TriggerDisplayOff"),
+            _ => UiText.Get("Message.TriggerChanged"),
         };
 
     private ContextMenu CreateTrayMenu()
@@ -807,7 +852,7 @@ public partial class App : Application
         QuickPanelViewModel? viewModel = _quickPanelViewModel;
         var openItem = new MenuItem
         {
-            Header = "打开快速控制",
+            Header = UiText.Get("Tray.Open"),
             FontWeight = FontWeights.SemiBold,
         };
         openItem.Click += (_, _) => ShowQuickPanel();
@@ -815,14 +860,14 @@ public partial class App : Application
         var statusItem = new MenuItem
         {
             Header = viewModel is null
-                ? "Yeelight Libra Pro · 尚未连接"
+                ? UiText.Get("Tray.NotConnected")
                 : $"{viewModel.DeviceName} · {viewModel.ConnectionStatus}",
             IsEnabled = false,
         };
 
         var mainPowerItem = new MenuItem
         {
-            Header = "主灯",
+            Header = UiText.Get("Text.MainLight"),
             IsCheckable = true,
             IsChecked = viewModel?.MainPower == true,
             IsEnabled = viewModel?.CanControl == true,
@@ -837,7 +882,7 @@ public partial class App : Application
 
         var backgroundPowerItem = new MenuItem
         {
-            Header = "氛围灯",
+            Header = UiText.Get("Text.AmbientLight"),
             IsCheckable = true,
             IsChecked = viewModel?.BackgroundPower == true,
             IsEnabled = viewModel?.CanControl == true,
@@ -853,7 +898,7 @@ public partial class App : Application
 
         var allOnItem = new MenuItem
         {
-            Header = "全部开启",
+            Header = UiText.Get("Tray.AllOn"),
             IsEnabled = viewModel?.CanControl == true,
         };
         allOnItem.Click += async (_, _) =>
@@ -866,7 +911,7 @@ public partial class App : Application
 
         var allOffItem = new MenuItem
         {
-            Header = "全部关闭",
+            Header = UiText.Get("Tray.AllOff"),
             IsEnabled = viewModel?.CanControl == true,
         };
         allOffItem.Click += async (_, _) =>
@@ -877,13 +922,13 @@ public partial class App : Application
             }
         };
 
-        var presetsItem = new MenuItem { Header = "预设" };
+        var presetsItem = new MenuItem { Header = UiText.Get("Tray.Presets") };
         if (viewModel is null || viewModel.Presets.Count == 0)
         {
             presetsItem.Items.Add(
                 new MenuItem
                 {
-                    Header = "尚未保存预设",
+                    Header = UiText.Get("Tray.NoPresets"),
                     IsEnabled = false,
                 });
         }
@@ -905,8 +950,8 @@ public partial class App : Application
         var refreshItem = new MenuItem
         {
             Header = viewModel?.IsDeviceOnline == true
-                ? "刷新真实状态"
-                : "重新连接",
+                ? UiText.Get("Tray.Refresh")
+                : UiText.Get("Tray.Reconnect"),
             IsEnabled = viewModel?.IsBusy != true,
         };
         refreshItem.Click += async (_, _) =>
@@ -917,15 +962,18 @@ public partial class App : Application
             }
         };
 
-        var settingsItem = new MenuItem { Header = "设置" };
+        var settingsItem = new MenuItem { Header = UiText.Get("Text.Settings") };
         settingsItem.Click += (_, _) => ShowSettings();
 
-        var deviceInfoItem = new MenuItem { Header = "设备信息" };
+        var deviceInfoItem = new MenuItem
+        {
+            Header = UiText.Get("Tray.DeviceInfo"),
+        };
         deviceInfoItem.Click += (_, _) => ShowDeviceInfo();
 
         var exitItem = new MenuItem
         {
-            Header = "退出 LibraTray",
+            Header = UiText.Get("Tray.Exit"),
         };
         exitItem.Click += (_, _) =>
         {

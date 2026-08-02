@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Media;
+using LibraTray.App.Presentation;
 
 namespace LibraTray.App;
 
@@ -32,7 +33,7 @@ public partial class CustomColorWindow : Window
                     (byte)(rgb >> 16),
                     (byte)(rgb >> 8),
                     (byte)rgb));
-            ValidationTextBlock.Text = "格式示例：#33AADD";
+            ValidationTextBlock.Text = UiText.Get("Text.CustomColorExample");
             ValidationTextBlock.Foreground =
                 (Brush)FindResource("TextSecondaryBrush");
         }
@@ -44,7 +45,7 @@ public partial class CustomColorWindow : Window
         _ = e;
         if (!TryParseRgb(out int rgb))
         {
-            ValidationTextBlock.Text = "请输入有效的六位 RGB 十六进制颜色。";
+            ValidationTextBlock.Text = UiText.Get("Message.CustomColorInvalid");
             ValidationTextBlock.Foreground = new SolidColorBrush(
                 Color.FromRgb(0xB5, 0x47, 0x3C));
             HexTextBox.Focus();

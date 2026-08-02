@@ -199,7 +199,9 @@ public partial class QuickPanelWindow : Window
 
         MessageBoxResult result = MessageBox.Show(
             this,
-            $"删除预设“{_viewModel.SelectedPreset.Name}”？",
+            UiText.Format(
+                "Message.DeletePreset",
+                _viewModel.SelectedPreset.Name),
             "LibraTray",
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);

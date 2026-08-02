@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using LibraTray.App.Interop;
+using LibraTray.App.Presentation;
 using LibraTray.Core.Configuration;
 
 namespace LibraTray.App;
@@ -16,6 +17,7 @@ public partial class SettingsWindow : Window
         ArgumentNullException.ThrowIfNull(settings);
         _workingSettings = settings;
         InitializeComponent();
+        LoadAppearanceOptions();
         LoadSettings(settings);
     }
 
@@ -31,6 +33,8 @@ public partial class SettingsWindow : Window
         _workingSettings = settings;
 
         AliasTextBox.Text = settings.UserAlias ?? string.Empty;
+        ThemeComboBox.SelectedIndex = (int)settings.Theme;
+        LanguageComboBox.SelectedIndex = (int)settings.Language;
         BrightnessStepTextBox.Text = settings.BrightnessStep.ToString(
             CultureInfo.InvariantCulture);
         TemperatureStepTextBox.Text = settings.ColorTemperatureStep.ToString(
@@ -63,7 +67,7 @@ public partial class SettingsWindow : Window
     internal void LoadImportedSettings(LibraTraySettings settings)
     {
         LoadSettings(settings);
-        Title = "LibraTray · 设置（导入内容待保存）";
+        Title = UiText.Get("Message.SettingsImportedPending");
     }
 
     private void HotkeyTextBox_GotKeyboardFocus(
@@ -103,7 +107,7 @@ public partial class SettingsWindow : Window
         e.Handled = true;
         if (modifiers == ModifierKeys.None)
         {
-            ShowValidation("快捷键必须至少包含 Ctrl、Alt、Shift 或 Win 中的一项。");
+            ShowValidation(UiText.Get("Message.HotkeyModifierRequired"));
             return;
         }
 
@@ -114,7 +118,7 @@ public partial class SettingsWindow : Window
                 display,
                 out string? normalized))
         {
-            ShowValidation("该组合键无法注册，请选择其他组合。");
+            ShowValidation(UiText.Get("Message.HotkeyUnavailable"));
             return;
         }
 
@@ -144,13 +148,13 @@ public partial class SettingsWindow : Window
                 BrightnessStepTextBox,
                 1,
                 25,
-                "亮度步进",
+                UiText.Get("Message.BrightnessStepLabel"),
                 out int brightnessStep)
             || !TryReadInteger(
                 TemperatureStepTextBox,
                 50,
                 1_000,
-                "色温步进",
+                UiText.Get("Message.TemperatureStepLabel"),
                 out int temperatureStep))
         {
             return false;
@@ -173,14 +177,14 @@ public partial class SettingsWindow : Window
                     hotkeyInputs[index].Text,
                     out string? gesture))
             {
-                ShowValidation("快捷键格式无效；每项必须包含修饰键和一个按键。");
+                ShowValidation(UiText.Get("Message.HotkeyInvalid"));
                 hotkeyInputs[index].Focus();
                 return false;
             }
 
             if (!uniqueGestures.Add(gesture))
             {
-                ShowValidation("快捷键不能重复。");
+                ShowValidation(UiText.Get("Message.HotkeyDuplicate"));
                 hotkeyInputs[index].Focus();
                 return false;
             }
@@ -194,6 +198,8 @@ public partial class SettingsWindow : Window
             BrightnessStep = brightnessStep,
             ColorTemperatureStep = temperatureStep,
             AdjustBrightnessWithTrayWheel = TrayWheelCheckBox.IsChecked == true,
+            Theme = (AppTheme)Math.Max(0, ThemeComboBox.SelectedIndex),
+            Language = (AppLanguage)Math.Max(0, LanguageComboBox.SelectedIndex),
             WindowsAutomation = _workingSettings.WindowsAutomation with
             {
                 LockAndUnlockEnabled =
@@ -250,7 +256,11 @@ public partial class SettingsWindow : Window
             return true;
         }
 
-        ShowValidation($"{label}必须在 {minimum}–{maximum} 之间。");
+        ShowValidation(UiText.Format(
+            "Message.RangeError",
+            label,
+            minimum,
+            maximum));
         input.Focus();
         return false;
     }
@@ -259,6 +269,22 @@ public partial class SettingsWindow : Window
     {
         ValidationTextBlock.Text = message;
         ValidationTextBlock.Visibility = Visibility.Visible;
+    }
+
+    private void LoadAppearanceOptions()
+    {
+        ThemeComboBox.ItemsSource = new[]
+        {
+            UiText.Get("Text.ThemeSystem"),
+            UiText.Get("Text.ThemeLight"),
+            UiText.Get("Text.ThemeDark"),
+        };
+        LanguageComboBox.ItemsSource = new[]
+        {
+            UiText.Get("Text.LanguageSystem"),
+            UiText.Get("Text.LanguageChinese"),
+            UiText.Get("Text.LanguageEnglish"),
+        };
     }
 
     private static bool IsModifierKey(Key key) =>
