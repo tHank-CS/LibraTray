@@ -61,6 +61,7 @@
     <system:String x:Key="Text.Custom">Custom</system:String>
     <system:String x:Key="Text.CustomColorTip">Enter a hexadecimal RGB colour</system:String>
     <system:String x:Key="Text.LocalPresets">Local presets</system:String>
+    <system:String x:Key="Text.NoPresets">No saved presets</system:String>
     <system:String x:Key="Text.OpenDeviceDetails">Open device information</system:String>
     <system:String x:Key="Text.OpenSettings">Open settings</system:String>
     <system:String x:Key="Text.SavePresetTitle">Save current state</system:String>

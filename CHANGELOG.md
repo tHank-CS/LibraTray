@@ -82,6 +82,10 @@ and this project intends to follow
 
 ### Fixed
 
+- Preset selectors now render only the saved preset name and show a localized
+  empty-state prompt when no preset exists.
+- An open tray menu now follows live busy, connection, power, and status changes
+  instead of retaining disabled controls after an operation finishes.
 - Standard launches now open the quick panel so a first-time user can find the
   application; Windows startup launches remain quiet in the notification area.
 - Dark mode now owns the templates for combo boxes, check boxes, tabs, scroll
