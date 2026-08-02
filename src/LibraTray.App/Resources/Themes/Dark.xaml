@@ -1,0 +1,24 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Color x:Key="WindowColor">#FF171B1E</Color>
+    <Color x:Key="SurfaceColor">#FF22282C</Color>
+    <Color x:Key="TextPrimaryColor">#FFF2F5F4</Color>
+    <Color x:Key="TextSecondaryColor">#FFABB6B1</Color>
+    <Color x:Key="AccentColor">#FF6FB89E</Color>
+    <Color x:Key="AccentSoftColor">#FF29463C</Color>
+    <Color x:Key="DividerColor">#FF394247</Color>
+    <Color x:Key="InputColor">#FF1B2023</Color>
+    <Color x:Key="ErrorColor">#FFFF8C82</Color>
+    <Color x:Key="WarningColor">#FFFFC078</Color>
+
+    <SolidColorBrush x:Key="WindowBrush" Color="{StaticResource WindowColor}" />
+    <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimaryColor}" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondaryColor}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
+    <SolidColorBrush x:Key="AccentSoftBrush" Color="{StaticResource AccentSoftColor}" />
+    <SolidColorBrush x:Key="DividerBrush" Color="{StaticResource DividerColor}" />
+    <SolidColorBrush x:Key="InputBrush" Color="{StaticResource InputColor}" />
+    <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource ErrorColor}" />
+    <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}" />
+</ResourceDictionary>

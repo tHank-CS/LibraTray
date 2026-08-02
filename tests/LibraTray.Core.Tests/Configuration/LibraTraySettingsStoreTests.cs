@@ -38,6 +38,8 @@ public sealed class LibraTraySettingsStoreTests
             BrightnessStep = 8,
             ColorTemperatureStep = 250,
             AdjustBrightnessWithTrayWheel = false,
+            Theme = AppTheme.Dark,
+            Language = AppLanguage.English,
             WindowsAutomation = new WindowsAutomationSettings
             {
                 LockAndUnlockEnabled = true,
@@ -77,6 +79,8 @@ public sealed class LibraTraySettingsStoreTests
         Assert.AreEqual(
             saved.AdjustBrightnessWithTrayWheel,
             loaded.AdjustBrightnessWithTrayWheel);
+        Assert.AreEqual(AppTheme.Dark, loaded.Theme);
+        Assert.AreEqual(AppLanguage.English, loaded.Language);
         Assert.AreEqual(saved.WindowsAutomation, loaded.WindowsAutomation);
         Assert.AreEqual(saved.Hotkeys, loaded.Hotkeys);
         CollectionAssert.AreEqual(
@@ -102,6 +106,8 @@ public sealed class LibraTraySettingsStoreTests
         Assert.AreEqual(5, loaded.BrightnessStep);
         Assert.AreEqual(200, loaded.ColorTemperatureStep);
         Assert.IsTrue(loaded.AdjustBrightnessWithTrayWheel);
+        Assert.AreEqual(AppTheme.System, loaded.Theme);
+        Assert.AreEqual(AppLanguage.System, loaded.Language);
         Assert.IsFalse(loaded.WindowsAutomation.IsAnyEnabled);
         Assert.IsFalse(loaded.WindowsAutomation.StartWithWindows);
         Assert.AreEqual(5, loaded.WindowsAutomation.ManualSuppressionSeconds);
@@ -121,6 +127,8 @@ public sealed class LibraTraySettingsStoreTests
               "UserAlias": "  Desk\n light  ",
               "BrightnessStep": 0,
               "ColorTemperatureStep": 5000,
+              "Theme": 999,
+              "Language": 999,
               "WindowsAutomation": {
                 "LockAndUnlockEnabled": true,
                 "ManualSuppressionSeconds": 61
@@ -146,6 +154,8 @@ public sealed class LibraTraySettingsStoreTests
         Assert.AreEqual("Desk light", loaded.UserAlias);
         Assert.AreEqual(5, loaded.BrightnessStep);
         Assert.AreEqual(200, loaded.ColorTemperatureStep);
+        Assert.AreEqual(AppTheme.System, loaded.Theme);
+        Assert.AreEqual(AppLanguage.System, loaded.Language);
         Assert.IsTrue(loaded.WindowsAutomation.LockAndUnlockEnabled);
         Assert.AreEqual(5, loaded.WindowsAutomation.ManualSuppressionSeconds);
         Assert.AreEqual("Ctrl+Alt+L", loaded.Hotkeys.ToggleMainPower);

@@ -51,7 +51,7 @@ public partial class DeviceDetailsWindow : Window
         _ = sender;
         _ = e;
         RefreshButton.IsEnabled = false;
-        DiagnosticActionTextBlock.Text = "正在复读设备状态…";
+        DiagnosticActionTextBlock.Text = UiText.Get("Message.ReadingState");
         try
         {
             if (_session.CurrentState is null)
@@ -63,13 +63,13 @@ public partial class DeviceDetailsWindow : Window
                 _ = await _session.RefreshAsync();
             }
 
-            DiagnosticActionTextBlock.Text = "状态已刷新";
+            DiagnosticActionTextBlock.Text = UiText.Get("Message.StateRefreshed");
         }
         catch (Exception)
         {
             // UI diagnostics must not terminate the tray host for any transport
             // or protocol failure; the session already reports detailed status.
-            DiagnosticActionTextBlock.Text = "刷新失败，请确认灯具在线";
+            DiagnosticActionTextBlock.Text = UiText.Get("Message.RefreshFailed");
         }
         finally
         {
@@ -85,11 +85,12 @@ public partial class DeviceDetailsWindow : Window
         try
         {
             Clipboard.SetText(DiagnosticTextBox.Text);
-            DiagnosticActionTextBlock.Text = "脱敏摘要已复制";
+            DiagnosticActionTextBlock.Text = UiText.Get("Message.SummaryCopied");
         }
         catch (ExternalException)
         {
-            DiagnosticActionTextBlock.Text = "剪贴板暂时不可用";
+            DiagnosticActionTextBlock.Text = UiText.Get(
+                "Message.ClipboardUnavailable");
         }
     }
 
@@ -105,7 +106,7 @@ public partial class DeviceDetailsWindow : Window
         if (!Directory.Exists(path))
         {
             MessageBox.Show(
-                "尚未找到探针日志目录。运行协议探针后会自动创建。",
+                UiText.Get("Message.NoProbeLogs"),
                 "LibraTray",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -126,7 +127,7 @@ public partial class DeviceDetailsWindow : Window
                 or System.ComponentModel.Win32Exception)
         {
             MessageBox.Show(
-                "无法打开日志目录，请稍后重试。",
+                UiText.Get("Message.OpenLogsFailed"),
                 "LibraTray",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
@@ -180,30 +181,34 @@ public partial class DeviceDetailsWindow : Window
             ?? ProductIdentityCatalog.LibraProHardwareModel;
         InternalModelTextBlock.Text = connection?.InternalModel
             ?? identity?.InternalModel
-            ?? "尚未连接";
+            ?? UiText.Get("Text.NotConnected");
         ReportedNameTextBlock.Text = string.IsNullOrWhiteSpace(
             identity?.ReportedName)
-                ? "未提供"
+                ? UiText.Get("Message.NotProvided")
                 : SafeText(identity.ReportedName, 128);
         DeviceIdTextBlock.Text = MaskDeviceId(connection?.DeviceId);
         FirmwareTextBlock.Text = SafeText(
             connection?.FirmwareVersion,
             64,
-            "尚未连接");
+            UiText.Get("Text.NotConnected"));
         EndpointTextBlock.Text = connection?.ControlEndPoint.ToString()
-            ?? "尚未连接";
+            ?? UiText.Get("Text.NotConnected");
         ConnectedAtTextBlock.Text = connection is null
-            ? "尚未连接"
+            ? UiText.Get("Text.NotConnected")
             : connection.ConnectedAtUtc.ToLocalTime().ToString(
                 "yyyy-MM-dd HH:mm:ss",
                 CultureInfo.CurrentCulture);
         CapabilitiesTextBlock.Text = connection is null
-            ? "尚未连接"
+            ? UiText.Get("Text.NotConnected")
             : FormatCapabilities(connection.Capabilities);
         StateSummaryTextBlock.Text = FormatState(state);
         LastUpdatedTextBlock.Text = _lastStateUpdate is null
-            ? "尚无确认状态"
-            : $"最近更新：{_lastStateUpdate:yyyy-MM-dd HH:mm:ss}";
+            ? UiText.Get("Message.NoConfirmedState")
+            : UiText.Format(
+                "Message.LastUpdated",
+                _lastStateUpdate.Value.ToString(
+                    "yyyy-MM-dd HH:mm:ss",
+                    CultureInfo.CurrentCulture));
         DiagnosticTextBox.Text = LibraProDiagnosticReport.Create(
             GetApplicationVersion(),
             _session.Status,
@@ -213,17 +218,27 @@ public partial class DeviceDetailsWindow : Window
             DateTimeOffset.UtcNow);
     }
 
+    internal void RefreshLocalizedText()
+    {
+        DiagnosticActionTextBlock.Text = string.Empty;
+        UpdateView();
+    }
+
     private static string FormatState(LibraProState? state)
     {
         if (state is null)
         {
-            return "尚无可用的确认状态。";
+            return UiText.Get("Message.NoConfirmedStateAvailable");
         }
 
-        return $"主灯：{OnOff(state.MainPower)} · {state.MainBrightness}% · "
-            + $"{state.MainColorTemperature} K\n"
-            + $"氛围灯：{OnOff(state.BackgroundPower)} · "
-            + $"{state.BackgroundBrightness}% · #{state.BackgroundRgb:X6}";
+        return UiText.Format(
+            "Message.StateSummary",
+            OnOff(state.MainPower),
+            state.MainBrightness,
+            state.MainColorTemperature,
+            OnOff(state.BackgroundPower),
+            state.BackgroundBrightness,
+            state.BackgroundRgb);
     }
 
     private static string FormatCapabilities(
@@ -231,14 +246,16 @@ public partial class DeviceDetailsWindow : Window
     {
         if (capabilities.Count == 0)
         {
-            return "未声明";
+            return UiText.Get("Message.NotDeclared");
         }
 
         return string.Join(
             " · ",
             capabilities.Take(32).Select(value => SafeText(value, 48)))
             + (capabilities.Count > 32
-                ? $" · …（另有 {capabilities.Count - 32} 项）"
+                ? UiText.Format(
+                    "Message.MoreCapabilities",
+                    capabilities.Count - 32)
                 : string.Empty);
     }
 
@@ -246,20 +263,21 @@ public partial class DeviceDetailsWindow : Window
     {
         if (string.IsNullOrWhiteSpace(deviceId))
         {
-            return "尚未连接";
+            return UiText.Get("Text.NotConnected");
         }
 
         string value = SafeText(deviceId, 128);
         return value.Length <= 8
-            ? "[已隐藏]"
+            ? UiText.Get("Message.Hidden")
             : $"{value[..4]}…{value[^4..]}";
     }
 
     private static string SafeText(
         string? value,
         int maximumLength,
-        string fallback = "无效值")
+        string? fallback = null)
     {
+        fallback ??= UiText.Get("Message.InvalidValue");
         if (string.IsNullOrWhiteSpace(value))
         {
             return fallback;
@@ -277,5 +295,6 @@ public partial class DeviceDetailsWindow : Window
         typeof(App).Assembly.GetName().Version?.ToString(3)
         ?? "unknown";
 
-    private static string OnOff(bool enabled) => enabled ? "开启" : "关闭";
+    private static string OnOff(bool enabled) => UiText.Get(
+        enabled ? "Text.On" : "Text.Off");
 }

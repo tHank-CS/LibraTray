@@ -1,4 +1,5 @@
 using System.Windows;
+using LibraTray.App.Presentation;
 
 namespace LibraTray.App;
 
@@ -22,7 +23,7 @@ public partial class PresetNameWindow : Window
         _ = e;
         if (string.IsNullOrWhiteSpace(NameTextBox.Text))
         {
-            ValidationTextBlock.Text = "请输入预设名称。";
+            ValidationTextBlock.Text = UiText.Get("Message.PresetNameRequired");
             ValidationTextBlock.Visibility = Visibility.Visible;
             NameTextBox.Focus();
             return;

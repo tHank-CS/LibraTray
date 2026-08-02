@@ -17,11 +17,29 @@ public sealed record LibraTraySettings
 
     public bool AdjustBrightnessWithTrayWheel { get; init; } = true;
 
+    public AppTheme Theme { get; init; } = AppTheme.System;
+
+    public AppLanguage Language { get; init; } = AppLanguage.System;
+
     public WindowsAutomationSettings WindowsAutomation { get; init; } = new();
 
     public GlobalHotkeySettings Hotkeys { get; init; } = new();
 
     public IReadOnlyList<LibraProPreset> Presets { get; init; } = [];
+}
+
+public enum AppTheme
+{
+    System,
+    Light,
+    Dark,
+}
+
+public enum AppLanguage
+{
+    System,
+    ChineseSimplified,
+    English,
 }
 
 public sealed record WindowsAutomationSettings
@@ -122,6 +140,12 @@ internal static class LibraTraySettingsNormalizer
                     : defaults.ColorTemperatureStep,
             AdjustBrightnessWithTrayWheel =
                 settings.AdjustBrightnessWithTrayWheel,
+            Theme = Enum.IsDefined(settings.Theme)
+                ? settings.Theme
+                : defaults.Theme,
+            Language = Enum.IsDefined(settings.Language)
+                ? settings.Language
+                : defaults.Language,
             WindowsAutomation = NormalizeWindowsAutomation(
                 settings.WindowsAutomation,
                 defaults.WindowsAutomation),

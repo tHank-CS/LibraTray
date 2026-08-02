@@ -9,11 +9,11 @@
         WindowStyle="None"
         ShowInTaskbar="False"
         Topmost="True"
-        Background="{StaticResource WindowBrush}"
+        Background="{DynamicResource WindowBrush}"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
-    <Border Background="{StaticResource WindowBrush}"
-            BorderBrush="{StaticResource DividerBrush}"
+    <Border Background="{DynamicResource WindowBrush}"
+            BorderBrush="{DynamicResource DividerBrush}"
             BorderThickness="1"
             CornerRadius="10">
         <Grid Margin="20">
@@ -51,7 +51,7 @@
                                         <DataTrigger Binding="{Binding IsDeviceOnline}"
                                                      Value="True">
                                             <Setter Property="Fill"
-                                                    Value="{StaticResource AccentBrush}" />
+                                                    Value="{DynamicResource AccentBrush}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -59,11 +59,11 @@
                         </Ellipse>
                         <TextBlock Text="{Binding ConnectionStatus}"
                                    FontSize="12"
-                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
                         <Button Margin="12,-6,0,-6"
                                 Padding="9,4"
                                 IsEnabled="{Binding CanRetry}"
-                                Content="重试"
+                                Content="{DynamicResource Text.Retry}"
                                 Style="{StaticResource QuietButtonStyle}"
                                 Click="RetryButton_Click" />
                     </StackPanel>
@@ -71,7 +71,7 @@
                                Text="{Binding ErrorMessage}"
                                TextWrapping="Wrap"
                                FontSize="12"
-                               Foreground="#FFB5473C">
+                               Foreground="{DynamicResource ErrorBrush}">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock"
                                    BasedOn="{StaticResource {x:Type TextBlock}}">
@@ -92,7 +92,7 @@
                         Height="32"
                         Padding="0"
                         Style="{StaticResource QuietButtonStyle}"
-                        ToolTip="隐藏快速控制"
+                        ToolTip="{DynamicResource Text.HideQuickPanel}"
                         Click="HideButton_Click">
                     <TextBlock Text="×" FontSize="20" Margin="0,-2,0,0" />
                 </Button>
@@ -108,17 +108,17 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Text="主灯"
+                            <TextBlock Text="{DynamicResource Text.MainLight}"
                                        FontSize="15"
                                        FontWeight="SemiBold" />
-                            <TextBlock Text="亮度与色温"
+                            <TextBlock Text="{DynamicResource Text.MainLightSubtitle}"
                                        Margin="0,3,0,0"
                                        FontSize="12"
-                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                                       Foreground="{DynamicResource TextSecondaryBrush}" />
                         </StackPanel>
                         <CheckBox Grid.Column="1"
                                   VerticalAlignment="Center"
-                                  Content="开启"
+                                  Content="{DynamicResource Text.On}"
                                   IsChecked="{Binding MainPower, Mode=OneWay}"
                                   Click="MainPower_Click" />
                     </Grid>
@@ -129,8 +129,8 @@
                             <ColumnDefinition Width="34" />
                         </Grid.ColumnDefinitions>
                         <TextBlock VerticalAlignment="Center"
-                                   Text="亮度"
-                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                                   Text="{DynamicResource Text.Brightness}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
                         <Slider Grid.Column="1"
                                 Minimum="1"
                                 Maximum="100"
@@ -148,8 +148,8 @@
                             <ColumnDefinition Width="64" />
                         </Grid.ColumnDefinitions>
                         <TextBlock VerticalAlignment="Center"
-                                   Text="色温"
-                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                                   Text="{DynamicResource Text.ColorTemperature}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
                         <Slider Grid.Column="1"
                                 Minimum="3000"
                                 Maximum="6500"
@@ -176,17 +176,17 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Text="氛围灯"
+                            <TextBlock Text="{DynamicResource Text.AmbientLight}"
                                        FontSize="15"
                                        FontWeight="SemiBold" />
-                            <TextBlock Text="独立亮度与颜色"
+                            <TextBlock Text="{DynamicResource Text.AmbientSubtitle}"
                                        Margin="0,3,0,0"
                                        FontSize="12"
-                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                                       Foreground="{DynamicResource TextSecondaryBrush}" />
                         </StackPanel>
                         <CheckBox Grid.Column="1"
                                   VerticalAlignment="Center"
-                                  Content="开启"
+                                  Content="{DynamicResource Text.On}"
                                   IsChecked="{Binding BackgroundPower, Mode=OneWay}"
                                   Click="BackgroundPower_Click" />
                     </Grid>
@@ -197,8 +197,8 @@
                             <ColumnDefinition Width="34" />
                         </Grid.ColumnDefinitions>
                         <TextBlock VerticalAlignment="Center"
-                                   Text="亮度"
-                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                                   Text="{DynamicResource Text.Brightness}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
                         <Slider Grid.Column="1"
                                 Minimum="1"
                                 Maximum="100"
@@ -212,14 +212,14 @@
                     <StackPanel Margin="0,15,0,0" Orientation="Horizontal">
                         <TextBlock Width="52"
                                    VerticalAlignment="Center"
-                                   Text="颜色"
-                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                                   Text="{DynamicResource Text.Color}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
                         <Button Width="30"
                                 Height="30"
                                 Margin="0,0,8,0"
                                 Padding="2"
                                 Tag="16753920"
-                                ToolTip="橙色"
+                                ToolTip="{DynamicResource Text.Orange}"
                                 Style="{StaticResource QuietButtonStyle}"
                                 Click="BackgroundColor_Click">
                             <Ellipse Width="20"
@@ -231,7 +231,7 @@
                                 Margin="0,0,8,0"
                                 Padding="2"
                                 Tag="65280"
-                                ToolTip="绿色"
+                                ToolTip="{DynamicResource Text.Green}"
                                 Style="{StaticResource QuietButtonStyle}"
                                 Click="BackgroundColor_Click">
                             <Ellipse Width="20"
@@ -243,7 +243,7 @@
                                 Margin="0,0,8,0"
                                 Padding="2"
                                 Tag="255"
-                                ToolTip="蓝色"
+                                ToolTip="{DynamicResource Text.Blue}"
                                 Style="{StaticResource QuietButtonStyle}"
                                 Click="BackgroundColor_Click">
                             <Ellipse Width="20"
@@ -255,7 +255,7 @@
                                 Margin="0,0,8,0"
                                 Padding="2"
                                 Tag="8388736"
-                                ToolTip="紫色"
+                                ToolTip="{DynamicResource Text.Purple}"
                                 Style="{StaticResource QuietButtonStyle}"
                                 Click="BackgroundColor_Click">
                             <Ellipse Width="20"
@@ -264,8 +264,8 @@
                         </Button>
                         <Button Height="30"
                                 Padding="8,2"
-                                Content="自定义"
-                                ToolTip="输入 RGB 十六进制颜色"
+                                Content="{DynamicResource Text.Custom}"
+                                ToolTip="{DynamicResource Text.CustomColorTip}"
                                 Style="{StaticResource QuietButtonStyle}"
                                 Click="CustomBackgroundColor_Click" />
                     </StackPanel>
@@ -275,7 +275,7 @@
             <Border Grid.Row="6"
                     Style="{StaticResource SectionCardStyle}">
                 <StackPanel>
-                    <TextBlock Text="本地预设"
+                    <TextBlock Text="{DynamicResource Text.LocalPresets}"
                                FontSize="15"
                                FontWeight="SemiBold" />
                     <Grid Margin="0,11,0,0">
@@ -292,19 +292,19 @@
                                   DisplayMemberPath="Name" />
                         <Button Grid.Column="1"
                                 Margin="8,0,0,0"
-                                Content="应用"
+                                Content="{DynamicResource Text.Apply}"
                                 IsEnabled="{Binding CanControl}"
                                 Style="{StaticResource QuietButtonStyle}"
                                 Click="ApplyPresetButton_Click" />
                         <Button Grid.Column="2"
                                 Margin="6,0,0,0"
-                                Content="保存"
+                                Content="{DynamicResource Text.Save}"
                                 IsEnabled="{Binding IsDeviceOnline}"
                                 Style="{StaticResource QuietButtonStyle}"
                                 Click="SavePresetButton_Click" />
                         <Button Grid.Column="3"
                                 Margin="6,0,0,0"
-                                Content="删除"
+                                Content="{DynamicResource Text.Delete}"
                                 Style="{StaticResource QuietButtonStyle}"
                                 Click="DeletePresetButton_Click" />
                     </Grid>
@@ -313,7 +313,7 @@
 
             <Border Grid.Row="8"
                     Padding="13,11"
-                    Background="{StaticResource AccentSoftBrush}"
+                    Background="{DynamicResource AccentSoftBrush}"
                     CornerRadius="8">
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -322,15 +322,15 @@
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="●"
                                FontSize="10"
-                               Foreground="{StaticResource AccentBrush}"
+                               Foreground="{DynamicResource AccentBrush}"
                                VerticalAlignment="Top"
                                Margin="0,2,10,0" />
                     <TextBlock Grid.Column="1"
-                               Text="只连接精确识别为 lamp15 的本地设备；每次写入都会复读确认。"
+                               Text="{DynamicResource Text.SafetySummary}"
                                TextWrapping="Wrap"
                                FontSize="12"
                                LineHeight="18"
-                               Foreground="{StaticResource TextSecondaryBrush}" />
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
                 </Grid>
             </Border>
 
@@ -340,15 +340,15 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="纯局域网 · 无需账号"
+                    <TextBlock Text="{DynamicResource Text.LocalOnlySummary}"
                                FontSize="12"
-                               Foreground="{StaticResource TextSecondaryBrush}" />
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
                     <TextBlock Margin="0,4,12,0"
                                MaxWidth="280"
                                Text="{Binding HotkeyStatus}"
                                TextWrapping="Wrap"
                                FontSize="11"
-                               Foreground="#FFB06B20">
+                               Foreground="{DynamicResource WarningBrush}">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock"
                                    BasedOn="{StaticResource {x:Type TextBlock}}">
@@ -367,7 +367,7 @@
                                Text="{Binding AutomationStatus}"
                                TextWrapping="Wrap"
                                FontSize="11"
-                               Foreground="{StaticResource TextSecondaryBrush}">
+                               Foreground="{DynamicResource TextSecondaryBrush}">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock"
                                    BasedOn="{StaticResource {x:Type TextBlock}}">
@@ -383,14 +383,14 @@
                     </TextBlock>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button Content="设备"
+                    <Button Content="{DynamicResource Text.Device}"
                             Margin="0,0,8,0"
                             Style="{StaticResource QuietButtonStyle}"
-                            ToolTip="打开设备详情和诊断"
+                            ToolTip="{DynamicResource Text.OpenDeviceDetails}"
                             Click="DeviceDetailsButton_Click" />
-                    <Button Content="设置"
+                    <Button Content="{DynamicResource Text.Settings}"
                             Style="{StaticResource QuietButtonStyle}"
-                            ToolTip="打开本地设置"
+                            ToolTip="{DynamicResource Text.OpenSettings}"
                             Click="SettingsButton_Click" />
                 </StackPanel>
             </Grid>

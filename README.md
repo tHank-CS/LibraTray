@@ -82,6 +82,8 @@ Available at the current milestone:
 - versioned settings with corruption fallback and atomic replacement;
 - versioned settings import/export with validation, preview, and a privacy
   warning;
+- light, dark, and Windows-following themes plus live Simplified Chinese and
+  English resources;
 - opt-in lock/display power automation plus guarded shutdown/startup restore;
 - an advanced device-details window and bounded redacted diagnostic summary;
 - automated tests and a mock-device test surface.
@@ -89,7 +91,6 @@ Available at the current milestone:
 Planned next:
 
 - optional OSD;
-- theme and language settings;
 - portable packages and an installer.
 
 Screen sampling, music/game effects, and a general-purpose Yeelight client are
@@ -205,9 +206,10 @@ artifacts and must still be reviewed before sharing.
 
 Settings are stored in `%LOCALAPPDATA%\LibraTray\settings.json`. The current
 schema stores only local preferences: alias, adjustment steps, shortcut
-bindings, tray-wheel preference, Windows automation switches, and at most 20
-local presets. Corrupt or unsupported settings fall back to safe defaults. No
-account credential, cloud token, or device address is stored.
+bindings, tray-wheel preference, Windows automation switches, at most 20 local
+presets, and theme/language preferences. Corrupt or unsupported settings fall
+back to safe defaults. No account credential, cloud token, or device address is
+stored.
 
 Settings can be exported to a versioned `*.libratray-settings.json` file. Import
 accepts UTF-8 files up to 1 MiB, validates both the export format and settings
@@ -215,6 +217,11 @@ schema, then shows a summary before loading the values into the Settings window.
 Nothing is applied until **Save** is selected. Export writes through a temporary
 file in the destination directory and warns that aliases, shortcuts, presets,
 and automation preferences are included. Review an export before sharing it.
+
+Appearance can follow Windows or be forced to the light or dark theme. The
+interface can likewise follow the installed Windows UI language or explicitly
+use Simplified Chinese or English. A saved change is applied immediately; the
+Windows-following theme also reacts to later system appearance changes.
 
 ## Build from source
 

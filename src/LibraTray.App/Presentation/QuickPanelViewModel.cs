@@ -15,7 +15,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     private readonly SemaphoreSlim _operationLock = new(1, 1);
     private readonly CancellationToken _lifetimeToken;
 
-    private string _connectionStatus = "正在等待局域网设备";
+    private string _connectionStatus;
     private string _deviceName;
     private string? _errorMessage;
     private string? _hotkeyStatus;
@@ -31,6 +31,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     private int _backgroundRgb = 13_395_711;
     private int _mainBrightnessStep;
     private int _mainColorTemperatureStep;
+    private LibraProSessionStatusChangedEventArgs? _lastStatus;
     private bool _disposed;
 
     public QuickPanelViewModel(
@@ -45,6 +46,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
         _session = session;
         _dispatcher = dispatcher;
         _lifetimeToken = lifetimeToken;
+        _connectionStatus = UiText.Get("Message.WaitingForDevice");
         _deviceName = ResolveDeviceName(settings.UserAlias);
         _mainBrightnessStep = settings.BrightnessStep;
         _mainColorTemperatureStep = settings.ColorTemperatureStep;
@@ -303,7 +305,9 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
         ArgumentNullException.ThrowIfNull(failedHotkeys);
         HotkeyStatus = failedHotkeys.Count == 0
             ? null
-            : $"快捷键冲突：{string.Join("、", failedHotkeys)}";
+            : UiText.Format(
+                "Message.HotkeyConflict",
+                string.Join(", ", failedHotkeys));
     }
 
     public void SetAutomationStatus(string? status) =>
@@ -315,6 +319,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
         DeviceName = ResolveDeviceName(settings.UserAlias);
         _mainBrightnessStep = settings.BrightnessStep;
         _mainColorTemperatureStep = settings.ColorTemperatureStep;
+        RefreshLocalizedText();
     }
 
     public Task ApplySelectedPresetAsync() =>
@@ -361,20 +366,20 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
         error = null;
         if (_session.CurrentState is not { } state)
         {
-            error = "设备尚未提供可保存的确认状态。";
+            error = UiText.Get("Message.NoStateForPreset");
             return false;
         }
 
         string normalizedName = name.Trim();
         if (normalizedName.Length == 0 || normalizedName.Length > 64)
         {
-            error = "预设名称必须包含 1–64 个字符。";
+            error = UiText.Get("Message.PresetNameLength");
             return false;
         }
 
         if (Presets.Count >= 20)
         {
-            error = "最多可以保存 20 个本地预设。";
+            error = UiText.Get("Message.PresetLimit");
             return false;
         }
 
@@ -435,7 +440,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
             ErrorMessage = null;
             if (IsDeviceOnline)
             {
-                ConnectionStatus = "正在应用设置";
+                ConnectionStatus = UiText.Get("Message.ApplyingSettings");
             }
 
             await operation();
@@ -452,7 +457,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
             IsBusy = false;
             if (_session.Status == LibraProSessionStatus.Connected)
             {
-                ConnectionStatus = "已连接 · 本地控制";
+                ConnectionStatus = UiText.Get("Message.Connected");
             }
 
             _operationLock.Release();
@@ -472,23 +477,14 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
         LibraProSessionStatusChangedEventArgs eventArgs)
     {
         _ = sender;
+        _lastStatus = eventArgs;
         _ = _dispatcher.BeginInvoke(() =>
         {
             IsDeviceOnline =
                 eventArgs.Status
                     is LibraProSessionStatus.Connected
                     or LibraProSessionStatus.Retrying;
-            ConnectionStatus = eventArgs.Status switch
-            {
-                LibraProSessionStatus.Discovering => "正在搜索局域网设备",
-                LibraProSessionStatus.Connecting => "正在建立本地连接",
-                LibraProSessionStatus.Connected => "已连接 · 本地控制",
-                LibraProSessionStatus.Retrying =>
-                    $"设备响应较慢 · 正在重试 "
-                    + $"{eventArgs.RetryAttempt}/{eventArgs.RetryLimit}",
-                LibraProSessionStatus.Faulted => "连接或控制失败",
-                _ => "未连接",
-            };
+            ConnectionStatus = DescribeStatus(eventArgs);
             if (eventArgs.Status == LibraProSessionStatus.Retrying)
             {
                 ErrorMessage = null;
@@ -497,7 +493,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
             {
                 ErrorMessage = eventArgs.Exception is null
                     ? null
-                    : "本次状态同步失败，但设备连接仍然可用。";
+                    : UiText.Get("Message.SyncFailed");
             }
         });
     }
@@ -527,14 +523,40 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
                 exception.Message.Contains(
                     "No discovery response",
                     StringComparison.Ordinal) =>
-                "未发现 Yeelight Libra Pro。请确认灯具在线且局域网控制已开启。",
+                UiText.Get("Message.DeviceNotFound"),
             InvalidOperationException when
                 exception.Message.Contains(
                     "Multiple exact lamp15",
                     StringComparison.Ordinal) =>
-                "发现多台 Libra Pro；设备选择功能尚未开放。",
-            TimeoutException => "设备响应超时，请稍后重试。",
-            _ => "操作未完成，请确认设备在线后重试。",
+                UiText.Get("Message.MultipleDevices"),
+            TimeoutException => UiText.Get("Message.DeviceTimeout"),
+            _ => UiText.Get("Message.OperationFailed"),
+        };
+
+    private void RefreshLocalizedText()
+    {
+        ConnectionStatus = _lastStatus is null
+            ? UiText.Get("Message.WaitingForDevice")
+            : DescribeStatus(_lastStatus);
+        ErrorMessage = null;
+    }
+
+    private static string DescribeStatus(
+        LibraProSessionStatusChangedEventArgs eventArgs) =>
+        eventArgs.Status switch
+        {
+            LibraProSessionStatus.Discovering =>
+                UiText.Get("Message.Discovering"),
+            LibraProSessionStatus.Connecting =>
+                UiText.Get("Message.Connecting"),
+            LibraProSessionStatus.Connected => UiText.Get("Message.Connected"),
+            LibraProSessionStatus.Retrying => UiText.Format(
+                "Message.Retrying",
+                eventArgs.RetryAttempt,
+                eventArgs.RetryLimit),
+            LibraProSessionStatus.Faulted =>
+                UiText.Get("Message.ConnectionFailed"),
+            _ => UiText.Get("Text.NotConnected"),
         };
 
     private CancellationToken ResolveToken(CancellationToken cancellationToken) =>
