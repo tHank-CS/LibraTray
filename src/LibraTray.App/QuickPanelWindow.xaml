@@ -283,11 +283,29 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <ComboBox MinHeight="30"
+                        <ComboBox x:Name="PresetComboBox"
+                                  MinHeight="30"
                                   Padding="7,4"
                                   ItemsSource="{Binding Presets}"
                                   SelectedItem="{Binding SelectedPreset}"
                                   DisplayMemberPath="Name" />
+                        <TextBlock Margin="10,0,30,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   IsHitTestVisible="False"
+                                   Text="{DynamicResource Text.NoPresets}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedPreset}"
+                                                     Value="{x:Null}">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                         <Button Grid.Column="1"
                                 Margin="8,0,0,0"
                                 Content="{DynamicResource Text.Apply}"

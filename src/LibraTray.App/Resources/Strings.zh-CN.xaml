@@ -61,6 +61,7 @@
     <system:String x:Key="Text.Custom">自定义</system:String>
     <system:String x:Key="Text.CustomColorTip">输入 RGB 十六进制颜色</system:String>
     <system:String x:Key="Text.LocalPresets">本地预设</system:String>
+    <system:String x:Key="Text.NoPresets">尚未保存预设</system:String>
     <system:String x:Key="Text.OpenDeviceDetails">打开设备信息</system:String>
     <system:String x:Key="Text.OpenSettings">打开设置</system:String>
     <system:String x:Key="Text.SavePresetTitle">保存当前状态</system:String>

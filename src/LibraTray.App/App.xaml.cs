@@ -5,6 +5,7 @@ using System.Security;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Threading;
 using LibraTray.App.Interop;
 using LibraTray.App.Presentation;
@@ -892,6 +893,25 @@ public partial class App : Application
                 : $"{viewModel.DeviceName} · {viewModel.ConnectionStatus}",
             IsEnabled = false,
         };
+        if (viewModel is not null)
+        {
+            var statusBinding = new MultiBinding
+            {
+                Mode = BindingMode.OneWay,
+                StringFormat = "{0} · {1}",
+            };
+            statusBinding.Bindings.Add(
+                new Binding(nameof(QuickPanelViewModel.DeviceName))
+                {
+                    Source = viewModel,
+                });
+            statusBinding.Bindings.Add(
+                new Binding(nameof(QuickPanelViewModel.ConnectionStatus))
+                {
+                    Source = viewModel,
+                });
+            statusItem.SetBinding(MenuItem.HeaderProperty, statusBinding);
+        }
 
         var mainPowerItem = new MenuItem
         {
@@ -907,6 +927,11 @@ public partial class App : Application
                 await viewModel.SetMainPowerAsync(!viewModel.MainPower);
             }
         };
+        BindTrayControlState(mainPowerItem, viewModel);
+        BindTrayCheckedState(
+            mainPowerItem,
+            viewModel,
+            nameof(QuickPanelViewModel.MainPower));
 
         var backgroundPowerItem = new MenuItem
         {
@@ -923,6 +948,11 @@ public partial class App : Application
                     !viewModel.BackgroundPower);
             }
         };
+        BindTrayControlState(backgroundPowerItem, viewModel);
+        BindTrayCheckedState(
+            backgroundPowerItem,
+            viewModel,
+            nameof(QuickPanelViewModel.BackgroundPower));
 
         var allOnItem = new MenuItem
         {
@@ -936,6 +966,7 @@ public partial class App : Application
                 await viewModel.SetAllPowerAsync(enabled: true);
             }
         };
+        BindTrayControlState(allOnItem, viewModel);
 
         var allOffItem = new MenuItem
         {
@@ -949,6 +980,7 @@ public partial class App : Application
                 await viewModel.SetAllPowerAsync(enabled: false);
             }
         };
+        BindTrayControlState(allOffItem, viewModel);
 
         var presetsItem = new MenuItem { Header = UiText.Get("Tray.Presets") };
         if (viewModel is null || viewModel.Presets.Count == 0)
@@ -971,6 +1003,7 @@ public partial class App : Application
                 };
                 presetItem.Click += async (_, _) =>
                     await viewModel.ApplyPresetAsync(preset);
+                BindTrayControlState(presetItem, viewModel);
                 presetsItem.Items.Add(presetItem);
             }
         }
@@ -989,6 +1022,23 @@ public partial class App : Application
                 await viewModel.RefreshStateAsync();
             }
         };
+        if (viewModel is not null)
+        {
+            refreshItem.SetBinding(
+                MenuItem.HeaderProperty,
+                new Binding(nameof(QuickPanelViewModel.TrayRefreshLabel))
+                {
+                    Mode = BindingMode.OneWay,
+                    Source = viewModel,
+                });
+            refreshItem.SetBinding(
+                UIElement.IsEnabledProperty,
+                new Binding(nameof(QuickPanelViewModel.CanRefresh))
+                {
+                    Mode = BindingMode.OneWay,
+                    Source = viewModel,
+                });
+        }
 
         var settingsItem = new MenuItem { Header = UiText.Get("Text.Settings") };
         settingsItem.Click += (_, _) => ShowSettings();
@@ -1025,6 +1075,43 @@ public partial class App : Application
         menu.Items.Add(new Separator());
         menu.Items.Add(exitItem);
         return menu;
+    }
+
+    private static void BindTrayControlState(
+        MenuItem item,
+        QuickPanelViewModel? viewModel)
+    {
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        item.SetBinding(
+            UIElement.IsEnabledProperty,
+            new Binding(nameof(QuickPanelViewModel.CanControl))
+            {
+                Mode = BindingMode.OneWay,
+                Source = viewModel,
+            });
+    }
+
+    private static void BindTrayCheckedState(
+        MenuItem item,
+        QuickPanelViewModel? viewModel,
+        string propertyName)
+    {
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        item.SetBinding(
+            MenuItem.IsCheckedProperty,
+            new Binding(propertyName)
+            {
+                Mode = BindingMode.OneWay,
+                Source = viewModel,
+            });
     }
 
     private void ShowDeviceInfo()

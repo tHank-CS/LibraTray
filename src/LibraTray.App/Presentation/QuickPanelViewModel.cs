@@ -101,6 +101,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
             {
                 OnPropertyChanged(nameof(CanControl));
                 OnPropertyChanged(nameof(CanRetry));
+                OnPropertyChanged(nameof(TrayRefreshLabel));
             }
         }
     }
@@ -114,6 +115,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
             {
                 OnPropertyChanged(nameof(CanControl));
                 OnPropertyChanged(nameof(CanRetry));
+                OnPropertyChanged(nameof(CanRefresh));
             }
         }
     }
@@ -121,6 +123,11 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     public bool CanControl => IsDeviceOnline && !IsBusy;
 
     public bool CanRetry => !IsDeviceOnline && !IsBusy;
+
+    public bool CanRefresh => !IsBusy;
+
+    public string TrayRefreshLabel => UiText.Get(
+        IsDeviceOnline ? "Tray.Refresh" : "Tray.Reconnect");
 
     public ObservableCollection<LibraProPreset> Presets { get; }
 
