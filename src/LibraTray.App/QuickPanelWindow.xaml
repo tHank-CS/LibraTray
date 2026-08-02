@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="LibraTray"
         Width="408"
-        Height="670"
+        Height="590"
         MinWidth="368"
         ResizeMode="NoResize"
         WindowStyle="None"
@@ -20,8 +20,6 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="16" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="12" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="12" />
                 <RowDefinition Height="Auto" />
@@ -311,39 +309,13 @@
                 </StackPanel>
             </Border>
 
-            <Border Grid.Row="8"
-                    Padding="13,11"
-                    Background="{DynamicResource AccentSoftBrush}"
-                    CornerRadius="8">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="●"
-                               FontSize="10"
-                               Foreground="{DynamicResource AccentBrush}"
-                               VerticalAlignment="Top"
-                               Margin="0,2,10,0" />
-                    <TextBlock Grid.Column="1"
-                               Text="{DynamicResource Text.SafetySummary}"
-                               TextWrapping="Wrap"
-                               FontSize="12"
-                               LineHeight="18"
-                               Foreground="{DynamicResource TextSecondaryBrush}" />
-                </Grid>
-            </Border>
-
-            <Grid Grid.Row="10">
+            <Grid Grid.Row="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="{DynamicResource Text.LocalOnlySummary}"
-                               FontSize="12"
-                               Foreground="{DynamicResource TextSecondaryBrush}" />
-                    <TextBlock Margin="0,4,12,0"
+                    <TextBlock Margin="0,0,12,0"
                                MaxWidth="280"
                                Text="{Binding HotkeyStatus}"
                                TextWrapping="Wrap"

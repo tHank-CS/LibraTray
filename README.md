@@ -122,7 +122,9 @@ unofficial download sites. Once a reviewed release is available, its assets are:
 - `LibraTray-<version>-win-x64.zip`: self-contained portable build; extract it
   to a user-writable folder and run `LibraTray.exe`;
 - `LibraTray-<version>-win-x64.msi`: current-user installer under
-  `%LOCALAPPDATA%\Programs\LibraTray`, with no administrator permission required;
+  `%LOCALAPPDATA%\Programs\LibraTray` by default; its wizard allows a different
+  user-writable folder and asks for confirmation without requiring administrator
+  permission;
 - `SHA256SUMS.txt`: checksums for both packages.
 
 The project does not currently have a code-signing certificate. Windows may
@@ -268,7 +270,9 @@ To run the current tray application during development:
 .\.dotnet\dotnet.exe run --project .\src\LibraTray.App\LibraTray.App.csproj -c Release -- --show
 ```
 
-Without `--show`, the application starts tray-first with its window hidden.
+A normal launch opens the quick panel so the notification-area application is
+easy to find. The Windows startup shortcut passes `--startup` and remains quiet
+in the notification area. `--show` is retained for a framed development window.
 
 ## Troubleshooting
 
