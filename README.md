@@ -13,9 +13,8 @@ synchronization.
 > repository now contains a tray-first WPF application with trusted local
 > discovery, verified main/background controls, notification reconciliation,
 > bounded retry/rate limiting, cold-start recovery, and fixed global shortcuts.
-> Shortcut configuration, versioned local settings, and local presets are also
-> implemented. Windows automation, packaging, signing, and a GitHub Release
-> are still pending. The two-zone RGB command remains
+> implemented. Opt-in Windows lifecycle automation is implemented; packaging,
+> signing, and a GitHub Release are still pending. The two-zone RGB command remains
 > disabled because its relationship to the observed cold-start failure has not
 > been isolated.
 
@@ -81,13 +80,13 @@ Available at the current milestone:
 - captured shortcut rebinding, configurable adjustment steps, and device alias;
 - local presets plus validated custom whole-background RGB input;
 - versioned settings with corruption fallback and atomic replacement;
+- opt-in lock/display power automation plus guarded shutdown/startup restore;
 - automated tests and a mock-device test surface.
 
 Planned next:
 
 - optional OSD;
 - configuration import/export, device details, theme, and language settings;
-- opt-in lock, unlock, sleep, wake, and display-power automation;
 - portable packages and an installer.
 
 Screen sampling, music/game effects, and a general-purpose Yeelight client are
@@ -176,14 +175,29 @@ reported in the panel without terminating the application. Inputs
 received while a prior command is being verified are queued and evaluated
 against the latest confirmed state. Only one LibraTray instance may run in a
 Windows session, preventing a second instance from falsely reporting every key
-as occupied. Lifecycle automation will be individually opt-in and debounced.
-No normal UI exposes `lamp15` as the device name.
+as occupied. No normal UI exposes `lamp15` as the device name.
+
+Windows automation is disabled by default and can be enabled separately for
+session lock/unlock, display off/on, startup registration, and guarded
+shutdown/startup restore. Lock and display blockers share one captured state,
+so overlapping events restore only after every blocker is cleared. Recent
+manual input and a newer device state always win.
+
+Shutdown restore uses a one-time ticket under
+`%LOCALAPPDATA%\LibraTray\shutdown-restore.json`. The ticket is written only
+after both channels are confirmed off, contains a hash of the exact discovered
+device ID rather than its address, expires after seven days, and is consumed or
+discarded on the next eligible launch. Startup waits up to one minute for the
+LAN device, re-reads it, and restores only when the exact expected off state is
+still present. Session ending is never held for more than three seconds for a
+best-effort device operation. Enabling “start with Windows” writes the current
+user's standard `Run` entry and does not require elevation.
 
 Settings are stored in `%LOCALAPPDATA%\LibraTray\settings.json`. The current
 schema stores only local preferences: alias, adjustment steps, shortcut
-bindings, tray-wheel preference, and at most 20 local presets. Corrupt or
-unsupported settings fall back to safe defaults. No account credential, cloud
-token, or device address is stored.
+bindings, tray-wheel preference, Windows automation switches, and at most 20
+local presets. Corrupt or unsupported settings fall back to safe defaults. No
+account credential, cloud token, or device address is stored.
 
 ## Build from source
 

@@ -58,6 +58,9 @@ and this project intends to follow
   exit.
 - Immediate left-click panel toggling, middle-click main-power control, and an
   optional coalesced tray-wheel brightness gesture.
+- Individually opt-in Windows lock/display automation, current-user startup
+  registration, and guarded shutdown/startup restore using a short-lived,
+  exact-device, one-time state ticket.
 
 ### Fixed
 

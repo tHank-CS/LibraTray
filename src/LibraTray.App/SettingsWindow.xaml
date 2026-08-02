@@ -53,6 +53,35 @@
                 <Border Margin="0,12,0,0"
                         Style="{StaticResource SectionCardStyle}">
                     <StackPanel>
+                        <TextBlock Text="Windows 自动化"
+                                   FontSize="15"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Margin="0,4,0,10"
+                                   Text="默认全部关闭；跨启动恢复仅在关灯得到确认后执行"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"
+                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                        <CheckBox x:Name="LockAutomationCheckBox"
+                                  Content="锁定时关闭灯光，解锁后恢复" />
+                        <CheckBox x:Name="StartWithWindowsCheckBox"
+                                  Margin="0,8,0,0"
+                                  Content="登录 Windows 时自动启动 LibraTray" />
+                        <CheckBox x:Name="ShutdownAutomationCheckBox"
+                                  Margin="0,8,0,0"
+                                  Content="关机或注销时关闭灯光，下次启动后条件恢复" />
+                        <CheckBox x:Name="DisplayAutomationCheckBox"
+                                  Margin="0,8,0,0"
+                                  Content="显示器关闭时关闭灯光，开启后恢复" />
+                        <TextBlock Margin="0,9,0,0"
+                                   Text="设备不匹配、状态已改变或近期手动操作时不会覆盖"
+                                   FontSize="11"
+                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Margin="0,12,0,0"
+                        Style="{StaticResource SectionCardStyle}">
+                    <StackPanel>
                         <TextBlock Text="调节步进"
                                    FontSize="15"
                                    FontWeight="SemiBold" />

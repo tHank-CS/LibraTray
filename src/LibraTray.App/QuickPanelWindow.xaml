@@ -362,6 +362,25 @@
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
+                    <TextBlock Margin="0,4,12,0"
+                               MaxWidth="280"
+                               Text="{Binding AutomationStatus}"
+                               TextWrapping="Wrap"
+                               FontSize="11"
+                               Foreground="{StaticResource TextSecondaryBrush}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock"
+                                   BasedOn="{StaticResource {x:Type TextBlock}}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding AutomationStatus}"
+                                                 Value="{x:Null}">
+                                        <Setter Property="Visibility"
+                                                Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
                 <Button Grid.Column="1"
                         Content="设置"

@@ -123,6 +123,8 @@ public sealed class LibraProDeviceSession : IAsyncDisposable
 
     public DeviceIdentity? Identity { get; private set; }
 
+    public string? DeviceId { get; private set; }
+
     public LibraProState? CurrentState => Volatile.Read(ref _currentState);
 
     public async Task DiscoverAndConnectAsync(
@@ -223,6 +225,7 @@ public sealed class LibraProDeviceSession : IAsyncDisposable
                 _adapter = adapter;
                 _transport = transport;
                 Identity = identity;
+                DeviceId = device.Response.Id;
                 PublishState(state);
                 SetStatus(LibraProSessionStatus.Connected, "Connected.");
             }
@@ -393,6 +396,7 @@ public sealed class LibraProDeviceSession : IAsyncDisposable
             _adapter = null;
             _transport = null;
             Identity = null;
+            DeviceId = null;
             Volatile.Write(ref _currentState, null);
 
             if (client is not null)

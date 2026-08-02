@@ -19,6 +19,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     private string _deviceName;
     private string? _errorMessage;
     private string? _hotkeyStatus;
+    private string? _automationStatus;
     private LibraProPreset? _selectedPreset;
     private bool _isDeviceOnline;
     private bool _isBusy;
@@ -57,6 +58,8 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
 
     public event EventHandler? PresetsChanged;
 
+    public event EventHandler? ManualControlRequested;
+
     public string DeviceName
     {
         get => _deviceName;
@@ -79,6 +82,12 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     {
         get => _hotkeyStatus;
         private set => SetField(ref _hotkeyStatus, value);
+    }
+
+    public string? AutomationStatus
+    {
+        get => _automationStatus;
+        private set => SetField(ref _automationStatus, value);
     }
 
     public bool IsDeviceOnline
@@ -164,7 +173,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     public Task SetMainPowerAsync(
         bool enabled,
         CancellationToken cancellationToken = default) =>
-        RunAsync(
+        RunManualAsync(
             () => _session.SetMainPowerAsync(
                 enabled,
                 ResolveToken(cancellationToken)),
@@ -173,7 +182,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     public Task SetBackgroundPowerAsync(
         bool enabled,
         CancellationToken cancellationToken = default) =>
-        RunAsync(
+        RunManualAsync(
             () => _session.SetBackgroundPowerAsync(
                 enabled,
                 ResolveToken(cancellationToken)),
@@ -182,7 +191,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     public Task SetMainBrightnessAsync(
         int brightness,
         CancellationToken cancellationToken = default) =>
-        RunAsync(
+        RunManualAsync(
             () => _session.SetMainBrightnessAsync(
                 brightness,
                 ResolveToken(cancellationToken)),
@@ -191,7 +200,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     public Task SetMainColorTemperatureAsync(
         int colorTemperature,
         CancellationToken cancellationToken = default) =>
-        RunAsync(
+        RunManualAsync(
             () => _session.SetMainColorTemperatureAsync(
                 colorTemperature,
                 ResolveToken(cancellationToken)),
@@ -200,7 +209,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     public Task SetBackgroundBrightnessAsync(
         int brightness,
         CancellationToken cancellationToken = default) =>
-        RunAsync(
+        RunManualAsync(
             () => _session.SetBackgroundBrightnessAsync(
                 brightness,
                 ResolveToken(cancellationToken)),
@@ -209,7 +218,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     public Task SetBackgroundRgbAsync(
         int rgb,
         CancellationToken cancellationToken = default) =>
-        RunAsync(
+        RunManualAsync(
             () => _session.SetBackgroundRgbAsync(
                 rgb,
                 ResolveToken(cancellationToken)),
@@ -282,7 +291,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     {
         ArgumentNullException.ThrowIfNull(operation);
         return IsDeviceOnline
-            ? RunAsync(
+            ? RunManualAsync(
                 () => operation(_lifetimeToken),
                 _lifetimeToken)
             : Task.CompletedTask;
@@ -296,6 +305,9 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
             ? null
             : $"快捷键冲突：{string.Join("、", failedHotkeys)}";
     }
+
+    public void SetAutomationStatus(string? status) =>
+        AutomationStatus = status;
 
     public void ApplySettings(LibraTraySettings settings)
     {
@@ -314,7 +326,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     {
         ArgumentNullException.ThrowIfNull(preset);
         return IsDeviceOnline
-            ? RunAsync(
+            ? RunManualAsync(
                 () => _session.ApplyTargetStateAsync(
                     preset.ToTargetState(),
                     _lifetimeToken),
@@ -324,7 +336,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
 
     public Task SetAllPowerAsync(bool enabled) =>
         IsDeviceOnline
-            ? RunAsync(
+            ? RunManualAsync(
                 async () =>
                 {
                     _ = await _session.SetMainPowerAsync(
@@ -445,6 +457,14 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
 
             _operationLock.Release();
         }
+    }
+
+    private Task RunManualAsync(
+        Func<Task> operation,
+        CancellationToken cancellationToken)
+    {
+        ManualControlRequested?.Invoke(this, EventArgs.Empty);
+        return RunAsync(operation, cancellationToken);
     }
 
     private void OnSessionStatusChanged(

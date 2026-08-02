@@ -24,6 +24,14 @@ public partial class SettingsWindow : Window
             CultureInfo.InvariantCulture);
         TrayWheelCheckBox.IsChecked =
             settings.AdjustBrightnessWithTrayWheel;
+        LockAutomationCheckBox.IsChecked =
+            settings.WindowsAutomation.LockAndUnlockEnabled;
+        StartWithWindowsCheckBox.IsChecked =
+            settings.WindowsAutomation.StartWithWindows;
+        ShutdownAutomationCheckBox.IsChecked =
+            settings.WindowsAutomation.ShutdownAndStartupEnabled;
+        DisplayAutomationCheckBox.IsChecked =
+            settings.WindowsAutomation.DisplayPowerEnabled;
         MainPowerHotkeyTextBox.Text = settings.Hotkeys.ToggleMainPower;
         BackgroundPowerHotkeyTextBox.Text =
             settings.Hotkeys.ToggleBackgroundPower;
@@ -154,6 +162,17 @@ public partial class SettingsWindow : Window
             BrightnessStep = brightnessStep,
             ColorTemperatureStep = temperatureStep,
             AdjustBrightnessWithTrayWheel = TrayWheelCheckBox.IsChecked == true,
+            WindowsAutomation = _originalSettings.WindowsAutomation with
+            {
+                LockAndUnlockEnabled =
+                    LockAutomationCheckBox.IsChecked == true,
+                StartWithWindows =
+                    StartWithWindowsCheckBox.IsChecked == true,
+                ShutdownAndStartupEnabled =
+                    ShutdownAutomationCheckBox.IsChecked == true,
+                DisplayPowerEnabled =
+                    DisplayAutomationCheckBox.IsChecked == true,
+            },
             Hotkeys = new GlobalHotkeySettings
             {
                 ToggleMainPower = gestures[0],
