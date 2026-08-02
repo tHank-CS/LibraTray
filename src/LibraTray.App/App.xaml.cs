@@ -31,6 +31,7 @@ public partial class App : Application
     private LibraTraySettingsStore? _settingsStore;
     private SettingsWindow? _settingsWindow;
     private DeviceDetailsWindow? _deviceDetailsWindow;
+    private OnScreenDisplayWindow? _onScreenDisplay;
     private Mutex? _singleInstanceMutex;
     private bool _ownsSingleInstanceMutex;
     private TrayIconService? _trayIcon;
@@ -61,7 +62,13 @@ public partial class App : Application
             return;
         }
 
-        bool showRequested = e.Args.Contains(
+        bool osdPreviewRequested = e.Args.Contains(
+            "--osd-preview",
+            StringComparer.OrdinalIgnoreCase)
+            || Environment.GetCommandLineArgs()
+                .Skip(1)
+                .Contains("--osd-preview", StringComparer.OrdinalIgnoreCase);
+        bool showRequested = osdPreviewRequested || e.Args.Contains(
             "--show",
             StringComparer.OrdinalIgnoreCase)
             || Environment.GetCommandLineArgs()
@@ -124,7 +131,16 @@ public partial class App : Application
         {
             _ = Dispatcher.BeginInvoke(
                 DispatcherPriority.ApplicationIdle,
-                ShowQuickPanel);
+                () =>
+                {
+                    ShowQuickPanel();
+                    if (osdPreviewRequested && _quickPanelViewModel is not null)
+                    {
+                        GetOsd().ShowBrightness(
+                            _quickPanelViewModel.DeviceName,
+                            50);
+                    }
+                });
         }
     }
 
@@ -168,6 +184,8 @@ public partial class App : Application
             _deviceDetailsWindow.Close();
             _deviceDetailsWindow = null;
         }
+        _onScreenDisplay?.Close();
+        _onScreenDisplay = null;
 
         if (_deviceSession is not null)
         {
@@ -265,7 +283,7 @@ public partial class App : Application
         _trayWheelTimer?.Start();
     }
 
-    private void OnTrayWheelTimerTick(object? sender, EventArgs e)
+    private async void OnTrayWheelTimerTick(object? sender, EventArgs e)
     {
         _ = sender;
         _ = e;
@@ -274,7 +292,8 @@ public partial class App : Application
         _pendingTrayWheelSteps = 0;
         if (steps != 0 && _quickPanelViewModel is not null)
         {
-            _ = _quickPanelViewModel.AdjustMainBrightnessFromHotkeyAsync(steps);
+            await _quickPanelViewModel.AdjustMainBrightnessFromHotkeyAsync(steps);
+            ShowBrightnessOsd();
         }
     }
 
@@ -306,12 +325,13 @@ public partial class App : Application
         }
     }
 
-    private void OnHotkeyPressed(
+    private async void OnHotkeyPressed(
         object? sender,
         GlobalHotkeyPressedEventArgs eventArgs)
     {
         _ = sender;
-        _ = ExecuteHotkeyAsync(eventArgs.Action);
+        await ExecuteHotkeyAsync(eventArgs.Action);
+        ShowAdjustmentOsd(eventArgs.Action);
     }
 
     private void OnTrayContextRequested(object? sender, EventArgs e)
@@ -375,6 +395,10 @@ public partial class App : Application
                     != _settings.WindowsAutomation.StartWithWindows;
                 _settings = _settingsStore.Save(changed);
                 AppearanceManager.Apply(this, _settings);
+                if (!_settings.ShowOnScreenDisplay)
+                {
+                    _onScreenDisplay?.Hide();
+                }
                 if (startupRegistrationChanged)
                 {
                     WindowsStartupRegistrationService.SetEnabled(
@@ -1060,4 +1084,53 @@ public partial class App : Application
             _ => Task.CompletedTask,
         };
     }
+
+    private void ShowAdjustmentOsd(GlobalHotkeyAction action)
+    {
+        switch (action)
+        {
+            case GlobalHotkeyAction.IncreaseMainBrightness:
+            case GlobalHotkeyAction.DecreaseMainBrightness:
+                ShowBrightnessOsd();
+                break;
+            case GlobalHotkeyAction.IncreaseMainColorTemperature:
+            case GlobalHotkeyAction.DecreaseMainColorTemperature:
+                ShowColorTemperatureOsd();
+                break;
+        }
+    }
+
+    private void ShowBrightnessOsd()
+    {
+        if (!CanShowOsd(out QuickPanelViewModel? viewModel))
+        {
+            return;
+        }
+
+        GetOsd().ShowBrightness(viewModel.DeviceName, viewModel.MainBrightness);
+    }
+
+    private void ShowColorTemperatureOsd()
+    {
+        if (!CanShowOsd(out QuickPanelViewModel? viewModel))
+        {
+            return;
+        }
+
+        GetOsd().ShowColorTemperature(
+            viewModel.DeviceName,
+            viewModel.MainColorTemperature);
+    }
+
+    private bool CanShowOsd(
+        [NotNullWhen(true)] out QuickPanelViewModel? viewModel)
+    {
+        viewModel = _quickPanelViewModel;
+        return _settings.ShowOnScreenDisplay
+            && viewModel is { IsDeviceOnline: true, ErrorMessage: null }
+            && !_appCancellation.IsCancellationRequested;
+    }
+
+    private OnScreenDisplayWindow GetOsd() =>
+        _onScreenDisplay ??= new OnScreenDisplayWindow();
 }

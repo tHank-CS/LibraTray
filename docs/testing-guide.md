@@ -219,6 +219,23 @@ Confidence:
 Observation is not causation: note timing and conflicts instead of assuming
 that the last packet caused a physical state.
 
+## OSD smoke check
+
+From a built application directory, run:
+
+```powershell
+.\LibraTray.exe --show --osd-preview
+```
+
+The explicit preview displays a 50% main-brightness OSD without issuing an
+adjustment command. Verify that it appears near the lower-right corner of the
+monitor containing the pointer, does not become the foreground window, ignores
+pointer input, and hides after about 1.4 seconds. If Windows blocks pointer
+position access, placement falls back to the foreground window's monitor and
+then the primary work area. Normal OSD feedback is shown only after a shortcut
+or tray-wheel adjustment completes without a reported device error, and it can
+be disabled in Settings.
+
 ## Log handling
 
 The probe's default diagnostic directory is:

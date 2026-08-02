@@ -69,6 +69,9 @@ and this project intends to follow
   replacement.
 - Light, dark, and system-following themes with live resource updates, plus
   system-following, Simplified Chinese, and English interface languages.
+- An optional no-activate, click-through OSD for confirmed shortcut and
+  tray-wheel brightness/colour-temperature feedback, with active-monitor
+  placement and automatic hiding.
 
 ### Fixed
 

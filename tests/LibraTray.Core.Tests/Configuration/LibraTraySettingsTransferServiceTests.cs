@@ -36,6 +36,7 @@ public sealed class LibraTraySettingsTransferServiceTests
             BrightnessStep = 8,
             Theme = AppTheme.Dark,
             Language = AppLanguage.English,
+            ShowOnScreenDisplay = false,
             WindowsAutomation = new WindowsAutomationSettings
             {
                 StartWithWindows = true,
@@ -63,6 +64,7 @@ public sealed class LibraTraySettingsTransferServiceTests
         Assert.AreEqual(8, imported.BrightnessStep);
         Assert.AreEqual(AppTheme.Dark, imported.Theme);
         Assert.AreEqual(AppLanguage.English, imported.Language);
+        Assert.IsFalse(imported.ShowOnScreenDisplay);
         Assert.IsTrue(imported.WindowsAutomation.StartWithWindows);
         Assert.IsTrue(imported.WindowsAutomation.DisplayPowerEnabled);
         Assert.HasCount(1, imported.Presets);

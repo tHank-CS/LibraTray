@@ -18,6 +18,9 @@
     <system:String x:Key="Text.LanguageChinese">简体中文</system:String>
     <system:String x:Key="Text.LanguageEnglish">English</system:String>
     <system:String x:Key="Text.AppearanceSaveHint">Applied immediately after saving; system theme follows Windows appearance changes</system:String>
+    <system:String x:Key="Text.ShowOsd">Show an on-screen display for shortcut or tray-wheel adjustments</system:String>
+    <system:String x:Key="Text.OsdMainBrightness">Main light · Brightness</system:String>
+    <system:String x:Key="Text.OsdMainTemperature">Main light · Colour temperature</system:String>
     <system:String x:Key="Text.WindowsAutomation">Windows automation</system:String>
     <system:String x:Key="Text.AutomationIntro">Off by default; cross-start restore is recorded only after power-off is confirmed</system:String>
     <system:String x:Key="Text.AutomationLock">Turn lights off when locked and restore after unlock</system:String>
@@ -111,7 +114,7 @@
     <system:String x:Key="Message.ImportFilter">LibraTray settings (*.libratray-settings.json)|*.libratray-settings.json|JSON files (*.json)|*.json</system:String>
     <system:String x:Key="Message.ImportConfirmTitle">Confirm imported settings</system:String>
     <system:String x:Key="Message.ImportFailed">The file could not be read, has an unsupported version, or contains invalid settings. Existing settings were not changed.</system:String>
-    <system:String x:Key="Message.ExportPrivacy">The export contains the device alias, shortcuts, presets, theme, language, and Windows automation preferences. Future versions may contain LAN device metadata. This version does not export accounts, tokens, or device addresses.&#x0a;&#x0a;Review the file before sharing it. Continue?</system:String>
+    <system:String x:Key="Message.ExportPrivacy">The export contains the device alias, shortcuts, presets, theme, language, OSD, and Windows automation preferences. Future versions may contain LAN device metadata. This version does not export accounts, tokens, or device addresses.&#x0a;&#x0a;Review the file before sharing it. Continue?</system:String>
     <system:String x:Key="Message.ExportPrivacyTitle">Privacy notice before export</system:String>
     <system:String x:Key="Message.ExportTitle">Export LibraTray settings</system:String>
     <system:String x:Key="Message.ExportFilter">LibraTray settings (*.libratray-settings.json)|*.libratray-settings.json</system:String>

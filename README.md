@@ -84,13 +84,14 @@ Available at the current milestone:
   warning;
 - light, dark, and Windows-following themes plus live Simplified Chinese and
   English resources;
+- an optional, no-activate brightness/colour-temperature OSD for shortcut and
+  tray-wheel adjustments;
 - opt-in lock/display power automation plus guarded shutdown/startup restore;
 - an advanced device-details window and bounded redacted diagnostic summary;
 - automated tests and a mock-device test surface.
 
 Planned next:
 
-- optional OSD;
 - portable packages and an installer.
 
 Screen sampling, music/game effects, and a general-purpose Yeelight client are
@@ -222,6 +223,12 @@ Appearance can follow Windows or be forced to the light or dark theme. The
 interface can likewise follow the installed Windows UI language or explicitly
 use Simplified Chinese or English. A saved change is applied immediately; the
 Windows-following theme also reacts to later system appearance changes.
+
+The optional OSD appears only after a shortcut or tray-wheel adjustment
+completes without a reported device error. It shows the friendly device name,
+main-light channel, and confirmed value; ignores pointer input, never becomes
+the foreground window, uses the active monitor work area, and hides after about
+1.4 seconds. It can be disabled in Settings.
 
 ## Build from source
 
