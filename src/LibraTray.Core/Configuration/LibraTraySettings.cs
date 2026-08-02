@@ -17,9 +17,32 @@ public sealed record LibraTraySettings
 
     public bool AdjustBrightnessWithTrayWheel { get; init; } = true;
 
+    public WindowsAutomationSettings WindowsAutomation { get; init; } = new();
+
     public GlobalHotkeySettings Hotkeys { get; init; } = new();
 
     public IReadOnlyList<LibraProPreset> Presets { get; init; } = [];
+}
+
+public sealed record WindowsAutomationSettings
+{
+    public bool LockAndUnlockEnabled { get; init; }
+
+    public bool StartWithWindows { get; init; }
+
+    public bool ShutdownAndStartupEnabled { get; init; }
+
+    public bool DisplayPowerEnabled { get; init; }
+
+    public int ManualSuppressionSeconds { get; init; } = 5;
+
+    public bool IsAnyEnabled =>
+        LockAndUnlockEnabled
+        || ShutdownAndStartupEnabled
+        || DisplayPowerEnabled;
+
+    public bool RequiresLifecycleEvents =>
+        LockAndUnlockEnabled || DisplayPowerEnabled;
 }
 
 public sealed record GlobalHotkeySettings
@@ -99,8 +122,27 @@ internal static class LibraTraySettingsNormalizer
                     : defaults.ColorTemperatureStep,
             AdjustBrightnessWithTrayWheel =
                 settings.AdjustBrightnessWithTrayWheel,
+            WindowsAutomation = NormalizeWindowsAutomation(
+                settings.WindowsAutomation,
+                defaults.WindowsAutomation),
             Hotkeys = NormalizeHotkeys(settings.Hotkeys, defaults.Hotkeys),
             Presets = NormalizePresets(settings.Presets),
+        };
+    }
+
+    private static WindowsAutomationSettings NormalizeWindowsAutomation(
+        WindowsAutomationSettings? settings,
+        WindowsAutomationSettings defaults)
+    {
+        settings ??= defaults;
+        return settings with
+        {
+            ManualSuppressionSeconds = IsInRange(
+                settings.ManualSuppressionSeconds,
+                0,
+                60)
+                    ? settings.ManualSuppressionSeconds
+                    : defaults.ManualSuppressionSeconds,
         };
     }
 

@@ -38,6 +38,14 @@ public sealed class LibraTraySettingsStoreTests
             BrightnessStep = 8,
             ColorTemperatureStep = 250,
             AdjustBrightnessWithTrayWheel = false,
+            WindowsAutomation = new WindowsAutomationSettings
+            {
+                LockAndUnlockEnabled = true,
+                StartWithWindows = true,
+                ShutdownAndStartupEnabled = true,
+                DisplayPowerEnabled = true,
+                ManualSuppressionSeconds = 8,
+            },
             Hotkeys = new GlobalHotkeySettings
             {
                 ToggleMainPower = "Ctrl+Shift+L",
@@ -69,6 +77,7 @@ public sealed class LibraTraySettingsStoreTests
         Assert.AreEqual(
             saved.AdjustBrightnessWithTrayWheel,
             loaded.AdjustBrightnessWithTrayWheel);
+        Assert.AreEqual(saved.WindowsAutomation, loaded.WindowsAutomation);
         Assert.AreEqual(saved.Hotkeys, loaded.Hotkeys);
         CollectionAssert.AreEqual(
             saved.Presets.ToArray(),
@@ -93,6 +102,9 @@ public sealed class LibraTraySettingsStoreTests
         Assert.AreEqual(5, loaded.BrightnessStep);
         Assert.AreEqual(200, loaded.ColorTemperatureStep);
         Assert.IsTrue(loaded.AdjustBrightnessWithTrayWheel);
+        Assert.IsFalse(loaded.WindowsAutomation.IsAnyEnabled);
+        Assert.IsFalse(loaded.WindowsAutomation.StartWithWindows);
+        Assert.AreEqual(5, loaded.WindowsAutomation.ManualSuppressionSeconds);
         Assert.AreEqual("Ctrl+Alt+L", loaded.Hotkeys.ToggleMainPower);
         Assert.IsEmpty(loaded.Presets);
     }
@@ -109,6 +121,10 @@ public sealed class LibraTraySettingsStoreTests
               "UserAlias": "  Desk\n light  ",
               "BrightnessStep": 0,
               "ColorTemperatureStep": 5000,
+              "WindowsAutomation": {
+                "LockAndUnlockEnabled": true,
+                "ManualSuppressionSeconds": 61
+              },
               "Hotkeys": { "ToggleMainPower": " " },
               "Presets": [
                 { "Name": "Bad", "MainBrightness": 0 },
@@ -130,6 +146,8 @@ public sealed class LibraTraySettingsStoreTests
         Assert.AreEqual("Desk light", loaded.UserAlias);
         Assert.AreEqual(5, loaded.BrightnessStep);
         Assert.AreEqual(200, loaded.ColorTemperatureStep);
+        Assert.IsTrue(loaded.WindowsAutomation.LockAndUnlockEnabled);
+        Assert.AreEqual(5, loaded.WindowsAutomation.ManualSuppressionSeconds);
         Assert.AreEqual("Ctrl+Alt+L", loaded.Hotkeys.ToggleMainPower);
         Assert.HasCount(1, loaded.Presets);
         Assert.AreEqual("Focus", loaded.Presets[0].Name);
