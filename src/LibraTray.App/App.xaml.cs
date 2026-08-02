@@ -11,6 +11,7 @@ using LibraTray.App.Presentation;
 using LibraTray.Core.Automation;
 using LibraTray.Core.Configuration;
 using LibraTray.Core.Devices.LibraPro;
+using Microsoft.Win32;
 
 namespace LibraTray.App;
 
@@ -358,6 +359,8 @@ public partial class App : Application
         {
             Owner = _quickPanel,
         };
+        _settingsWindow.ImportRequested += OnSettingsImportRequested;
+        _settingsWindow.ExportRequested += OnSettingsExportRequested;
         try
         {
             if (_settingsWindow.ShowDialog() == true
@@ -394,8 +397,158 @@ public partial class App : Application
         }
         finally
         {
+            if (_settingsWindow is not null)
+            {
+                _settingsWindow.ImportRequested -= OnSettingsImportRequested;
+                _settingsWindow.ExportRequested -= OnSettingsExportRequested;
+            }
+
             _settingsWindow = null;
         }
+    }
+
+    private void OnSettingsImportRequested(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (_settingsWindow is null)
+        {
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            AddExtension = true,
+            CheckFileExists = true,
+            DefaultExt = LibraTraySettingsTransferService.FileExtension,
+            Filter = "LibraTray 配置 (*.libratray-settings.json)|*.libratray-settings.json|JSON 文件 (*.json)|*.json",
+            Multiselect = false,
+            Title = "导入 LibraTray 配置",
+        };
+        if (dialog.ShowDialog(_settingsWindow) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            LibraTraySettings imported =
+                LibraTraySettingsTransferService.Import(dialog.FileName);
+            MessageBoxResult confirmation = MessageBox.Show(
+                _settingsWindow,
+                BuildImportPreview(imported),
+                "确认载入配置",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question,
+                MessageBoxResult.No);
+            if (confirmation == MessageBoxResult.Yes)
+            {
+                _settingsWindow.LoadImportedSettings(imported);
+            }
+        }
+        catch (Exception exception) when (
+            exception is IOException
+                or UnauthorizedAccessException
+                or NotSupportedException)
+        {
+            MessageBox.Show(
+                _settingsWindow,
+                "配置文件无法读取、格式不受支持或内容无效。现有设置未被修改。",
+                "LibraTray",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private void OnSettingsExportRequested(object? sender, EventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (_settingsWindow is null
+            || !_settingsWindow.TryCreatePendingSettings(
+                out LibraTraySettings? pending)
+            || pending is null)
+        {
+            return;
+        }
+
+        MessageBoxResult privacyConfirmation = MessageBox.Show(
+            _settingsWindow,
+            "导出文件包含设备别名、快捷键、预设和 Windows 自动化偏好，"
+            + "未来版本也可能包含局域网设备信息。当前版本不会导出账号、Token 或设备地址。\n\n"
+            + "分享前请自行检查文件内容。是否继续？",
+            "导出配置前的隐私提示",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (privacyConfirmation != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            AddExtension = true,
+            DefaultExt = LibraTraySettingsTransferService.FileExtension,
+            FileName = $"LibraTray-settings-{DateTime.Now:yyyyMMdd}",
+            Filter = "LibraTray 配置 (*.libratray-settings.json)|*.libratray-settings.json",
+            OverwritePrompt = true,
+            Title = "导出 LibraTray 配置",
+        };
+        if (dialog.ShowDialog(_settingsWindow) != true)
+        {
+            return;
+        }
+
+        try
+        {
+            LibraTraySettingsTransferService.Export(dialog.FileName, pending);
+            MessageBox.Show(
+                _settingsWindow,
+                "配置已导出。分享前请再次检查文件内容。",
+                "LibraTray",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception exception) when (
+            exception is IOException
+                or UnauthorizedAccessException
+                or SecurityException
+                or InvalidOperationException)
+        {
+            MessageBox.Show(
+                _settingsWindow,
+                "配置导出失败；原有目标文件不会被部分内容替换。",
+                "LibraTray",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private static string BuildImportPreview(LibraTraySettings settings)
+    {
+        int automationCount = 0;
+        if (settings.WindowsAutomation.LockAndUnlockEnabled)
+        {
+            automationCount++;
+        }
+
+        if (settings.WindowsAutomation.DisplayPowerEnabled)
+        {
+            automationCount++;
+        }
+
+        if (settings.WindowsAutomation.ShutdownAndStartupEnabled)
+        {
+            automationCount++;
+        }
+
+        return "配置已通过格式与版本校验，尚未应用。\n\n"
+            + $"设备别名：{(settings.UserAlias is null ? "未设置" : "已设置")}\n"
+            + $"本地预设：{settings.Presets.Count} 个\n"
+            + $"Windows 自动化：启用 {automationCount} 项\n"
+            + $"登录时自启：{(settings.WindowsAutomation.StartWithWindows ? "启用" : "关闭")}\n\n"
+            + "选择“是”只会把内容载入设置窗口；必须再点击“保存”才会应用。";
     }
 
     private void RegisterHotkeys()

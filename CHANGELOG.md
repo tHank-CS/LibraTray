@@ -64,6 +64,9 @@ and this project intends to follow
 - An advanced device-details and diagnostics window with live confirmed state,
   firmware/capability metadata, masked local identifiers, and a bounded copied
   summary that redacts names, device ID, and LAN endpoint.
+- Versioned settings import/export with bounded UTF-8 input, schema validation,
+  a pre-apply summary, explicit save, privacy warning, and atomic destination
+  replacement.
 
 ### Fixed
 

@@ -9,13 +9,26 @@ namespace LibraTray.App;
 
 public partial class SettingsWindow : Window
 {
-    private readonly LibraTraySettings _originalSettings;
+    private LibraTraySettings _workingSettings;
 
     internal SettingsWindow(LibraTraySettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
-        _originalSettings = settings;
+        _workingSettings = settings;
         InitializeComponent();
+        LoadSettings(settings);
+    }
+
+    internal event EventHandler? ImportRequested;
+
+    internal event EventHandler? ExportRequested;
+
+    internal LibraTraySettings? SavedSettings { get; private set; }
+
+    internal void LoadSettings(LibraTraySettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        _workingSettings = settings;
 
         AliasTextBox.Text = settings.UserAlias ?? string.Empty;
         BrightnessStepTextBox.Text = settings.BrightnessStep.ToString(
@@ -43,9 +56,15 @@ public partial class SettingsWindow : Window
             settings.Hotkeys.IncreaseMainColorTemperature;
         TemperatureDownHotkeyTextBox.Text =
             settings.Hotkeys.DecreaseMainColorTemperature;
+        SavedSettings = null;
+        ValidationTextBlock.Visibility = Visibility.Collapsed;
     }
 
-    internal LibraTraySettings? SavedSettings { get; private set; }
+    internal void LoadImportedSettings(LibraTraySettings settings)
+    {
+        LoadSettings(settings);
+        Title = "LibraTray · 设置（导入内容待保存）";
+    }
 
     private void HotkeyTextBox_GotKeyboardFocus(
         object sender,
@@ -108,6 +127,19 @@ public partial class SettingsWindow : Window
     {
         _ = sender;
         _ = e;
+        if (!TryCreatePendingSettings(out LibraTraySettings? settings))
+        {
+            return;
+        }
+
+        SavedSettings = settings;
+        DialogResult = true;
+    }
+
+    internal bool TryCreatePendingSettings(
+        out LibraTraySettings? settings)
+    {
+        settings = null;
         if (!TryReadInteger(
                 BrightnessStepTextBox,
                 1,
@@ -121,7 +153,7 @@ public partial class SettingsWindow : Window
                 "色温步进",
                 out int temperatureStep))
         {
-            return;
+            return false;
         }
 
         TextBox[] hotkeyInputs =
@@ -143,26 +175,26 @@ public partial class SettingsWindow : Window
             {
                 ShowValidation("快捷键格式无效；每项必须包含修饰键和一个按键。");
                 hotkeyInputs[index].Focus();
-                return;
+                return false;
             }
 
             if (!uniqueGestures.Add(gesture))
             {
                 ShowValidation("快捷键不能重复。");
                 hotkeyInputs[index].Focus();
-                return;
+                return false;
             }
 
             gestures[index] = gesture;
         }
 
-        SavedSettings = _originalSettings with
+        settings = _workingSettings with
         {
             UserAlias = AliasTextBox.Text,
             BrightnessStep = brightnessStep,
             ColorTemperatureStep = temperatureStep,
             AdjustBrightnessWithTrayWheel = TrayWheelCheckBox.IsChecked == true,
-            WindowsAutomation = _originalSettings.WindowsAutomation with
+            WindowsAutomation = _workingSettings.WindowsAutomation with
             {
                 LockAndUnlockEnabled =
                     LockAutomationCheckBox.IsChecked == true,
@@ -183,7 +215,21 @@ public partial class SettingsWindow : Window
                 DecreaseMainColorTemperature = gestures[5],
             },
         };
-        DialogResult = true;
+        return true;
+    }
+
+    private void ImportButton_Click(object sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        ImportRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ExportButton_Click(object sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        ExportRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private bool TryReadInteger(

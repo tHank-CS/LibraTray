@@ -193,19 +193,32 @@
             </StackPanel>
         </ScrollViewer>
 
-        <StackPanel Grid.Row="4"
-                    HorizontalAlignment="Right"
-                    Orientation="Horizontal">
-            <Button Width="82"
-                    Margin="0,0,8,0"
-                    Content="取消"
-                    IsCancel="True"
-                    Style="{StaticResource QuietButtonStyle}" />
-            <Button Width="82"
-                    Content="保存"
-                    IsDefault="True"
-                    Style="{StaticResource QuietButtonStyle}"
-                    Click="SaveButton_Click" />
-        </StackPanel>
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal">
+                <Button Content="导入配置"
+                        Style="{StaticResource QuietButtonStyle}"
+                        Click="ImportButton_Click" />
+                <Button Margin="8,0,0,0"
+                        Content="导出配置"
+                        Style="{StaticResource QuietButtonStyle}"
+                        Click="ExportButton_Click" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button Width="82"
+                        Margin="0,0,8,0"
+                        Content="取消"
+                        IsCancel="True"
+                        Style="{StaticResource QuietButtonStyle}" />
+                <Button Width="82"
+                        Content="保存"
+                        IsDefault="True"
+                        Style="{StaticResource QuietButtonStyle}"
+                        Click="SaveButton_Click" />
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>
