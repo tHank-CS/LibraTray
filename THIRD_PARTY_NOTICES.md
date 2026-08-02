@@ -92,8 +92,10 @@ redistributed runtime components; LibraTray's own source remains Apache-2.0.
 
 ## Installer build dependency (not redistributed as code)
 
-`WixToolset.Sdk` 6.0.2 builds the MSI. WiX is a build-time dependency: no WiX
-custom action or WiX runtime binary is included in the application payload.
+`WixToolset.Sdk` and `WixToolset.UI.wixext` 6.0.2 build the MSI and its standard
+wizard. WiX is a build-time dependency: the selected WiX 6 dialog set uses no
+custom action by default, and no WiX runtime binary is included in the
+application payload.
 Use of this WiX version to generate an installer is governed by the WiX Open
 Source Maintenance Fee EULA, including its revenue-dependent terms;
 contributors and commercial redistributors must review those terms before
@@ -112,6 +114,7 @@ with LibraTray application artifacts:
 | `actions/setup-dotnet` | v5.3.0, commit `9a946fdbd5fb07b82b2f5a4466058b876ab72bb2` | Install the SDK selected by `global.json` and cache locked NuGet inputs | MIT | Official GitHub Action; medium replacement cost because SDK setup and cache behavior must be reproduced | None |
 | `actions/upload-artifact` | v7.0.1, commit `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` | Retain CI TRX and coverage evidence | MIT | Official GitHub Action; low replacement cost, with different retention semantics to revalidate | None |
 | WiX Toolset SDK | 6.0.2, locked NuGet SDK | Build and validate the current-user MSI | OSMF EULA | Build-only; medium replacement cost. Revenue-dependent terms require review by anyone generating the MSI | None; generated MSI uses standard Windows Installer tables |
+| WiX Toolset UI extension | 6.0.2, locked NuGet package | Provide the standard install-directory and maintenance wizard | OSMF EULA | Build-only; coupled to the WiX SDK version | Standard Windows Installer UI tables only; no runtime binary or custom action selected |
 | GitHub CLI (`gh`) | GitHub-hosted runner version | Create a draft Release from a validated tag and upload assets | MIT | Official GitHub CLI; low replacement cost through the GitHub API or another maintained action | None |
 | Microsoft `dotnet-install.ps1` | Official `https://dot.net/v1/dotnet-install.ps1` endpoint; downloaded only on explicit bootstrap | Install exact SDK `10.0.302` into the ignored local `.dotnet` directory | MIT (`dotnet/install-scripts`) | Microsoft-maintained; medium replacement cost via a system SDK or verified offline installer. The bootstrap refuses scripts without a valid Microsoft Authenticode signature | None |
 

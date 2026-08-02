@@ -82,6 +82,14 @@ and this project intends to follow
 
 ### Fixed
 
+- Standard launches now open the quick panel so a first-time user can find the
+  application; Windows startup launches remain quiet in the notification area.
+- Dark mode now owns the templates for combo boxes, check boxes, tabs, scroll
+  bars, and tray menus instead of exposing light Windows theme surfaces.
+- Ordinary control, settings, and device-information surfaces no longer expose
+  protocol identifiers, LAN endpoints, or implementation-policy notices.
+- The MSI now presents a standard install/maintenance wizard, including license
+  review, explicit confirmation, and a selectable installation directory.
 - `safe-write` now discovers through multicast by default and can bind the UDP
   request/reply socket to a selected physical LAN interface.
 - Firmware-38 background-power notifications are documented as provisional:

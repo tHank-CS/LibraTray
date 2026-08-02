@@ -72,24 +72,12 @@
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
                                     <TextBlock Style="{StaticResource DetailLabelStyle}" Text="{DynamicResource Text.FriendlyProductName}" />
                                     <TextBlock x:Name="FriendlyNameTextBlock" Grid.Column="1"
                                                Style="{StaticResource DetailValueStyle}" />
                                     <TextBlock Grid.Row="1" Style="{StaticResource DetailLabelStyle}" Text="{DynamicResource Text.HardwareModel}" />
                                     <TextBlock x:Name="HardwareModelTextBlock" Grid.Row="1" Grid.Column="1"
-                                               Style="{StaticResource DetailValueStyle}" />
-                                    <TextBlock Grid.Row="2" Style="{StaticResource DetailLabelStyle}" Text="{DynamicResource Text.InternalModel}" />
-                                    <TextBlock x:Name="InternalModelTextBlock" Grid.Row="2" Grid.Column="1"
-                                               Style="{StaticResource DetailValueStyle}" />
-                                    <TextBlock Grid.Row="3" Style="{StaticResource DetailLabelStyle}" Text="{DynamicResource Text.ReportedName}" />
-                                    <TextBlock x:Name="ReportedNameTextBlock" Grid.Row="3" Grid.Column="1"
-                                               Style="{StaticResource DetailValueStyle}" />
-                                    <TextBlock Grid.Row="4" Style="{StaticResource DetailLabelStyle}" Text="{DynamicResource Text.DeviceId}" />
-                                    <TextBlock x:Name="DeviceIdTextBlock" Grid.Row="4" Grid.Column="1"
                                                Style="{StaticResource DetailValueStyle}" />
                                 </Grid>
                             </StackPanel>
@@ -109,20 +97,12 @@
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
                                     <TextBlock Style="{StaticResource DetailLabelStyle}" Text="{DynamicResource Text.FirmwareVersion}" />
                                     <TextBlock x:Name="FirmwareTextBlock" Grid.Column="1"
                                                Style="{StaticResource DetailValueStyle}" />
-                                    <TextBlock Grid.Row="1" Style="{StaticResource DetailLabelStyle}" Text="{DynamicResource Text.ControlEndpoint}" />
-                                    <TextBlock x:Name="EndpointTextBlock" Grid.Row="1" Grid.Column="1"
-                                               Style="{StaticResource DetailValueStyle}" />
-                                    <TextBlock Grid.Row="2" Style="{StaticResource DetailLabelStyle}" Text="{DynamicResource Text.ConnectionTime}" />
-                                    <TextBlock x:Name="ConnectedAtTextBlock" Grid.Row="2" Grid.Column="1"
-                                               Style="{StaticResource DetailValueStyle}" />
-                                    <TextBlock Grid.Row="3" Style="{StaticResource DetailLabelStyle}" Text="{DynamicResource Text.Capabilities}" />
-                                    <TextBlock x:Name="CapabilitiesTextBlock" Grid.Row="3" Grid.Column="1"
+                                    <TextBlock Grid.Row="1" Style="{StaticResource DetailLabelStyle}" Text="{DynamicResource Text.ConnectionTime}" />
+                                    <TextBlock x:Name="ConnectedAtTextBlock" Grid.Row="1" Grid.Column="1"
                                                Style="{StaticResource DetailValueStyle}" />
                                 </Grid>
                             </StackPanel>

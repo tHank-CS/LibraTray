@@ -103,7 +103,8 @@ Windows 构建上运行只能视为尽力兼容。
 - `LibraTray-<版本>-win-x64.zip`：自包含便携版，解压到当前用户可写目录后运行
   `LibraTray.exe`；
 - `LibraTray-<版本>-win-x64.msi`：仅为当前用户安装到
-  `%LOCALAPPDATA%\Programs\LibraTray`，无需管理员权限；
+  `%LOCALAPPDATA%\Programs\LibraTray`；安装向导允许选择其他当前用户可写目录，并在
+  执行前要求确认，无需管理员权限；
 - `SHA256SUMS.txt`：两个软件包的 SHA-256 校验值。
 
 项目目前没有代码签名证书，Windows 可能显示未知发布者或 SmartScreen 警告。运行前
@@ -220,7 +221,8 @@ powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\script
 .\.dotnet\dotnet.exe run --project .\src\LibraTray.App\LibraTray.App.csproj -c Release -- --show
 ```
 
-不传入 `--show` 时，应用会以托盘优先方式启动，窗口默认隐藏。
+普通启动会显示一次快速面板，避免用户找不到通知区域中的程序；Windows 登录自启会
+传入 `--startup` 并保持静默驻留。`--show` 仅保留用于带标题栏的开发调试窗口。
 
 ## 故障排除
 

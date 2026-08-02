@@ -12,6 +12,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" />
     <BindPath Include="$(PublishDir)">
       <BindName>publish</BindName>
     </BindPath>

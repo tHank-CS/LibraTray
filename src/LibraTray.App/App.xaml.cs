@@ -62,18 +62,22 @@ public partial class App : Application
             return;
         }
 
-        bool osdPreviewRequested = e.Args.Contains(
+        string[] commandLineArguments = Environment.GetCommandLineArgs()
+            .Skip(1)
+            .Concat(e.Args)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        bool startupRequested = commandLineArguments.Contains(
+            "--startup",
+            StringComparer.OrdinalIgnoreCase);
+        bool osdPreviewRequested = commandLineArguments.Contains(
             "--osd-preview",
-            StringComparer.OrdinalIgnoreCase)
-            || Environment.GetCommandLineArgs()
-                .Skip(1)
-                .Contains("--osd-preview", StringComparer.OrdinalIgnoreCase);
-        bool showRequested = osdPreviewRequested || e.Args.Contains(
+            StringComparer.OrdinalIgnoreCase);
+        bool debugWindowRequested = osdPreviewRequested
+            || commandLineArguments.Contains(
             "--show",
-            StringComparer.OrdinalIgnoreCase)
-            || Environment.GetCommandLineArgs()
-                .Skip(1)
-                .Contains("--show", StringComparer.OrdinalIgnoreCase);
+            StringComparer.OrdinalIgnoreCase);
+        bool initialPanelRequested = debugWindowRequested || !startupRequested;
         _deviceSession = new LibraProDeviceSession();
         _quickPanelViewModel = new QuickPanelViewModel(
             _deviceSession,
@@ -101,7 +105,7 @@ public partial class App : Application
         _quickPanel = new QuickPanelWindow(_quickPanelViewModel);
         _quickPanel.SettingsRequested += OnSettingsRequested;
         _quickPanel.DeviceDetailsRequested += OnDeviceDetailsRequested;
-        if (showRequested)
+        if (debugWindowRequested)
         {
             _quickPanel.ShowInTaskbar = true;
             _quickPanel.WindowStyle = WindowStyle.SingleBorderWindow;
@@ -127,7 +131,7 @@ public partial class App : Application
         _trayMenu = CreateTrayMenu();
         _ = ConnectAndRestoreAsync();
 
-        if (showRequested)
+        if (initialPanelRequested)
         {
             _ = Dispatcher.BeginInvoke(
                 DispatcherPriority.ApplicationIdle,

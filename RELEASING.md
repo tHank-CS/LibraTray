@@ -54,6 +54,9 @@ Verify:
 - the MSI installs for the current user without elevation, launches the app,
   upgrades the previous candidate, and removes its program files and Start menu
   shortcut on uninstall;
+- double-click installation shows the standard wizard, license page, selectable
+  install directory, and a final confirmation; maintenance removal also asks for
+  confirmation;
 - if “start with Windows” was enabled, uninstall also removes the
   `LibraTray.lnk` Startup-folder shortcut;
 - both portable and installed builds display the branded executable, window,

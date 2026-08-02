@@ -179,28 +179,15 @@ public partial class DeviceDetailsWindow : Window
             ?? ProductIdentityCatalog.LibraProFriendlyProductName;
         HardwareModelTextBlock.Text = identity?.HardwareModel
             ?? ProductIdentityCatalog.LibraProHardwareModel;
-        InternalModelTextBlock.Text = connection?.InternalModel
-            ?? identity?.InternalModel
-            ?? UiText.Get("Text.NotConnected");
-        ReportedNameTextBlock.Text = string.IsNullOrWhiteSpace(
-            identity?.ReportedName)
-                ? UiText.Get("Message.NotProvided")
-                : SafeText(identity.ReportedName, 128);
-        DeviceIdTextBlock.Text = MaskDeviceId(connection?.DeviceId);
         FirmwareTextBlock.Text = SafeText(
             connection?.FirmwareVersion,
             64,
             UiText.Get("Text.NotConnected"));
-        EndpointTextBlock.Text = connection?.ControlEndPoint.ToString()
-            ?? UiText.Get("Text.NotConnected");
         ConnectedAtTextBlock.Text = connection is null
             ? UiText.Get("Text.NotConnected")
             : connection.ConnectedAtUtc.ToLocalTime().ToString(
                 "yyyy-MM-dd HH:mm:ss",
                 CultureInfo.CurrentCulture);
-        CapabilitiesTextBlock.Text = connection is null
-            ? UiText.Get("Text.NotConnected")
-            : FormatCapabilities(connection.Capabilities);
         StateSummaryTextBlock.Text = FormatState(state);
         LastUpdatedTextBlock.Text = _lastStateUpdate is null
             ? UiText.Get("Message.NoConfirmedState")
@@ -239,37 +226,6 @@ public partial class DeviceDetailsWindow : Window
             OnOff(state.BackgroundPower),
             state.BackgroundBrightness,
             state.BackgroundRgb);
-    }
-
-    private static string FormatCapabilities(
-        IReadOnlyList<string> capabilities)
-    {
-        if (capabilities.Count == 0)
-        {
-            return UiText.Get("Message.NotDeclared");
-        }
-
-        return string.Join(
-            " · ",
-            capabilities.Take(32).Select(value => SafeText(value, 48)))
-            + (capabilities.Count > 32
-                ? UiText.Format(
-                    "Message.MoreCapabilities",
-                    capabilities.Count - 32)
-                : string.Empty);
-    }
-
-    private static string MaskDeviceId(string? deviceId)
-    {
-        if (string.IsNullOrWhiteSpace(deviceId))
-        {
-            return UiText.Get("Text.NotConnected");
-        }
-
-        string value = SafeText(deviceId, 128);
-        return value.Length <= 8
-            ? UiText.Get("Message.Hidden")
-            : $"{value[..4]}…{value[^4..]}";
     }
 
     private static string SafeText(

@@ -1,4 +1,5 @@
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package Name="LibraTray"
            Manufacturer="hank-wang-cs"
            Version="$(var.ProductVersion)"
@@ -11,6 +12,10 @@
     <MediaTemplate EmbedCab="yes" />
     <Icon Id="LibraTrayIcon" SourceFile="!(bindpath.branding)\libratray.ico" />
     <Property Id="ARPPRODUCTICON" Value="LibraTrayIcon" />
+    <ui:WixUI Id="WixUI_InstallDir"
+              InstallDirectory="INSTALLFOLDER" />
+    <WixVariable Id="WixUILicenseRtf"
+                 Value="$(sys.SOURCEFILEDIR)License.rtf" />
 
     <StandardDirectory Id="PerUserProgramFilesFolder">
       <Directory Id="INSTALLFOLDER" Name="LibraTray" />
