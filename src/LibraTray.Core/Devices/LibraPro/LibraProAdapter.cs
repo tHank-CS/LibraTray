@@ -213,7 +213,7 @@ public sealed class LibraProAdapter : IDisposable
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
-        ValidateColorTemperature(colorTemperature, nameof(colorTemperature));
+        ValidateMainColorTemperature(colorTemperature, nameof(colorTemperature));
         return ExecuteVerifiedAsync(
             "set_ct_abx",
             [colorTemperature, "sudden", 0],
@@ -243,7 +243,9 @@ public sealed class LibraProAdapter : IDisposable
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
-        ValidateColorTemperature(colorTemperature, nameof(colorTemperature));
+        ValidateBackgroundColorTemperature(
+            colorTemperature,
+            nameof(colorTemperature));
         return ExecuteVerifiedAsync(
             "bg_set_ct_abx",
             [colorTemperature, "sudden", 0],
@@ -659,7 +661,17 @@ public sealed class LibraProAdapter : IDisposable
         ArgumentOutOfRangeException.ThrowIfGreaterThan(value, 100, parameterName);
     }
 
-    private static void ValidateColorTemperature(int value, string parameterName)
+    private static void ValidateMainColorTemperature(
+        int value,
+        string parameterName)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(value, 2_700, parameterName);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(value, 6_500, parameterName);
+    }
+
+    private static void ValidateBackgroundColorTemperature(
+        int value,
+        string parameterName)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(value, 3_000, parameterName);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(value, 6_500, parameterName);

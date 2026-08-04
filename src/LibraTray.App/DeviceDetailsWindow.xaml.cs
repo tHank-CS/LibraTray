@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Input;
 using LibraTray.App.Presentation;
 using LibraTray.Core.Devices.LibraPro;
 using LibraTray.Core.Diagnostics;
@@ -139,6 +140,25 @@ public partial class DeviceDetailsWindow : Window
         _ = sender;
         _ = e;
         Close();
+    }
+
+    private void WindowHeader_MouseLeftButtonDown(
+        object sender,
+        MouseButtonEventArgs e)
+    {
+        _ = sender;
+        if (e.ClickCount == 2)
+        {
+            WindowState = WindowState == WindowState.Maximized
+                ? WindowState.Normal
+                : WindowState.Maximized;
+            return;
+        }
+
+        if (e.ButtonState == MouseButtonState.Pressed)
+        {
+            DragMove();
+        }
     }
 
     private void OnSessionStatusChanged(

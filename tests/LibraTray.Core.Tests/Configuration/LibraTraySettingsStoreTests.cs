@@ -36,7 +36,9 @@ public sealed class LibraTraySettingsStoreTests
         {
             UserAlias = "Work light",
             BrightnessStep = 8,
+            BackgroundBrightnessStep = 20,
             ColorTemperatureStep = 250,
+            AllowExtremeColorTemperature = true,
             AdjustBrightnessWithTrayWheel = false,
             Theme = AppTheme.Dark,
             Language = AppLanguage.English,
@@ -75,8 +77,14 @@ public sealed class LibraTraySettingsStoreTests
         Assert.AreEqual(saved.UserAlias, loaded.UserAlias);
         Assert.AreEqual(saved.BrightnessStep, loaded.BrightnessStep);
         Assert.AreEqual(
+            saved.BackgroundBrightnessStep,
+            loaded.BackgroundBrightnessStep);
+        Assert.AreEqual(
             saved.ColorTemperatureStep,
             loaded.ColorTemperatureStep);
+        Assert.AreEqual(
+            saved.AllowExtremeColorTemperature,
+            loaded.AllowExtremeColorTemperature);
         Assert.AreEqual(
             saved.AdjustBrightnessWithTrayWheel,
             loaded.AdjustBrightnessWithTrayWheel);
@@ -106,7 +114,9 @@ public sealed class LibraTraySettingsStoreTests
         Assert.AreEqual(LibraTraySettings.CurrentSchemaVersion, loaded.SchemaVersion);
         Assert.IsNull(loaded.UserAlias);
         Assert.AreEqual(5, loaded.BrightnessStep);
-        Assert.AreEqual(200, loaded.ColorTemperatureStep);
+        Assert.AreEqual(20, loaded.BackgroundBrightnessStep);
+        Assert.AreEqual(100, loaded.ColorTemperatureStep);
+        Assert.IsFalse(loaded.AllowExtremeColorTemperature);
         Assert.IsTrue(loaded.AdjustBrightnessWithTrayWheel);
         Assert.AreEqual(AppTheme.System, loaded.Theme);
         Assert.AreEqual(AppLanguage.System, loaded.Language);
@@ -129,6 +139,7 @@ public sealed class LibraTraySettingsStoreTests
               "SchemaVersion": 1,
               "UserAlias": "  Desk\n light  ",
               "BrightnessStep": 0,
+              "BackgroundBrightnessStep": 101,
               "ColorTemperatureStep": 5000,
               "Theme": 999,
               "Language": 999,
@@ -156,7 +167,9 @@ public sealed class LibraTraySettingsStoreTests
 
         Assert.AreEqual("Desk light", loaded.UserAlias);
         Assert.AreEqual(5, loaded.BrightnessStep);
-        Assert.AreEqual(200, loaded.ColorTemperatureStep);
+        Assert.AreEqual(20, loaded.BackgroundBrightnessStep);
+        Assert.AreEqual(100, loaded.ColorTemperatureStep);
+        Assert.IsFalse(loaded.AllowExtremeColorTemperature);
         Assert.AreEqual(AppTheme.System, loaded.Theme);
         Assert.AreEqual(AppLanguage.System, loaded.Language);
         Assert.IsTrue(loaded.WindowsAutomation.LockAndUnlockEnabled);
@@ -164,6 +177,24 @@ public sealed class LibraTraySettingsStoreTests
         Assert.AreEqual("Ctrl+Alt+L", loaded.Hotkeys.ToggleMainPower);
         Assert.HasCount(1, loaded.Presets);
         Assert.AreEqual("Focus", loaded.Presets[0].Name);
+    }
+
+    [TestMethod]
+    public void LoadSchemaOneAddsNewStepDefaultsAndMigratesToCurrentSchema()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(
+            _settingsPath,
+            """{"SchemaVersion":1,"BrightnessStep":10,"ColorTemperatureStep":200}""");
+        var store = new LibraTraySettingsStore(_settingsPath);
+
+        LibraTraySettings loaded = store.Load();
+
+        Assert.AreEqual(LibraTraySettings.CurrentSchemaVersion, loaded.SchemaVersion);
+        Assert.AreEqual(10, loaded.BrightnessStep);
+        Assert.AreEqual(20, loaded.BackgroundBrightnessStep);
+        Assert.AreEqual(100, loaded.ColorTemperatureStep);
+        Assert.IsFalse(loaded.AllowExtremeColorTemperature);
     }
 
     [TestMethod]

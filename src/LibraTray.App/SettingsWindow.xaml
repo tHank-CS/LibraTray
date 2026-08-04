@@ -6,11 +6,16 @@
         Width="470"
         Height="650"
         ResizeMode="NoResize"
+        WindowStyle="None"
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource WindowBrush}"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
+    <Border Background="{DynamicResource WindowBrush}"
+            BorderBrush="{DynamicResource DividerBrush}"
+            BorderThickness="1"
+            CornerRadius="8">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -20,11 +25,23 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel>
-            <TextBlock Text="{DynamicResource Text.Settings}"
+        <Grid Background="Transparent"
+              MouseLeftButtonDown="WindowHeader_MouseLeftButtonDown">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock VerticalAlignment="Center"
+                       Text="{DynamicResource Text.Settings}"
                        FontSize="22"
                        FontWeight="SemiBold" />
-        </StackPanel>
+            <Button Grid.Column="1"
+                    Style="{StaticResource TitleBarCloseButtonStyle}"
+                    ToolTip="{DynamicResource Text.Close}"
+                    Click="CloseButton_Click">
+                <TextBlock Margin="0,-2,0,0" FontSize="20" Text="×" />
+            </Button>
+        </Grid>
 
         <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
             <StackPanel>
@@ -110,7 +127,9 @@
                         <Grid Margin="0,12,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <StackPanel>
@@ -121,6 +140,13 @@
                                          Padding="8,6" />
                             </StackPanel>
                             <StackPanel Grid.Column="2">
+                                <TextBlock Text="{DynamicResource Text.AmbientBrightnessRange}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                                <TextBox x:Name="BackgroundBrightnessStepTextBox"
+                                         Margin="0,4,0,0"
+                                         Padding="8,6" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
                                 <TextBlock Text="{DynamicResource Text.TemperatureRange}"
                                            Foreground="{DynamicResource TextSecondaryBrush}" />
                                 <TextBox x:Name="TemperatureStepTextBox"
@@ -128,6 +154,14 @@
                                          Padding="8,6" />
                             </StackPanel>
                         </Grid>
+                        <CheckBox x:Name="ExtremeColorTemperatureCheckBox"
+                                  Margin="0,12,0,0"
+                                  Content="{DynamicResource Text.AllowExtremeColorTemperature}" />
+                        <TextBlock Margin="24,3,0,0"
+                                   Text="{DynamicResource Text.AllowExtremeColorTemperatureHint}"
+                                   TextWrapping="Wrap"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
                         <CheckBox x:Name="TrayWheelCheckBox"
                                   Margin="0,12,0,0"
                                   Content="{DynamicResource Text.TrayWheel}" />
@@ -243,4 +277,5 @@
             </StackPanel>
         </Grid>
     </Grid>
+    </Border>
 </Window>

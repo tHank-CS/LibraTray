@@ -3,55 +3,189 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="{DynamicResource Text.CustomColorTitle}"
         Icon="/Assets/libratray.ico"
-        Width="360"
-        Height="220"
+        Width="430"
+        Height="520"
         ResizeMode="NoResize"
+        WindowStyle="None"
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource WindowBrush}">
-    <Grid Margin="22">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="12" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-        <TextBlock Text="{DynamicResource Text.CustomColorPrompt}"
-                   FontSize="16"
-                   FontWeight="SemiBold" />
-        <Grid Grid.Row="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="42" />
-            </Grid.ColumnDefinitions>
-            <TextBox x:Name="HexTextBox"
-                     Padding="9,7"
-                     MaxLength="7"
-                     TextChanged="HexTextBox_TextChanged" />
-            <Border Grid.Column="2"
+    <Border Background="{DynamicResource WindowBrush}"
+            BorderBrush="{DynamicResource DividerBrush}"
+            BorderThickness="1"
+            CornerRadius="8">
+        <Grid Margin="22">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="14" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="180" />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="22" />
+                <RowDefinition Height="16" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Background="Transparent"
+                  MouseLeftButtonDown="WindowHeader_MouseLeftButtonDown">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock VerticalAlignment="Center"
+                           Text="{DynamicResource Text.CustomColorTitle}"
+                           FontSize="20"
+                           FontWeight="SemiBold" />
+                <Button Grid.Column="1"
+                        Style="{StaticResource TitleBarCloseButtonStyle}"
+                        ToolTip="{DynamicResource Text.Close}"
+                        Click="CloseButton_Click">
+                    <TextBlock Margin="0,-2,0,0" FontSize="20" Text="×" />
+                </Button>
+            </Grid>
+
+            <TextBlock Grid.Row="2"
+                       Text="{DynamicResource Text.CustomColorPrompt}"
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
+
+            <Border x:Name="ColorField"
+                    Grid.Row="4"
+                    Background="White"
                     BorderBrush="{DynamicResource DividerBrush}"
                     BorderThickness="1"
                     CornerRadius="7"
-                    Padding="5">
-                <Ellipse x:Name="PreviewEllipse" />
+                    Cursor="Cross"
+                    Focusable="True"
+                    AutomationProperties.Name="{DynamicResource Text.ColorField}"
+                    KeyDown="ColorField_KeyDown"
+                    MouseLeftButtonDown="ColorField_MouseLeftButtonDown"
+                    MouseLeftButtonUp="Picker_MouseLeftButtonUp"
+                    MouseMove="ColorField_MouseMove"
+                    SizeChanged="Picker_SizeChanged">
+                <Grid ClipToBounds="True">
+                    <Border x:Name="HueFieldBorder">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                <GradientStop Offset="0" Color="White" />
+                                <GradientStop x:Name="HueFieldGradientStop"
+                                              Offset="1"
+                                              Color="Red" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                    </Border>
+                    <Border>
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                <GradientStop Offset="0" Color="#00000000" />
+                                <GradientStop Offset="1" Color="#FF000000" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                    </Border>
+                    <Canvas IsHitTestVisible="False">
+                        <Ellipse x:Name="ColorFieldMarker"
+                                 Width="16"
+                                 Height="16"
+                                 Fill="Transparent"
+                                 Stroke="White"
+                                 StrokeThickness="2">
+                            <Ellipse.Effect>
+                                <DropShadowEffect BlurRadius="2"
+                                                  ShadowDepth="0"
+                                                  Opacity="0.7" />
+                            </Ellipse.Effect>
+                        </Ellipse>
+                    </Canvas>
+                </Grid>
             </Border>
+
+            <Border x:Name="HueStrip"
+                    Grid.Row="6"
+                    BorderBrush="{DynamicResource DividerBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Cursor="Hand"
+                    Focusable="True"
+                    AutomationProperties.Name="{DynamicResource Text.HueSlider}"
+                    KeyDown="HueStrip_KeyDown"
+                    MouseLeftButtonDown="HueStrip_MouseLeftButtonDown"
+                    MouseLeftButtonUp="Picker_MouseLeftButtonUp"
+                    MouseMove="HueStrip_MouseMove"
+                    SizeChanged="Picker_SizeChanged">
+                <Grid ClipToBounds="True">
+                    <Border>
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                <GradientStop Offset="0.000" Color="#FFFF0000" />
+                                <GradientStop Offset="0.167" Color="#FFFFFF00" />
+                                <GradientStop Offset="0.333" Color="#FF00FF00" />
+                                <GradientStop Offset="0.500" Color="#FF00FFFF" />
+                                <GradientStop Offset="0.667" Color="#FF0000FF" />
+                                <GradientStop Offset="0.833" Color="#FFFF00FF" />
+                                <GradientStop Offset="1.000" Color="#FFFF0000" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                    </Border>
+                    <Canvas IsHitTestVisible="False">
+                        <Border x:Name="HueMarker"
+                                Width="5"
+                                Height="22"
+                                Background="Transparent"
+                                BorderBrush="White"
+                                BorderThickness="2"
+                                CornerRadius="2">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="2"
+                                                  ShadowDepth="0"
+                                                  Opacity="0.75" />
+                            </Border.Effect>
+                        </Border>
+                    </Canvas>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="48" />
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="HexTextBox"
+                         Padding="9,7"
+                         MaxLength="7"
+                         TextChanged="HexTextBox_TextChanged" />
+                <Border Grid.Column="2"
+                        BorderBrush="{DynamicResource DividerBrush}"
+                        BorderThickness="1"
+                        CornerRadius="7"
+                        Padding="5">
+                    <Border x:Name="PreviewSwatch" CornerRadius="4" />
+                </Border>
+            </Grid>
+
+            <TextBlock x:Name="ValidationTextBlock"
+                       Grid.Row="9"
+                       Margin="0,8,0,0"
+                       Text="{DynamicResource Text.CustomColorExample}"
+                       Foreground="{DynamicResource TextSecondaryBrush}" />
+
+            <StackPanel Grid.Row="11"
+                        HorizontalAlignment="Right"
+                        Orientation="Horizontal">
+                <Button Width="76"
+                        Margin="0,0,8,0"
+                        Content="{DynamicResource Text.Cancel}"
+                        IsCancel="True"
+                        Style="{StaticResource QuietButtonStyle}" />
+                <Button Width="76"
+                        Content="{DynamicResource Text.Apply}"
+                        IsDefault="True"
+                        Style="{StaticResource QuietButtonStyle}"
+                        Click="ApplyButton_Click" />
+            </StackPanel>
         </Grid>
-        <TextBlock x:Name="ValidationTextBlock"
-                   Grid.Row="3"
-                   Margin="0,8,0,0"
-                   Text="{DynamicResource Text.CustomColorExample}"
-                   Foreground="{DynamicResource TextSecondaryBrush}" />
-        <StackPanel Grid.Row="4"
-                    HorizontalAlignment="Right"
-                    Orientation="Horizontal">
-            <Button Width="76" Margin="0,0,8,0"
-                    Content="{DynamicResource Text.Cancel}" IsCancel="True"
-                    Style="{StaticResource QuietButtonStyle}" />
-            <Button Width="76" Content="{DynamicResource Text.Apply}" IsDefault="True"
-                    Style="{StaticResource QuietButtonStyle}"
-                    Click="ApplyButton_Click" />
-        </StackPanel>
-    </Grid>
+    </Border>
 </Window>

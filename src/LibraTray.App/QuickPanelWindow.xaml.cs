@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using LibraTray.App.Presentation;
 
@@ -79,7 +80,7 @@ public partial class QuickPanelWindow : Window
     private async void MainPower_Click(object sender, RoutedEventArgs e)
     {
         _ = e;
-        if (sender is CheckBox { IsChecked: bool enabled })
+        if (sender is ToggleButton { IsChecked: bool enabled })
         {
             await _viewModel.SetMainPowerAsync(enabled);
         }
@@ -88,7 +89,7 @@ public partial class QuickPanelWindow : Window
     private async void BackgroundPower_Click(object sender, RoutedEventArgs e)
     {
         _ = e;
-        if (sender is CheckBox { IsChecked: bool enabled })
+        if (sender is ToggleButton { IsChecked: bool enabled })
         {
             await _viewModel.SetBackgroundPowerAsync(enabled);
         }
@@ -106,6 +107,14 @@ public partial class QuickPanelWindow : Window
         }
     }
 
+    private async void MainBrightness_KeyReleased(object sender, KeyEventArgs e)
+    {
+        if (IsSliderAdjustmentKey(e.Key) && sender is Slider slider)
+        {
+            await _viewModel.SetMainBrightnessAsync((int)Math.Round(slider.Value));
+        }
+    }
+
     private async void MainColorTemperature_PointerReleased(
         object sender,
         MouseButtonEventArgs e)
@@ -118,12 +127,34 @@ public partial class QuickPanelWindow : Window
         }
     }
 
+    private async void MainColorTemperature_KeyReleased(
+        object sender,
+        KeyEventArgs e)
+    {
+        if (IsSliderAdjustmentKey(e.Key) && sender is Slider slider)
+        {
+            await _viewModel.SetMainColorTemperatureAsync(
+                (int)Math.Round(slider.Value));
+        }
+    }
+
     private async void BackgroundBrightness_PointerReleased(
         object sender,
         MouseButtonEventArgs e)
     {
         _ = e;
         if (sender is Slider slider)
+        {
+            await _viewModel.SetBackgroundBrightnessAsync(
+                (int)Math.Round(slider.Value));
+        }
+    }
+
+    private async void BackgroundBrightness_KeyReleased(
+        object sender,
+        KeyEventArgs e)
+    {
+        if (IsSliderAdjustmentKey(e.Key) && sender is Slider slider)
         {
             await _viewModel.SetBackgroundBrightnessAsync(
                 (int)Math.Round(slider.Value));
@@ -210,4 +241,14 @@ public partial class QuickPanelWindow : Window
             _viewModel.DeleteSelectedPreset();
         }
     }
+
+    private static bool IsSliderAdjustmentKey(Key key) =>
+        key is Key.Left
+            or Key.Right
+            or Key.Up
+            or Key.Down
+            or Key.PageUp
+            or Key.PageDown
+            or Key.Home
+            or Key.End;
 }

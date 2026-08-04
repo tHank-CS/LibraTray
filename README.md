@@ -11,15 +11,16 @@ LibraTray is a tray-first, local-only Windows controller being built for the
 **Yeelight Libra Pro**—also sold as **Yeelight LED Screen Light Bar Pro** or
 **Yeelight Monitor Light Bar Pro**, hardware model **YLTD003**, internal model
 `lamp15`. It is focused on instant control and reliable two-channel state
-synchronization.
+synchronization. No other device model is in the supported scope or compatibility
+roadmap.
 
-> **Current status:** the v1.0.0 implementation has passed maintainer hardware,
+> **Current status:** the v1.0.1 implementation has passed maintainer hardware,
 > installation, uninstall, control, automation, and interface checks on Windows.
 > The authoritative publication status is shown on the project's
 > [GitHub Releases](https://github.com/tHank-CS/LibraTray/releases) page.
 > Code signing is not available for this release. The two-zone RGB command
-> remains disabled because its relationship to the observed cold-start failure
-> has not been isolated.
+> remains disabled in v1.0.1. A future default-off experimental path is now
+> permitted under an explicit risk decision, but has not yet been implemented.
 
 English | [简体中文](README.zh-CN.md)
 
@@ -70,7 +71,7 @@ and tray application rather than being deferred product goals.
 
 | Display name | Hardware model | Internal model | Status |
 | --- | --- | --- | --- |
-| Yeelight Libra Pro | YLTD003 | `lamp15` | Primary target; selected Phase-B behavior verified on firmware 38 |
+| Yeelight Libra Pro | YLTD003 | `lamp15` | Only supported device; selected Phase-B behavior verified on firmware 38 |
 
 Official Yeelight material uses more than one retail name for YLTD003. The
 `lamp15` → YLTD003 → Yeelight Libra Pro relationship is a **high-confidence
@@ -80,8 +81,8 @@ hardware and internal model separately for diagnostics. See
 [product identity research](docs/research/product-identity.md).
 
 Names such as “Libra”, “Pro”, or “Screen Light Bar” are never used as fuzzy
-device identifiers. Unknown models remain unknown, and no other Libra, Pro,
-Pura, or YLTD product is treated as `lamp15` without evidence.
+device identifiers. Unknown models remain unknown and unsupported; no other
+Libra, Pro, Pura, or YLTD product is a planned compatibility target.
 
 ## Features
 
@@ -94,7 +95,10 @@ Available at the current milestone:
 - safe product-identity mapping and unknown-device fallback;
 - redaction-oriented diagnostic output;
 - a Windows tray icon, context menu, and live quick panel;
-- verified main power, brightness, and 3000–6500 K colour-temperature control;
+- verified main power and brightness, plus native 2700–6500 K main
+  colour-temperature control using the product limits confirmed directly with
+  Yeelight; the UI defaults to 3000–6400 K and exposes the edge ranges through
+  an explicit setting;
 - verified background power, brightness, and whole-background RGB presets;
 - bounded retry, notification reconciliation, and per-connection rate limiting;
 - fixed global shortcuts with conflict reporting, queued input, and
@@ -113,7 +117,7 @@ Available at the current milestone:
   summary;
 - automated tests and a mock-device test surface.
 
-Release information: [v1.0.0 notes](docs/releases/v1.0.0.md).
+Release information: [v1.0.1 notes](docs/releases/v1.0.1.md).
 
 Screen sampling, music/game effects, and a general-purpose Yeelight client are
 out of scope for the first stable release.
@@ -279,7 +283,7 @@ To produce the same self-contained ZIP, current-user MSI, and checksum manifest
 used by release automation:
 
 ```powershell
-powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version 1.0.0 -Locked
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version 1.0.1 -Locked
 ```
 
 To run the current tray application during development:

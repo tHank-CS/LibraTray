@@ -31,7 +31,7 @@ public sealed record LibraProTargetState
         ArgumentOutOfRangeException.ThrowIfGreaterThan(mainBrightness, 100);
         ArgumentOutOfRangeException.ThrowIfLessThan(
             mainColorTemperature,
-            3_000);
+            2_700);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(
             mainColorTemperature,
             6_500);

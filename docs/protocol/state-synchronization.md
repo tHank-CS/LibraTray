@@ -105,6 +105,10 @@ emits no visible light. A colour-form `bg_set_scene` initializes the background
 renderer for the current running session. The same recovery may be needed after
 the next cold power cycle.
 
+The operating baseline assumes a continuously powered, 24-hour-online device.
+Physical cold start is therefore a rare abnormal event, not a routine transition
+or a general acceptance gate for unrelated features.
+
 The adapter treats this as a failed postcondition, not as a successful write:
 
 1. retain the last confirmed background brightness and whole-background RGB;
@@ -121,9 +125,12 @@ The adapter treats this as a failed postcondition, not as a successful write:
 
 Ordinary TCP reconnects do not unconditionally trigger a scene because network
 jitter and idle disconnects are not proof of a device reboot. The default is
-lazy recovery after a verified write mismatch. A future explicit proactive
-mode may refresh after a strong cold-start signal, but it must warn about a
-brief visible flash when the desired background state is off.
+lazy recovery after a verified write mismatch. A future power-on self-test
+(POST) may perform one proactive check/recovery after an explicit cold-start
+signal or user-invoked diagnostic. It must preserve main state, restore the
+cached background appearance and desired power, report failure rather than
+loop, and warn about a brief visible flash when the desired background state is
+off.
 
 The readable properties do not reveal whether LEDs are physically emitting
 light. The verified mismatch (`ok` followed by `bg_power=off`) is detectable;

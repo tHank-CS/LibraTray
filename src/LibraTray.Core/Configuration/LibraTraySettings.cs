@@ -5,7 +5,7 @@ namespace LibraTray.Core.Configuration;
 
 public sealed record LibraTraySettings
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 3;
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
 
@@ -13,7 +13,11 @@ public sealed record LibraTraySettings
 
     public int BrightnessStep { get; init; } = 5;
 
-    public int ColorTemperatureStep { get; init; } = 200;
+    public int BackgroundBrightnessStep { get; init; } = 20;
+
+    public int ColorTemperatureStep { get; init; } = 100;
+
+    public bool AllowExtremeColorTemperature { get; init; }
 
     public bool AdjustBrightnessWithTrayWheel { get; init; } = true;
 
@@ -136,10 +140,21 @@ internal static class LibraTraySettingsNormalizer
             BrightnessStep = IsInRange(settings.BrightnessStep, 1, 25)
                 ? settings.BrightnessStep
                 : defaults.BrightnessStep,
+            BackgroundBrightnessStep = IsInRange(
+                settings.BackgroundBrightnessStep,
+                1,
+                100)
+                    ? settings.BackgroundBrightnessStep
+                    : defaults.BackgroundBrightnessStep,
             ColorTemperatureStep =
-                IsInRange(settings.ColorTemperatureStep, 50, 1_000)
+                settings.SchemaVersion == 1
+                    && settings.ColorTemperatureStep == 200
+                    ? defaults.ColorTemperatureStep
+                : IsInRange(settings.ColorTemperatureStep, 50, 1_000)
                     ? settings.ColorTemperatureStep
                     : defaults.ColorTemperatureStep,
+            AllowExtremeColorTemperature =
+                settings.AllowExtremeColorTemperature,
             AdjustBrightnessWithTrayWheel =
                 settings.AdjustBrightnessWithTrayWheel,
             Theme = Enum.IsDefined(settings.Theme)
@@ -220,7 +235,7 @@ internal static class LibraTraySettingsNormalizer
             if (preset is null
                 || name is null
                 || !IsInRange(preset.MainBrightness, 1, 100)
-                || !IsInRange(preset.MainColorTemperature, 3_000, 6_500)
+                || !IsInRange(preset.MainColorTemperature, 2_700, 6_500)
                 || !IsInRange(preset.BackgroundBrightness, 1, 100)
                 || !IsInRange(preset.BackgroundRgb, 0, 16_777_215))
             {

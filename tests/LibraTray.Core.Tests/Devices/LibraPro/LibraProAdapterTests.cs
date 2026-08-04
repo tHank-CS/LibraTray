@@ -192,8 +192,8 @@ public sealed class LibraProAdapterTests
         state = (await adapter.SetMainBrightnessAsync(42, timeout)).State;
         Assert.AreEqual(42, state.MainBrightness);
 
-        state = (await adapter.SetMainColorTemperatureAsync(3_500, timeout)).State;
-        Assert.AreEqual(3_500, state.MainColorTemperature);
+        state = (await adapter.SetMainColorTemperatureAsync(2_700, timeout)).State;
+        Assert.AreEqual(2_700, state.MainColorTemperature);
 
         state = (await adapter.SetBackgroundBrightnessAsync(61, timeout)).State;
         Assert.AreEqual(61, state.BackgroundBrightness);
@@ -253,7 +253,7 @@ public sealed class LibraProAdapterTests
         await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(
             () => adapter.SetBackgroundBrightnessAsync(101, timeout));
         await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(
-            () => adapter.SetMainColorTemperatureAsync(2_999, timeout));
+            () => adapter.SetMainColorTemperatureAsync(2_699, timeout));
         await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(
             () => adapter.SetBackgroundColorTemperatureAsync(6_501, timeout));
         await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(

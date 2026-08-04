@@ -11,6 +11,8 @@ implemented; release-candidate installation validation remains.
 The architecture optimizes for:
 
 - a fast Windows tray workflow;
+- an intentionally single-model product scope: exact `lamp15` / Yeelight
+  Libra Pro / YLTD003 only, with no compatibility roadmap for other models;
 - local-only operation and bounded untrusted network input;
 - independent main and ambient channels;
 - deterministic state reconciliation after physical-knob or software changes;
@@ -52,7 +54,8 @@ Windows integration.
 4. **Device adapters**
    - generic capabilities;
    - a Yeelight Libra Pro adapter containing only verified behavior;
-   - extension boundary for later, separately verified models.
+   - explicit rejection of every non-`lamp15` model rather than compatibility
+     adapters or fallback control paths.
 5. **State**
    - last confirmed device state per channel;
    - optimistic/pending UI state;
@@ -176,6 +179,12 @@ by post-write query mismatch. It performs at most one `bg_set_scene` renderer
 initialization per connection epoch, restores confirmed background appearance,
 and verifies that main power was preserved. It does not equate every TCP
 reconnect with a cold boot.
+
+The product assumes the physical device normally remains powered and online.
+A cold power cycle is a rare abnormal event rather than a routine feature gate.
+A future power-on self-test (POST) may perform one bounded background renderer
+check/recovery after an explicit cold-start signal or user-invoked diagnostic,
+but ordinary TCP reconnects must not trigger proactive scene writes.
 
 Transient timeouts, generic device-busy responses, protocol failures, and
 postcondition mismatches receive at most two delayed retries. Idempotent setting

@@ -34,6 +34,8 @@ public sealed class LibraTraySettingsTransferServiceTests
         {
             UserAlias = "Desk light",
             BrightnessStep = 8,
+            BackgroundBrightnessStep = 20,
+            AllowExtremeColorTemperature = true,
             Theme = AppTheme.Dark,
             Language = AppLanguage.English,
             ShowOnScreenDisplay = false,
@@ -62,6 +64,8 @@ public sealed class LibraTraySettingsTransferServiceTests
 
         Assert.AreEqual("Desk light", imported.UserAlias);
         Assert.AreEqual(8, imported.BrightnessStep);
+        Assert.AreEqual(20, imported.BackgroundBrightnessStep);
+        Assert.IsTrue(imported.AllowExtremeColorTemperature);
         Assert.AreEqual(AppTheme.Dark, imported.Theme);
         Assert.AreEqual(AppLanguage.English, imported.Language);
         Assert.IsFalse(imported.ShowOnScreenDisplay);
