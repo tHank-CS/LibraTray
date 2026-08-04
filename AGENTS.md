@@ -9,8 +9,8 @@
 ## 1. 当前基线
 
 - 项目名称：LibraTray
-- GitHub 仓库：<https://github.com/hank-wang-cs/LibraTray>
-- 当前稳定版本：[`v1.0.0`](https://github.com/hank-wang-cs/LibraTray/releases/tag/v1.0.0)
+- GitHub 仓库：<https://github.com/tHank-CS/LibraTray>
+- 当前稳定版本：[`v1.0.0`](https://github.com/tHank-CS/LibraTray/releases/tag/v1.0.0)
 - 基线日期：2026-08-02
 - 目标平台：Windows 10 21H2（内部版本 19044）或更高版本、Windows 11、x64
 - 技术栈：C#、.NET 10 LTS、WPF，以及少量隔离的 Win32 互操作

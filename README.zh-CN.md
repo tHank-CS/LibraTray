@@ -14,7 +14,7 @@ LibraTray 是一个正在开发中的、托盘优先、纯局域网的 Windows �
 
 > **当前状态：**v1.0.0 实现已通过维护者在 Windows 上进行的硬件、安装、卸载、控制、
 > 自动化和界面检查。是否已经公开发布，以项目的
-> [GitHub Releases](https://github.com/hank-wang-cs/LibraTray/releases) 页面为准。
+> [GitHub Releases](https://github.com/tHank-CS/LibraTray/releases) 页面为准。
 > 本版本暂无代码签名。氛围灯左右分区 RGB 命令虽能即时生效，但它与已观察到的冷启动
 > 故障之间尚未完成因果隔离，因此仍未开放。
 
@@ -22,8 +22,28 @@ LibraTray 是一个正在开发中的、托盘优先、纯局域网的 Windows �
 
 ## 截图
 
-首发界面已经完成视觉验收，稳定版本截图将作为独立事项补充；当前不会把效果图冒充为
-已实现的软件。
+<table>
+  <tr>
+    <td align="center">
+      <img src="assets/screenshots/quick-controls.png" width="360" alt="LibraTray 快速控制面板">
+      <br><sub>快速控制面板</sub>
+    </td>
+    <td align="center">
+      <img src="assets/screenshots/device-details.png" width="480" alt="LibraTray 设备详情">
+      <br><sub>设备详情</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="assets/screenshots/settings.png" width="360" alt="LibraTray 设置">
+      <br><sub>设置</sub>
+    </td>
+    <td align="center">
+      <img src="assets/screenshots/tray-menu.png" width="226" alt="LibraTray 托盘菜单">
+      <br><sub>托盘菜单</sub>
+    </td>
+  </tr>
+</table>
 
 ## 为什么创建 LibraTray？
 
@@ -96,7 +116,7 @@ Windows 构建上运行只能视为尽力兼容。
 ## 下载、安装与便携版
 
 官方文件只通过项目的
-[GitHub Releases](https://github.com/hank-wang-cs/LibraTray/releases) 页面分发。如果
+[GitHub Releases](https://github.com/tHank-CS/LibraTray/releases) 页面分发。如果
 该页面没有 Release，就表示尚无官方二进制文件。请勿从非官方软件下载站获取
 LibraTray。每个经过复核的 Release 都会提供：
 

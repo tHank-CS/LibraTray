@@ -1,13 +1,13 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package Name="LibraTray"
-           Manufacturer="hank-wang-cs"
+           Manufacturer="tHank-CS"
            Version="$(var.ProductVersion)"
            UpgradeCode="0FF4B58A-D283-454C-8189-77A7C53B1810"
            Scope="perUser"
            Compressed="yes">
     <SummaryInformation Description="Tray-first local controller for Yeelight Libra Pro"
-                        Manufacturer="hank-wang-cs" />
+                        Manufacturer="tHank-CS" />
     <MajorUpgrade DowngradeErrorMessage="A newer version of LibraTray is already installed." />
     <MediaTemplate EmbedCab="yes" />
     <Icon Id="LibraTrayIcon" SourceFile="!(bindpath.branding)\libratray.ico" />
