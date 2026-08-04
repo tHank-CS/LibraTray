@@ -38,8 +38,13 @@ public partial class SettingsWindow : Window
         ShowOsdCheckBox.IsChecked = settings.ShowOnScreenDisplay;
         BrightnessStepTextBox.Text = settings.BrightnessStep.ToString(
             CultureInfo.InvariantCulture);
+        BackgroundBrightnessStepTextBox.Text =
+            settings.BackgroundBrightnessStep.ToString(
+                CultureInfo.InvariantCulture);
         TemperatureStepTextBox.Text = settings.ColorTemperatureStep.ToString(
             CultureInfo.InvariantCulture);
+        ExtremeColorTemperatureCheckBox.IsChecked =
+            settings.AllowExtremeColorTemperature;
         TrayWheelCheckBox.IsChecked =
             settings.AdjustBrightnessWithTrayWheel;
         LockAutomationCheckBox.IsChecked =
@@ -152,6 +157,12 @@ public partial class SettingsWindow : Window
                 UiText.Get("Message.BrightnessStepLabel"),
                 out int brightnessStep)
             || !TryReadInteger(
+                BackgroundBrightnessStepTextBox,
+                1,
+                100,
+                UiText.Get("Message.AmbientBrightnessStepLabel"),
+                out int backgroundBrightnessStep)
+            || !TryReadInteger(
                 TemperatureStepTextBox,
                 50,
                 1_000,
@@ -197,7 +208,10 @@ public partial class SettingsWindow : Window
         {
             UserAlias = AliasTextBox.Text,
             BrightnessStep = brightnessStep,
+            BackgroundBrightnessStep = backgroundBrightnessStep,
             ColorTemperatureStep = temperatureStep,
+            AllowExtremeColorTemperature =
+                ExtremeColorTemperatureCheckBox.IsChecked == true,
             AdjustBrightnessWithTrayWheel = TrayWheelCheckBox.IsChecked == true,
             Theme = (AppTheme)Math.Max(0, ThemeComboBox.SelectedIndex),
             Language = (AppLanguage)Math.Max(0, LanguageComboBox.SelectedIndex),
@@ -238,6 +252,24 @@ public partial class SettingsWindow : Window
         _ = sender;
         _ = e;
         ExportRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void WindowHeader_MouseLeftButtonDown(
+        object sender,
+        MouseButtonEventArgs e)
+    {
+        _ = sender;
+        if (e.ButtonState == MouseButtonState.Pressed)
+        {
+            DragMove();
+        }
+    }
+
+    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        Close();
     }
 
     private bool TryReadInteger(

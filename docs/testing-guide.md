@@ -149,10 +149,13 @@ Do not test replacement-firmware devices as evidence for the stock protocol.
    `power,main_power,bg_power` before and after the command. It verifies
    `main_power` against the requested value, recomputes aggregate `power`, and
    rejects any unexpected change to `bg_power`.
-   Do not send `set_segment_rgb`, even when the device advertises it. Its
-   immediate left/right effect was verified, but a later firmware-38 cold-start
-   failure has not been isolated from the earlier segment experiment. The probe
-   rejects this method while causality and safe recovery remain unresolved.
+   The current probe still rejects `set_segment_rgb`, even when the device
+   advertises it. A future implementation may expose it only through a separate,
+   default-off experimental path with explicit risk confirmation, exact
+   `lamp15`/firmware/capability gates, before/after dual-channel capture, and a
+   whole-background recovery path. Because no segment property is readable,
+   physical confirmation is required and requested colours must not be reported
+   as confirmed state.
    The exact-`lamp15` `bg_set_scene` path is retained only as a temporary
    recovery diagnostic. It initializes the current running session but does
    not persist across a cold cycle.
@@ -181,9 +184,9 @@ Record every row separately for the tested firmware:
 | message terminator and request ID | exact request/response bytes | Verified for `get_prop`, basic main/background writes, and the now-disabled `set_segment_rgb` on firmware 38 |
 | initial main properties | response and physical state | Verified once on firmware 38 |
 | initial ambient properties | response and physical state | Verified once on firmware 38 |
-| main power/brightness/temperature | request, result, notification, query | `set_power` on/off, `set_bright`, and `set_ct_abx` verified; off follows the vendor-app ambient-follow policy |
+| main power/brightness/temperature | request, result, notification, query | `set_power` on/off, `set_bright`, and 5000→4000 K `set_ct_abx` locally verified; the 2700–6500 K native range was confirmed directly with Yeelight by the maintainer on 2026-08-04; off follows the vendor-app ambient-follow policy |
 | ambient power/brightness/color | request, result, notification, query | `bg_set_power` off/on, `bg_set_bright`, and `bg_set_rgb` verified; off notification is unreliable |
-| ambient left/right segments | exact request, result, physical side mapping | Immediate left/right mapping verified twice; command remains blocked because a later cold-start failure has not been isolated from the experiment |
+| ambient left/right segments | exact request, result, physical side mapping | Immediate left/right mapping verified twice on the only test device; eligible for a guarded experimental path, but causality and readable state remain unresolved |
 | both-channel power interaction | before/after state | Three power combinations queried on firmware 38 |
 | one channel off, other on | before/after state | `main_power`/`bg_power` query semantics verified |
 | physical-knob updates | notification plus reconciliation query | Brightness/CT observed; independent background off can notify `bg_power=on` |
@@ -192,9 +195,27 @@ Record every row separately for the tested firmware:
 | firmware-specific defects | repeat count and firmware | Firmware 38 background-power notification defect observed; cold-start renderer initialization failure reproduced and recoverable with one `bg_set_scene`; segment causality unresolved |
 
 Never promote a special method from an open-source lead or immediate visual
-success alone. The segment experiment passed command, readback, reconnect, and
-physical side checks but failed cold-cycle testing, so it remains documented
-evidence only and is not executable through LibraTray.
+success alone. The segment experiment passed command, ordinary-state readback,
+reconnect, and physical side checks, but later shared a test sequence with a
+cold-start failure. With one already-exposed device and no control unit, the
+relationship cannot be isolated. The maintainer accepts this limitation only
+for a clearly labelled, default-off experimental path; it must not be described
+as stable or causally proven safe.
+
+## Single-device and cold-start policy
+
+- Only one exact-`lamp15` test device is available. There is no parallel control
+  device, so before/after comparisons are single-device observations and cannot
+  establish population-wide behavior or causality.
+- The target deployment keeps the device powered and online continuously.
+  Physical cold starts are rare abnormal events, not a routine gate for every
+  ordinary control change.
+- Cold-power tests require a task-specific reason and explicit approval. They
+  are required when validating a future POST, cold-start recovery, or claimed
+  persistence behavior.
+- A future POST must be tested independently for trigger accuracy, one-attempt
+  bounds, main-channel preservation, background appearance/power restoration,
+  visible-flash behavior, and failure reporting.
 
 ## Evidence record
 
@@ -204,6 +225,7 @@ Use this template:
 Hardware label: YLTD003
 Discovery internal model: lamp15
 Firmware:
+Available target devices: 1
 Vendor app and region:
 Windows build:
 LibraTray commit:
@@ -215,13 +237,29 @@ Exact redacted result/error:
 Notifications in timestamp order:
 Follow-up query and result:
 Repeated after reconnect: yes/no/result
-Repeated after power cycle: yes/no/result
+Cold-power test required and approved: yes/no/reason
+POST invoked and result: yes/no/not applicable/result
 Conclusion:
 Confidence:
 ```
 
 Observation is not causation: note timing and conflicts instead of assuming
 that the last packet caused a physical state.
+
+## Main colour-temperature range UI check
+
+With the extra-warm / extra-cool option disabled, verify that the quick-panel
+slider and colour-temperature shortcuts stop at 3000 K and 6400 K, use the
+configured tick interval, and never move in the opposite direction when the
+device begins outside that range. Enable the option in Settings and verify that
+the same controls expand to 2700–6500 K. Saving, reopening Settings, exporting,
+and importing the configuration must preserve the option.
+
+The only available firmware-38 device has visually shown that the cool LED
+channel turns off below 3000 K and the warm channel turns off above 6400 K.
+Record endpoint observations separately from command success and post-read
+state; do not generalize this visual behavior to another firmware without new
+device evidence.
 
 ## OSD smoke check
 

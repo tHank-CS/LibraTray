@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows.Media;
 using System.Windows.Threading;
 using LibraTray.Core.Configuration;
 using LibraTray.Core.Devices.LibraPro;
@@ -29,8 +30,16 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     private int _mainColorTemperature = 4_000;
     private int _backgroundBrightness = 50;
     private int _backgroundRgb = 13_395_711;
-    private int _mainBrightnessStep;
-    private int _mainColorTemperatureStep;
+    private int _mainBrightnessStep = 5;
+    private int _backgroundBrightnessStep = 20;
+    private int _mainColorTemperatureStep = 100;
+    private int _mainColorTemperatureMinimum = 3_000;
+    private int _mainColorTemperatureMaximum = 6_400;
+    private DoubleCollection _mainBrightnessTicks = CreateBrightnessTicks(5);
+    private DoubleCollection _backgroundBrightnessTicks =
+        CreateBrightnessTicks(20);
+    private DoubleCollection _mainColorTemperatureTicks =
+        CreateColorTemperatureTicks(100, 3_000, 6_400);
     private LibraProSessionStatusChangedEventArgs? _lastStatus;
     private bool _disposed;
 
@@ -48,8 +57,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
         _lifetimeToken = lifetimeToken;
         _connectionStatus = UiText.Get("Message.WaitingForDevice");
         _deviceName = ResolveDeviceName(settings.UserAlias);
-        _mainBrightnessStep = settings.BrightnessStep;
-        _mainColorTemperatureStep = settings.ColorTemperatureStep;
+        ApplyStepSettings(settings);
         Presets = new ObservableCollection<LibraProPreset>(settings.Presets);
         _selectedPreset = Presets.FirstOrDefault();
         _session.StatusChanged += OnSessionStatusChanged;
@@ -173,6 +181,24 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
         private set => SetField(ref _backgroundRgb, value);
     }
 
+    public int MainBrightnessStep => _mainBrightnessStep;
+
+    public int BackgroundBrightnessStep => _backgroundBrightnessStep;
+
+    public int MainColorTemperatureStep => _mainColorTemperatureStep;
+
+    public int MainColorTemperatureMinimum => _mainColorTemperatureMinimum;
+
+    public int MainColorTemperatureMaximum => _mainColorTemperatureMaximum;
+
+    public DoubleCollection MainBrightnessTicks => _mainBrightnessTicks;
+
+    public DoubleCollection BackgroundBrightnessTicks =>
+        _backgroundBrightnessTicks;
+
+    public DoubleCollection MainColorTemperatureTicks =>
+        _mainColorTemperatureTicks;
+
     public Task ConnectAsync(CancellationToken cancellationToken = default) =>
         RunAsync(
             () => _session.DiscoverAndConnectAsync(
@@ -282,10 +308,26 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
         {
             int current = _session.CurrentState?.MainColorTemperature
                 ?? MainColorTemperature;
-            int value = Math.Clamp(
-                current + normalizedDirection * _mainColorTemperatureStep,
-                3_000,
-                6_500);
+            if ((normalizedDirection > 0
+                    && current >= _mainColorTemperatureMaximum)
+                || (normalizedDirection < 0
+                    && current <= _mainColorTemperatureMinimum))
+            {
+                return;
+            }
+
+            int value = current < _mainColorTemperatureMinimum
+                || current > _mainColorTemperatureMaximum
+                    ? Math.Clamp(
+                        current,
+                        _mainColorTemperatureMinimum,
+                        _mainColorTemperatureMaximum)
+                    : Math.Clamp(
+                        current
+                            + normalizedDirection
+                            * _mainColorTemperatureStep,
+                        _mainColorTemperatureMinimum,
+                        _mainColorTemperatureMaximum);
             if (value != current)
             {
                 _ = await _session.SetMainColorTemperatureAsync(
@@ -324,8 +366,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     {
         ArgumentNullException.ThrowIfNull(settings);
         DeviceName = ResolveDeviceName(settings.UserAlias);
-        _mainBrightnessStep = settings.BrightnessStep;
-        _mainColorTemperatureStep = settings.ColorTemperatureStep;
+        ApplyStepSettings(settings);
         RefreshLocalizedText();
     }
 
@@ -576,6 +617,74 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
             .Resolve(ProductIdentityCatalog.LibraProInternalModel)
             .WithUserAlias(userAlias)
             .DisplayName;
+
+    private void ApplyStepSettings(LibraTraySettings settings)
+    {
+        _mainBrightnessStep = settings.BrightnessStep;
+        _backgroundBrightnessStep = settings.BackgroundBrightnessStep;
+        _mainColorTemperatureStep = settings.ColorTemperatureStep;
+        _mainColorTemperatureMinimum = settings.AllowExtremeColorTemperature
+            ? 2_700
+            : 3_000;
+        _mainColorTemperatureMaximum = settings.AllowExtremeColorTemperature
+            ? 6_500
+            : 6_400;
+        _mainBrightnessTicks = CreateBrightnessTicks(_mainBrightnessStep);
+        _backgroundBrightnessTicks = CreateBrightnessTicks(
+            _backgroundBrightnessStep);
+        _mainColorTemperatureTicks = CreateColorTemperatureTicks(
+            _mainColorTemperatureStep,
+            _mainColorTemperatureMinimum,
+            _mainColorTemperatureMaximum);
+        OnPropertyChanged(nameof(MainBrightnessStep));
+        OnPropertyChanged(nameof(BackgroundBrightnessStep));
+        OnPropertyChanged(nameof(MainColorTemperatureStep));
+        OnPropertyChanged(nameof(MainColorTemperatureMinimum));
+        OnPropertyChanged(nameof(MainColorTemperatureMaximum));
+        OnPropertyChanged(nameof(MainBrightnessTicks));
+        OnPropertyChanged(nameof(BackgroundBrightnessTicks));
+        OnPropertyChanged(nameof(MainColorTemperatureTicks));
+    }
+
+    private static DoubleCollection CreateBrightnessTicks(int step)
+    {
+        var ticks = new DoubleCollection { 1 };
+        for (int value = step; value <= 100; value += step)
+        {
+            if (value != 1)
+            {
+                ticks.Add(value);
+            }
+        }
+
+        if (ticks[^1] != 100)
+        {
+            ticks.Add(100);
+        }
+
+        ticks.Freeze();
+        return ticks;
+    }
+
+    private static DoubleCollection CreateColorTemperatureTicks(
+        int step,
+        int minimum,
+        int maximum)
+    {
+        var ticks = new DoubleCollection();
+        for (int value = minimum; value <= maximum; value += step)
+        {
+            ticks.Add(value);
+        }
+
+        if (ticks[^1] != maximum)
+        {
+            ticks.Add(maximum);
+        }
+
+        ticks.Freeze();
+        return ticks;
+    }
 
     private bool SetField<T>(
         ref T field,

@@ -47,8 +47,8 @@ public partial class OnScreenDisplayWindow : Window
 
     internal void ShowColorTemperature(string deviceName, int value)
     {
-        int boundedValue = Math.Clamp(value, 3_000, 6_500);
-        double progress = (boundedValue - 3_000) / 35.0;
+        int boundedValue = Math.Clamp(value, 2_700, 6_500);
+        double progress = (boundedValue - 2_700) / 38.0;
         ShowValue(
             deviceName,
             UiText.Get("Text.OsdMainTemperature"),

@@ -114,11 +114,12 @@
                                        FontSize="12"
                                        Foreground="{DynamicResource TextSecondaryBrush}" />
                         </StackPanel>
-                        <CheckBox Grid.Column="1"
-                                  VerticalAlignment="Center"
-                                  Content="{DynamicResource Text.On}"
-                                  IsChecked="{Binding MainPower, Mode=OneWay}"
-                                  Click="MainPower_Click" />
+                        <ToggleButton Grid.Column="1"
+                                      VerticalAlignment="Center"
+                                      AutomationProperties.Name="{DynamicResource Text.MainPowerSwitch}"
+                                      IsChecked="{Binding MainPower, Mode=OneWay}"
+                                      Style="{StaticResource ToggleSwitchStyle}"
+                                      Click="MainPower_Click" />
                     </Grid>
                     <Grid Margin="0,16,0,0">
                         <Grid.ColumnDefinitions>
@@ -132,7 +133,12 @@
                         <Slider Grid.Column="1"
                                 Minimum="1"
                                 Maximum="100"
+                                Ticks="{Binding MainBrightnessTicks}"
+                                SmallChange="{Binding MainBrightnessStep}"
+                                LargeChange="{Binding MainBrightnessStep}"
+                                IsSnapToTickEnabled="True"
                                 Value="{Binding MainBrightness, Mode=OneWay}"
+                                PreviewKeyUp="MainBrightness_KeyReleased"
                                 PreviewMouseLeftButtonUp="MainBrightness_PointerReleased" />
                         <TextBlock Grid.Column="2"
                                    HorizontalAlignment="Right"
@@ -149,11 +155,14 @@
                                    Text="{DynamicResource Text.ColorTemperature}"
                                    Foreground="{DynamicResource TextSecondaryBrush}" />
                         <Slider Grid.Column="1"
-                                Minimum="3000"
-                                Maximum="6500"
-                                TickFrequency="100"
+                                Minimum="{Binding MainColorTemperatureMinimum}"
+                                Maximum="{Binding MainColorTemperatureMaximum}"
+                                Ticks="{Binding MainColorTemperatureTicks}"
+                                SmallChange="{Binding MainColorTemperatureStep}"
+                                LargeChange="{Binding MainColorTemperatureStep}"
                                 IsSnapToTickEnabled="True"
                                 Value="{Binding MainColorTemperature, Mode=OneWay}"
+                                PreviewKeyUp="MainColorTemperature_KeyReleased"
                                 PreviewMouseLeftButtonUp="MainColorTemperature_PointerReleased" />
                         <TextBlock Grid.Column="2"
                                    HorizontalAlignment="Right"
@@ -182,11 +191,12 @@
                                        FontSize="12"
                                        Foreground="{DynamicResource TextSecondaryBrush}" />
                         </StackPanel>
-                        <CheckBox Grid.Column="1"
-                                  VerticalAlignment="Center"
-                                  Content="{DynamicResource Text.On}"
-                                  IsChecked="{Binding BackgroundPower, Mode=OneWay}"
-                                  Click="BackgroundPower_Click" />
+                        <ToggleButton Grid.Column="1"
+                                      VerticalAlignment="Center"
+                                      AutomationProperties.Name="{DynamicResource Text.AmbientPowerSwitch}"
+                                      IsChecked="{Binding BackgroundPower, Mode=OneWay}"
+                                      Style="{StaticResource ToggleSwitchStyle}"
+                                      Click="BackgroundPower_Click" />
                     </Grid>
                     <Grid Margin="0,16,0,0">
                         <Grid.ColumnDefinitions>
@@ -200,7 +210,12 @@
                         <Slider Grid.Column="1"
                                 Minimum="1"
                                 Maximum="100"
+                                Ticks="{Binding BackgroundBrightnessTicks}"
+                                SmallChange="{Binding BackgroundBrightnessStep}"
+                                LargeChange="{Binding BackgroundBrightnessStep}"
+                                IsSnapToTickEnabled="True"
                                 Value="{Binding BackgroundBrightness, Mode=OneWay}"
+                                PreviewKeyUp="BackgroundBrightness_KeyReleased"
                                 PreviewMouseLeftButtonUp="BackgroundBrightness_PointerReleased" />
                         <TextBlock Grid.Column="2"
                                    HorizontalAlignment="Right"
@@ -220,9 +235,10 @@
                                 ToolTip="{DynamicResource Text.Orange}"
                                 Style="{StaticResource QuietButtonStyle}"
                                 Click="BackgroundColor_Click">
-                            <Ellipse Width="20"
-                                     Height="20"
-                                     Fill="#FFFFA500" />
+                            <Border Width="20"
+                                    Height="20"
+                                    CornerRadius="5"
+                                    Background="#FFFFA500" />
                         </Button>
                         <Button Width="30"
                                 Height="30"
@@ -232,9 +248,10 @@
                                 ToolTip="{DynamicResource Text.Green}"
                                 Style="{StaticResource QuietButtonStyle}"
                                 Click="BackgroundColor_Click">
-                            <Ellipse Width="20"
-                                     Height="20"
-                                     Fill="#FF00C96B" />
+                            <Border Width="20"
+                                    Height="20"
+                                    CornerRadius="5"
+                                    Background="#FF00C96B" />
                         </Button>
                         <Button Width="30"
                                 Height="30"
@@ -244,9 +261,10 @@
                                 ToolTip="{DynamicResource Text.Blue}"
                                 Style="{StaticResource QuietButtonStyle}"
                                 Click="BackgroundColor_Click">
-                            <Ellipse Width="20"
-                                     Height="20"
-                                     Fill="#FF438DFF" />
+                            <Border Width="20"
+                                    Height="20"
+                                    CornerRadius="5"
+                                    Background="#FF438DFF" />
                         </Button>
                         <Button Width="30"
                                 Height="30"
@@ -256,9 +274,10 @@
                                 ToolTip="{DynamicResource Text.Purple}"
                                 Style="{StaticResource QuietButtonStyle}"
                                 Click="BackgroundColor_Click">
-                            <Ellipse Width="20"
-                                     Height="20"
-                                     Fill="#FF9B66D9" />
+                            <Border Width="20"
+                                    Height="20"
+                                    CornerRadius="5"
+                                    Background="#FF9B66D9" />
                         </Button>
                         <Button Height="30"
                                 Padding="8,2"

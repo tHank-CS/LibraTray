@@ -1,7 +1,6 @@
 # Releasing LibraTray
 
-This is the release runbook. It documents intended procedure; no LibraTray
-release has been produced yet.
+This is the release runbook for public LibraTray releases.
 
 ## Version policy
 
@@ -86,9 +85,18 @@ the maintainer decides otherwise:
   documented in the protocol notes.
 
 Reviewed release notes are stored in `docs/releases/v1.0.0.md`, with a Chinese
-translation in `docs/releases/v1.0.0.zh-CN.md`. The remaining approval-gated
-steps are: merge the release-preparation PR, create and push the annotated
-`v1.0.0` tag, inspect the workflow-built draft and checksums, and publish it.
+translation in `docs/releases/v1.0.0.zh-CN.md`. The release-preparation PR,
+annotated tag, workflow-built artifacts, checksum review, and publication were
+completed on 2026-08-02.
+
+## v1.0.1 candidate record
+
+The 2026-08-04 patch candidate passed the repository verification suite and
+maintainer UI and real-device checks for titleless windows, the custom colour
+picker, swatches, resizing, slider snap points, and light control. Release notes
+are stored in `docs/releases/v1.0.1.md` and
+`docs/releases/v1.0.1.zh-CN.md`. The existing unsigned-artifact, single-device,
+firmware-38, and clean-VM limitations remain unchanged.
 
 ## Tag and GitHub release
 

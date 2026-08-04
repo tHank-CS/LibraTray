@@ -8,6 +8,24 @@ and this project intends to follow
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-04
+
+### Fixed
+
+- Removed the native title bars from the Device, Settings, and custom-colour
+  windows; restored custom close, drag, resize, maximize, and restore behavior.
+- Fixed oversized or distorted light switches and matched preset swatches to
+  their rounded-rectangle borders.
+
+### Changed
+
+- Added an interactive colour picker to custom ambient colours.
+- Changed the default slider steps to 5% main brightness, 20% ambient
+  brightness, and 100 K colour temperature, with matching snap points.
+- Changed normal colour-temperature control to 3000–6400 K, with an optional
+  setting for the Yeelight-confirmed native 2700–6500 K range.
+- Limited supported hardware to exact `lamp15` / Yeelight Libra Pro / YLTD003.
+
 ## [1.0.0] - 2026-08-02
 
 ### Added
@@ -112,5 +130,6 @@ and this project intends to follow
 - Diagnostic data is designed to be redacted before export.
 - Network parsing is bounded and treats device data as untrusted input.
 
-[Unreleased]: https://github.com/tHank-CS/LibraTray/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/tHank-CS/LibraTray/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/tHank-CS/LibraTray/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/tHank-CS/LibraTray/releases/tag/v1.0.0

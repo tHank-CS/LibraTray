@@ -11,12 +11,14 @@ LibraTray 是一个正在开发中的、托盘优先、纯局域网的 Windows �
 **Yeelight Libra Pro**。该产品也常以 **Yeelight LED Screen Light Bar Pro**
 或 **Yeelight Monitor Light Bar Pro** 销售，硬件型号为 **YLTD003**，局域网协议
 内部型号为 `lamp15`。项目重点是即时控制和可靠的双通道状态同步。
+其他设备型号不在支持范围或兼容规划内。
 
-> **当前状态：**v1.0.0 实现已通过维护者在 Windows 上进行的硬件、安装、卸载、控制、
+> **当前状态：**v1.0.1 实现已通过维护者在 Windows 上进行的硬件、安装、卸载、控制、
 > 自动化和界面检查。是否已经公开发布，以项目的
 > [GitHub Releases](https://github.com/tHank-CS/LibraTray/releases) 页面为准。
 > 本版本暂无代码签名。氛围灯左右分区 RGB 命令虽能即时生效，但它与已观察到的冷启动
-> 故障之间尚未完成因果隔离，因此仍未开放。
+> 故障之间尚未完成因果隔离，因此在 v1.0.1 中仍未开放。项目现已允许后续在明确风险边界下
+> 实现默认关闭的实验入口，但该入口尚未完成。
 
 [English](README.md) | 简体中文
 
@@ -62,7 +64,7 @@ LibraTray 刻意保持更窄的范围：
 
 | 显示名称 | 硬件型号 | 内部型号 | 状态 |
 | --- | --- | --- | --- |
-| Yeelight Libra Pro | YLTD003 | `lamp15` | 首要目标；固件 38 的部分阶段 B 行为已实机验证 |
+| Yeelight Libra Pro | YLTD003 | `lamp15` | 唯一支持设备；固件 38 的部分阶段 B 行为已实机验证 |
 
 Yeelight 官方资料对 YLTD003 使用了不止一个商品名。`lamp15` → YLTD003 →
 Yeelight Libra Pro 是基于多个官方来源形成的**高可信跨来源推断**，而不是 Yeelight
@@ -71,7 +73,7 @@ Yeelight Libra Pro 是基于多个官方来源形成的**高可信跨来源推�
 [产品身份调研](docs/research/product-identity.md)。
 
 项目绝不会仅凭名称中出现“Libra”“Pro”或“Screen Light Bar”就识别设备。未知型号
-保持未知；没有证据时，不把其他 Libra、Pro、Pura 或 YLTD 产品当作 `lamp15`。
+保持未知且不受支持；其他 Libra、Pro、Pura 或 YLTD 产品不属于计划兼容目标。
 
 ## 功能
 
@@ -84,7 +86,8 @@ Yeelight Libra Pro 是基于多个官方来源形成的**高可信跨来源推�
 - 安全的产品身份映射与未知设备回退；
 - 面向脱敏的诊断输出；
 - Windows 托盘图标、右键菜单与实时快速面板；
-- 已验证的主灯电源、亮度和 3000–6500 K 色温控制；
+- 已验证的主灯电源、亮度，以及采用向 Yeelight 官方查证产品范围的 2700–6500 K 主灯
+  色温控制；界面默认限制为 3000–6400 K，可在设置中明确允许两端极限色温；
 - 已验证的氛围灯电源、亮度和整灯 RGB 预设；
 - 有界重试、通知复读和单连接命令节流；
 - 带冲突提示、输入排队和单实例保护的固定全局快捷键；
@@ -98,7 +101,7 @@ Yeelight Libra Pro 是基于多个官方来源形成的**高可信跨来源推�
 - 精简的设备信息窗口和可选的有界脱敏诊断摘要；
 - 自动化测试与模拟设备测试面。
 
-版本信息：[v1.0.0 发布说明](docs/releases/v1.0.0.zh-CN.md)。
+版本信息：[v1.0.1 发布说明](docs/releases/v1.0.1.zh-CN.md)。
 
 屏幕拾色、音乐/游戏灯效以及通用 Yeelight 客户端不属于首个稳定版范围。
 
@@ -198,7 +201,7 @@ Windows 自动化默认全部关闭，可分别启用锁定/解锁、显示器�
 日志属于独立文件，分享前仍须自行检查。
 
 设置保存在 `%LOCALAPPDATA%\LibraTray\settings.json`。当前版本只保存设备别名、调节
-步进、快捷键绑定、托盘滚轮偏好、Windows 自动化开关、最多 20 个本地预设以及主题/
+步进、极限色温开关、快捷键绑定、托盘滚轮偏好、Windows 自动化开关、最多 20 个本地预设以及主题/
 语言偏好。配置损坏或版本不受支持时会恢复安全默认值，不会保存账号、云端 Token 或
 设备地址。
 
@@ -232,7 +235,7 @@ powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\script
 如需生成与 Release 自动化相同的自包含 ZIP、当前用户 MSI 和校验清单：
 
 ```powershell
-powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version 1.0.0 -Locked
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version 1.0.1 -Locked
 ```
 
 开发阶段可用以下命令运行当前托盘应用：

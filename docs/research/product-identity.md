@@ -80,6 +80,11 @@ Consequently:
 
 ## Similar products are not aliases
 
+LibraTray intentionally supports only exact `lamp15` / YLTD003 / Yeelight
+Libra Pro. The products below are not merely awaiting future identity evidence;
+they are outside the compatibility scope unless the maintainer explicitly
+changes the project baseline.
+
 The following names/models are explicitly excluded from the mapping:
 
 - Yeelight Libra and Libra 2;
