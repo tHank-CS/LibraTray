@@ -112,5 +112,5 @@ and this project intends to follow
 - Diagnostic data is designed to be redacted before export.
 - Network parsing is bounded and treats device data as untrusted input.
 
-[Unreleased]: https://github.com/hank-wang-cs/LibraTray/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/hank-wang-cs/LibraTray/releases/tag/v1.0.0
+[Unreleased]: https://github.com/tHank-CS/LibraTray/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/tHank-CS/LibraTray/releases/tag/v1.0.0
