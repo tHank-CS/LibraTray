@@ -16,17 +16,37 @@ synchronization.
 > **Current status:** the v1.0.0 implementation has passed maintainer hardware,
 > installation, uninstall, control, automation, and interface checks on Windows.
 > The authoritative publication status is shown on the project's
-> [GitHub Releases](https://github.com/hank-wang-cs/LibraTray/releases) page.
+> [GitHub Releases](https://github.com/tHank-CS/LibraTray/releases) page.
 > Code signing is not available for this release. The two-zone RGB command
 > remains disabled because its relationship to the observed cold-start failure
 > has not been isolated.
 
 English | [简体中文](README.zh-CN.md)
 
-## Screenshot
+## Screenshots
 
-The first-release interface has completed visual QA. Adding a stable release
-capture is tracked separately; no mock-up is presented as implemented software.
+<table>
+  <tr>
+    <td align="center">
+      <img src="assets/screenshots/quick-controls.png" width="360" alt="LibraTray quick controls">
+      <br><sub>Quick controls</sub>
+    </td>
+    <td align="center">
+      <img src="assets/screenshots/device-details.png" width="480" alt="LibraTray device details">
+      <br><sub>Device details</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="assets/screenshots/settings.png" width="360" alt="LibraTray settings">
+      <br><sub>Settings</sub>
+    </td>
+    <td align="center">
+      <img src="assets/screenshots/tray-menu.png" width="226" alt="LibraTray tray menu">
+      <br><sub>Tray menu</sub>
+    </td>
+  </tr>
+</table>
 
 ## Why LibraTray?
 
@@ -113,7 +133,7 @@ support. Later operation on an out-of-service Windows build is best effort.
 ## Download and installation
 
 Official binaries are distributed only through the project's
-[GitHub Releases](https://github.com/hank-wang-cs/LibraTray/releases) page. If no
+[GitHub Releases](https://github.com/tHank-CS/LibraTray/releases) page. If no
 Release is listed there, no official binary has been published. Do not obtain
 LibraTray from unofficial download sites. Each reviewed release provides:
 
