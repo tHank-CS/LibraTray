@@ -139,6 +139,65 @@ Do not disable the size limit. Preserve the redacted frame length, connection
 state, firmware, and a safely truncated sample. A device sending invalid input
 must not crash the process or cause unbounded buffering.
 
+## Wallpaper Engine screensaver returns to lock screen incorrectly
+
+LibraTray treats a secure Windows screensaver and a WTS-locked session as one
+lock blocker. Ensure Windows marks the screensaver as requiring the sign-in
+screen and that **Lock/unlock automation** is enabled. Ending Wallpaper Engine
+at the lock screen must not restore the light; only an explicit unlock or two
+confirmed unlocked WTS samples may restore it. Display-on is also held while a
+lock or secure screensaver remains.
+
+The bounded automation log is stored under `%LOCALAPPDATA%\LibraTray\logs` and
+records event source, fused outcome, and duration without device identifiers,
+network addresses, or usernames. If behavior differs, copy only the smallest
+relevant excerpt and still review it before sharing.
+
+## Lights do not restore after Windows startup
+
+First confirm the running process was launched with `--startup`; an ordinary
+manual launch intentionally does not consume shutdown state. Then inspect the
+bounded automation log. A normal shutdown/startup cycle contains
+`SessionEndingRequested`, `shutdown-ticket Prepared`, and after login a
+`startup-restore` entry with `Ticket=True` followed by `ApplyingTicket`. If the
+ticket is present but the device is unavailable, the application retries every
+three seconds for up to one minute and records `DeviceUnavailableAfterTimeout`.
+If `Ticket=False`, the startup connection wait is not the cause: the prior
+session did not leave a restorable ticket, the lights were already off, or the
+shutdown request was canceled.
+
+Conditional shutdown restoration intentionally does not turn on lights that
+were already off before shutdown. For an unconditional sign-in action, enable
+**Start LibraTray when signing in to Windows** and its indented **Turn on the
+main and ambient lights after signing in** option. This policy is independent
+of the ticket; its log entry uses `PowerOn=True` and
+`ApplyingPowerOnPolicy`.
+
+The ticket is `%LOCALAPPDATA%\LibraTray\shutdown-restore.json`. It contains a
+hashed device key rather than an address and is normally removed after a safe
+restore or discard decision. Do not create or edit it manually.
+
+If the screensaver never starts automatically, first verify that Windows still
+shows it as enabled with a nonzero timeout and that the configured `.scr` file
+exists. Then check whether the system idle timer advances; synthetic-input,
+remote-control, macro, accessibility, or UI-automation helpers can continuously
+reset it even when LibraTray is not running. LibraTray does not request display
+or system execution-state overrides. Stop only a precisely identified helper
+and recheck idle time before changing the screensaver or power plan.
+
+## Experimental segment colours are not readable
+
+The device does not expose left/right colour properties. The UI therefore shows
+the last requested values and asks for visual confirmation. If a write returned
+success but the appearance is wrong, select **Restore whole colour** first. Do
+not infer current segment colours from `bg_rgb`; that property retains the last
+whole-background colour.
+
+On firmware 38, the Device window's **Ambient self-test and recovery** action
+can initialize a silent ambient renderer and restore the prior whole or
+segmented target. It may flash at 1% brightness. Run it once, not repeatedly;
+failure should be followed by a state refresh and a redacted diagnostic review.
+
 ## Sharing diagnostics safely
 
 1. Use the probe's redacted export mode.

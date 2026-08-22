@@ -1,4 +1,5 @@
 using LibraTray.Core.Configuration;
+using LibraTray.Core.Devices.LibraPro;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace LibraTray.Core.Tests.Configuration;
@@ -39,6 +40,7 @@ public sealed class LibraTraySettingsStoreTests
             BackgroundBrightnessStep = 20,
             ColorTemperatureStep = 250,
             AllowExtremeColorTemperature = true,
+            ExperimentalSegmentRgbEnabled = true,
             AdjustBrightnessWithTrayWheel = false,
             Theme = AppTheme.Dark,
             Language = AppLanguage.English,
@@ -47,6 +49,7 @@ public sealed class LibraTraySettingsStoreTests
             {
                 LockAndUnlockEnabled = true,
                 StartWithWindows = true,
+                TurnOnLightsAfterWindowsStartup = true,
                 ShutdownAndStartupEnabled = true,
                 DisplayPowerEnabled = true,
                 ManualSuppressionSeconds = 8,
@@ -67,6 +70,8 @@ public sealed class LibraTraySettingsStoreTests
                     BackgroundPower = true,
                     BackgroundBrightness = 35,
                     BackgroundRgb = 0x3366CC,
+                    AmbientColorMode = AmbientColorMode.Segmented,
+                    SegmentRgb = new SegmentRgbRequest(0x112233, 0x445566),
                 },
             ],
         };
@@ -85,6 +90,7 @@ public sealed class LibraTraySettingsStoreTests
         Assert.AreEqual(
             saved.AllowExtremeColorTemperature,
             loaded.AllowExtremeColorTemperature);
+        Assert.IsTrue(loaded.ExperimentalSegmentRgbEnabled);
         Assert.AreEqual(
             saved.AdjustBrightnessWithTrayWheel,
             loaded.AdjustBrightnessWithTrayWheel);
@@ -117,12 +123,15 @@ public sealed class LibraTraySettingsStoreTests
         Assert.AreEqual(20, loaded.BackgroundBrightnessStep);
         Assert.AreEqual(100, loaded.ColorTemperatureStep);
         Assert.IsFalse(loaded.AllowExtremeColorTemperature);
+        Assert.IsFalse(loaded.ExperimentalSegmentRgbEnabled);
         Assert.IsTrue(loaded.AdjustBrightnessWithTrayWheel);
         Assert.AreEqual(AppTheme.System, loaded.Theme);
         Assert.AreEqual(AppLanguage.System, loaded.Language);
         Assert.IsTrue(loaded.ShowOnScreenDisplay);
         Assert.IsFalse(loaded.WindowsAutomation.IsAnyEnabled);
         Assert.IsFalse(loaded.WindowsAutomation.StartWithWindows);
+        Assert.IsFalse(
+            loaded.WindowsAutomation.TurnOnLightsAfterWindowsStartup);
         Assert.AreEqual(5, loaded.WindowsAutomation.ManualSuppressionSeconds);
         Assert.AreEqual("Ctrl+Alt+L", loaded.Hotkeys.ToggleMainPower);
         Assert.IsEmpty(loaded.Presets);
@@ -145,6 +154,8 @@ public sealed class LibraTraySettingsStoreTests
               "Language": 999,
               "WindowsAutomation": {
                 "LockAndUnlockEnabled": true,
+                "StartWithWindows": true,
+                "TurnOnLightsAfterWindowsStartup": true,
                 "ManualSuppressionSeconds": 61
               },
               "Hotkeys": { "ToggleMainPower": " " },
@@ -173,6 +184,8 @@ public sealed class LibraTraySettingsStoreTests
         Assert.AreEqual(AppTheme.System, loaded.Theme);
         Assert.AreEqual(AppLanguage.System, loaded.Language);
         Assert.IsTrue(loaded.WindowsAutomation.LockAndUnlockEnabled);
+        Assert.IsFalse(
+            loaded.WindowsAutomation.TurnOnLightsAfterWindowsStartup);
         Assert.AreEqual(5, loaded.WindowsAutomation.ManualSuppressionSeconds);
         Assert.AreEqual("Ctrl+Alt+L", loaded.Hotkeys.ToggleMainPower);
         Assert.HasCount(1, loaded.Presets);
@@ -195,6 +208,52 @@ public sealed class LibraTraySettingsStoreTests
         Assert.AreEqual(20, loaded.BackgroundBrightnessStep);
         Assert.AreEqual(100, loaded.ColorTemperatureStep);
         Assert.IsFalse(loaded.AllowExtremeColorTemperature);
+    }
+
+    [TestMethod]
+    public void LoadSchemaFourKeepsStartupPowerPolicyDisabled()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(
+            _settingsPath,
+            """
+            {
+              "SchemaVersion": 4,
+              "WindowsAutomation": {
+                "StartWithWindows": true,
+                "TurnOnLightsAfterWindowsStartup": true
+              }
+            }
+            """);
+        var store = new LibraTraySettingsStore(_settingsPath);
+
+        LibraTraySettings loaded = store.Load();
+
+        Assert.AreEqual(
+            LibraTraySettings.CurrentSchemaVersion,
+            loaded.SchemaVersion);
+        Assert.IsTrue(loaded.WindowsAutomation.StartWithWindows);
+        Assert.IsFalse(
+            loaded.WindowsAutomation.TurnOnLightsAfterWindowsStartup);
+    }
+
+    [TestMethod]
+    public void StartupPowerPolicyRequiresStartupRegistration()
+    {
+        var store = new LibraTraySettingsStore(_settingsPath);
+        var settings = new LibraTraySettings
+        {
+            WindowsAutomation = new WindowsAutomationSettings
+            {
+                StartWithWindows = false,
+                TurnOnLightsAfterWindowsStartup = true,
+            },
+        };
+
+        LibraTraySettings saved = store.Save(settings);
+
+        Assert.IsFalse(
+            saved.WindowsAutomation.TurnOnLightsAfterWindowsStartup);
     }
 
     [TestMethod]

@@ -105,10 +105,15 @@
                                    FontSize="15"
                                    FontWeight="SemiBold" />
                         <CheckBox x:Name="LockAutomationCheckBox"
+                                  Margin="0,12,0,0"
                                    Content="{DynamicResource Text.AutomationLock}" />
                         <CheckBox x:Name="StartWithWindowsCheckBox"
                                   Margin="0,8,0,0"
                                   Content="{DynamicResource Text.StartWithWindows}" />
+                        <CheckBox x:Name="TurnOnLightsAfterStartupCheckBox"
+                                  Margin="24,8,0,0"
+                                  IsEnabled="{Binding IsChecked, ElementName=StartWithWindowsCheckBox}"
+                                  Content="{DynamicResource Text.TurnOnLightsAfterWindowsStartup}" />
                         <CheckBox x:Name="ShutdownAutomationCheckBox"
                                   Margin="0,8,0,0"
                                   Content="{DynamicResource Text.AutomationShutdown}" />
@@ -162,6 +167,14 @@
                                    TextWrapping="Wrap"
                                    FontSize="11"
                                    Foreground="{DynamicResource TextSecondaryBrush}" />
+                        <CheckBox x:Name="ExperimentalSegmentRgbCheckBox"
+                                  Margin="0,12,0,0"
+                                  Content="{DynamicResource Text.ExperimentalSegmentRgb}" />
+                        <TextBlock Margin="24,3,0,0"
+                                   Text="{DynamicResource Text.ExperimentalSegmentRgbHint}"
+                                   TextWrapping="Wrap"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource WarningBrush}" />
                         <CheckBox x:Name="TrayWheelCheckBox"
                                   Margin="0,12,0,0"
                                   Content="{DynamicResource Text.TrayWheel}" />

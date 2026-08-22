@@ -17,6 +17,40 @@ public sealed record LibraProState(
     int BackgroundSaturation,
     int BackgroundLightMode);
 
+public enum AmbientColorMode
+{
+    Whole,
+    Segmented,
+}
+
+/// <summary>
+/// A requested left/right appearance. The device exposes no readable segment
+/// properties, so this value must never be treated as confirmed device state.
+/// </summary>
+public sealed record SegmentRgbRequest
+{
+    public SegmentRgbRequest(int leftRgb, int rightRgb)
+    {
+        ValidateRgb(leftRgb, nameof(leftRgb));
+        ValidateRgb(rightRgb, nameof(rightRgb));
+        LeftRgb = leftRgb;
+        RightRgb = rightRgb;
+    }
+
+    public int LeftRgb { get; }
+
+    public int RightRgb { get; }
+
+    private static void ValidateRgb(int value, string parameterName)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(value, parameterName);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(
+            value,
+            16_777_215,
+            parameterName);
+    }
+}
+
 public sealed record LibraProTargetState
 {
     public LibraProTargetState(
@@ -25,7 +59,9 @@ public sealed record LibraProTargetState
         int mainColorTemperature,
         bool backgroundPower,
         int backgroundBrightness,
-        int backgroundRgb)
+        int backgroundRgb,
+        AmbientColorMode ambientColorMode = AmbientColorMode.Whole,
+        SegmentRgbRequest? segmentRgb = null)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(mainBrightness, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(mainBrightness, 100);
@@ -43,6 +79,17 @@ public sealed record LibraProTargetState
         ArgumentOutOfRangeException.ThrowIfGreaterThan(
             backgroundRgb,
             16_777_215);
+        if (!Enum.IsDefined(ambientColorMode))
+        {
+            throw new ArgumentOutOfRangeException(nameof(ambientColorMode));
+        }
+
+        if (ambientColorMode == AmbientColorMode.Segmented && segmentRgb is null)
+        {
+            throw new ArgumentException(
+                "Segmented targets require requested left and right colours.",
+                nameof(segmentRgb));
+        }
 
         MainPower = mainPower;
         MainBrightness = mainBrightness;
@@ -50,6 +97,8 @@ public sealed record LibraProTargetState
         BackgroundPower = backgroundPower;
         BackgroundBrightness = backgroundBrightness;
         BackgroundRgb = backgroundRgb;
+        AmbientColorMode = ambientColorMode;
+        SegmentRgb = segmentRgb;
     }
 
     public bool MainPower { get; }
@@ -63,6 +112,10 @@ public sealed record LibraProTargetState
     public int BackgroundBrightness { get; }
 
     public int BackgroundRgb { get; }
+
+    public AmbientColorMode AmbientColorMode { get; }
+
+    public SegmentRgbRequest? SegmentRgb { get; }
 }
 
 /// <summary>
@@ -102,4 +155,15 @@ public sealed record LibraProAdapterOptions
 public sealed record LibraProCommandResult(
     LibraProState State,
     bool RecoveryAttempted,
+    long ConnectionEpoch);
+
+public enum SegmentRgbApplyStatus
+{
+    AcceptedUnverified,
+}
+
+public sealed record SegmentRgbApplyResult(
+    LibraProState State,
+    SegmentRgbRequest Request,
+    SegmentRgbApplyStatus Status,
     long ConnectionEpoch);

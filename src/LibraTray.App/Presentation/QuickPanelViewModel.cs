@@ -15,12 +15,14 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     private readonly Dispatcher _dispatcher;
     private readonly SemaphoreSlim _operationLock = new(1, 1);
     private readonly CancellationToken _lifetimeToken;
+    private readonly SegmentRgbRuntimeStateStore _segmentStateStore;
 
     private string _connectionStatus;
     private string _deviceName;
     private string? _errorMessage;
     private string? _hotkeyStatus;
     private string? _automationStatus;
+    private string? _diagnosticStatus;
     private LibraProPreset? _selectedPreset;
     private bool _isDeviceOnline;
     private bool _isBusy;
@@ -30,6 +32,14 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     private int _mainColorTemperature = 4_000;
     private int _backgroundBrightness = 50;
     private int _backgroundRgb = 13_395_711;
+    private int _leftSegmentRgb = 16_711_680;
+    private int _rightSegmentRgb = 255;
+    private AmbientColorMode _ambientColorMode;
+    private bool _experimentalSegmentRgbEnabled;
+    private string? _segmentRgbStatus;
+    private SegmentRgbRuntimeState? _segmentRuntimeState;
+    private bool _unknownFirmwareAcknowledgedForSession;
+    private string? _loadedSegmentDeviceKey;
     private int _mainBrightnessStep = 5;
     private int _backgroundBrightnessStep = 20;
     private int _mainColorTemperatureStep = 100;
@@ -47,17 +57,22 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
         LibraProDeviceSession session,
         Dispatcher dispatcher,
         LibraTraySettings settings,
+        SegmentRgbRuntimeStateStore segmentStateStore,
         CancellationToken lifetimeToken)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(dispatcher);
         ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(segmentStateStore);
         _session = session;
         _dispatcher = dispatcher;
         _lifetimeToken = lifetimeToken;
+        _segmentStateStore = segmentStateStore;
+        _segmentRuntimeState = segmentStateStore.Load();
         _connectionStatus = UiText.Get("Message.WaitingForDevice");
         _deviceName = ResolveDeviceName(settings.UserAlias);
         ApplyStepSettings(settings);
+        _experimentalSegmentRgbEnabled = settings.ExperimentalSegmentRgbEnabled;
         Presets = new ObservableCollection<LibraProPreset>(settings.Presets);
         _selectedPreset = Presets.FirstOrDefault();
         _session.StatusChanged += OnSessionStatusChanged;
@@ -100,6 +115,12 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
         private set => SetField(ref _automationStatus, value);
     }
 
+    public string? DiagnosticStatus
+    {
+        get => _diagnosticStatus;
+        private set => SetField(ref _diagnosticStatus, value);
+    }
+
     public bool IsDeviceOnline
     {
         get => _isDeviceOnline;
@@ -110,6 +131,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
                 OnPropertyChanged(nameof(CanControl));
                 OnPropertyChanged(nameof(CanRetry));
                 OnPropertyChanged(nameof(TrayRefreshLabel));
+                OnPropertyChanged(nameof(CanApplySegmentRgb));
             }
         }
     }
@@ -124,6 +146,7 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
                 OnPropertyChanged(nameof(CanControl));
                 OnPropertyChanged(nameof(CanRetry));
                 OnPropertyChanged(nameof(CanRefresh));
+                OnPropertyChanged(nameof(CanApplySegmentRgb));
             }
         }
     }
@@ -180,6 +203,73 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
         get => _backgroundRgb;
         private set => SetField(ref _backgroundRgb, value);
     }
+
+    public bool ExperimentalSegmentRgbEnabled
+    {
+        get => _experimentalSegmentRgbEnabled;
+        private set
+        {
+            if (SetField(ref _experimentalSegmentRgbEnabled, value))
+            {
+                OnPropertyChanged(nameof(CanApplySegmentRgb));
+            }
+        }
+    }
+
+    public bool IsWholeColorMode => _ambientColorMode == AmbientColorMode.Whole;
+
+    public bool IsSegmentColorMode => _ambientColorMode == AmbientColorMode.Segmented;
+
+    public int LeftSegmentRgb
+    {
+        get => _leftSegmentRgb;
+        private set
+        {
+            if (SetField(ref _leftSegmentRgb, value))
+            {
+                OnPropertyChanged(nameof(LeftSegmentBrush));
+            }
+        }
+    }
+
+    public int RightSegmentRgb
+    {
+        get => _rightSegmentRgb;
+        private set
+        {
+            if (SetField(ref _rightSegmentRgb, value))
+            {
+                OnPropertyChanged(nameof(RightSegmentBrush));
+            }
+        }
+    }
+
+    public Brush LeftSegmentBrush => CreateRgbBrush(LeftSegmentRgb);
+
+    public Brush RightSegmentBrush => CreateRgbBrush(RightSegmentRgb);
+
+    public string? SegmentRgbStatus
+    {
+        get => _segmentRgbStatus;
+        private set => SetField(ref _segmentRgbStatus, value);
+    }
+
+    public bool HasSegmentRgbCapability =>
+        _session.ConnectionInfo?.Capabilities.Contains(
+            "set_segment_rgb",
+            StringComparer.Ordinal) == true;
+
+    public bool CanApplySegmentRgb => CanControl
+        && ExperimentalSegmentRgbEnabled
+        && HasSegmentRgbCapability;
+
+    public bool HasPendingSegmentStartupReplay =>
+        ExperimentalSegmentRgbEnabled
+        && _segmentRuntimeState is
+        {
+            LastColorMode: AmbientColorMode.Segmented,
+            LastSegmentRequest: not null,
+        };
 
     public int MainBrightnessStep => _mainBrightnessStep;
 
@@ -250,14 +340,194 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
                 ResolveToken(cancellationToken)),
             ResolveToken(cancellationToken));
 
-    public Task SetBackgroundRgbAsync(
+    public async Task SetBackgroundRgbAsync(
         int rgb,
-        CancellationToken cancellationToken = default) =>
-        RunManualAsync(
-            () => _session.SetBackgroundRgbAsync(
-                rgb,
-                ResolveToken(cancellationToken)),
-            ResolveToken(cancellationToken));
+        CancellationToken cancellationToken = default)
+    {
+        CancellationToken token = ResolveToken(cancellationToken);
+        await RunManualAsync(
+            async () =>
+            {
+                _ = await _session.SetBackgroundRgbAsync(rgb, token);
+                SetAmbientColorMode(AmbientColorMode.Whole);
+                SaveSegmentRuntimeState(AmbientColorMode.Whole, null);
+                SegmentRgbStatus = null;
+            },
+            token);
+    }
+
+    public void SelectWholeColorMode() =>
+        SetAmbientColorMode(AmbientColorMode.Whole);
+
+    public void SelectSegmentColorMode()
+    {
+        if (ExperimentalSegmentRgbEnabled)
+        {
+            SetAmbientColorMode(AmbientColorMode.Segmented);
+            SegmentRgbStatus = UiText.Get("Message.SegmentRgbUnconfirmed");
+        }
+    }
+
+    public void SetLeftSegmentRgb(int rgb) => LeftSegmentRgb = rgb;
+
+    public void SetRightSegmentRgb(int rgb) => RightSegmentRgb = rgb;
+
+    public void SwapSegmentRgb() =>
+        (LeftSegmentRgb, RightSegmentRgb) =
+            (RightSegmentRgb, LeftSegmentRgb);
+
+    public async Task ApplySegmentRgbAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (!CanApplySegmentRgb
+            || GetSegmentFirmwareGate() != SegmentRgbFirmwareAccess.Allowed)
+        {
+            throw new InvalidOperationException(
+                "Segment RGB is not enabled or acknowledged for this connection.");
+        }
+
+        CancellationToken token = ResolveToken(cancellationToken);
+        var request = new SegmentRgbRequest(LeftSegmentRgb, RightSegmentRgb);
+        await RunManualAsync(
+            async () =>
+            {
+                _ = await _session.SetSegmentRgbAsync(request, token);
+                SetAmbientColorMode(AmbientColorMode.Segmented);
+                SaveSegmentRuntimeState(AmbientColorMode.Segmented, request);
+                SegmentRgbStatus = UiText.Get("Message.SegmentRgbApplied");
+            },
+            token);
+    }
+
+    public SegmentRgbFirmwareAccess GetSegmentFirmwareGate()
+    {
+        if (_session.ConnectionInfo is not { } connection)
+        {
+            return SegmentRgbFirmwareAccess.Unsupported;
+        }
+
+        return SegmentRgbFirmwarePolicy.Evaluate(
+            connection.InternalModel,
+            connection.Capabilities,
+            connection.FirmwareVersion,
+            _segmentRuntimeState?.AcknowledgedFirmwareVersions ?? [],
+            _unknownFirmwareAcknowledgedForSession);
+    }
+
+    public void AcknowledgeCurrentSegmentFirmware()
+    {
+        string? firmware = _session.ConnectionInfo?.FirmwareVersion?.Trim();
+        if (string.IsNullOrWhiteSpace(firmware))
+        {
+            _unknownFirmwareAcknowledgedForSession = true;
+            return;
+        }
+
+        EnsureSegmentRuntimeState();
+        if (_segmentRuntimeState is null)
+        {
+            SaveSegmentRuntimeState(AmbientColorMode.Whole, null);
+        }
+
+        if (_segmentRuntimeState is null)
+        {
+            throw new InvalidOperationException(
+                "A device-specific segment state could not be created.");
+        }
+
+        string[] acknowledged = _segmentRuntimeState.AcknowledgedFirmwareVersions
+            .Append(firmware)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        _segmentRuntimeState = _segmentStateStore.Save(
+            _segmentRuntimeState with
+            {
+                AcknowledgedFirmwareVersions = acknowledged,
+                UpdatedUtc = DateTimeOffset.UtcNow,
+            });
+    }
+
+    public async Task<bool> TryReplaySegmentOnWindowsStartupAsync(
+        CancellationToken cancellationToken = default)
+    {
+        EnsureSegmentRuntimeState();
+        if (!ExperimentalSegmentRgbEnabled
+            || _segmentRuntimeState?.LastColorMode != AmbientColorMode.Segmented
+            || _segmentRuntimeState.LastSegmentRequest is not { } request
+            || GetSegmentFirmwareGate() != SegmentRgbFirmwareAccess.Allowed)
+        {
+            return false;
+        }
+
+        _ = await _session.SetSegmentRgbAsync(request, cancellationToken);
+        LeftSegmentRgb = request.LeftRgb;
+        RightSegmentRgb = request.RightRgb;
+        SetAmbientColorMode(AmbientColorMode.Segmented);
+        SegmentRgbStatus = UiText.Get("Message.SegmentRgbApplied");
+        return true;
+    }
+
+    public async Task<bool> RunBackgroundPostAsync(
+        CancellationToken cancellationToken = default)
+    {
+        CancellationToken token = ResolveToken(cancellationToken);
+        bool completed = false;
+        await RunManualAsync(
+            async () =>
+            {
+                LibraProState state = _session.CurrentState
+                    ?? throw new InvalidOperationException(
+                        "No confirmed device state is available.");
+                EnsureSegmentRuntimeState();
+                SegmentRgbRequest? segment = ExperimentalSegmentRgbEnabled
+                    && _segmentRuntimeState?.LastColorMode
+                        == AmbientColorMode.Segmented
+                    && GetSegmentFirmwareGate()
+                        == SegmentRgbFirmwareAccess.Allowed
+                        ? _segmentRuntimeState.LastSegmentRequest
+                        : null;
+                _ = await _session.RunBackgroundPostAsync(
+                    new LibraProBackgroundSnapshot(
+                        state.BackgroundBrightness,
+                        state.BackgroundRgb),
+                    state.BackgroundPower,
+                    segment,
+                    token);
+                completed = true;
+            },
+            token);
+        return completed;
+    }
+
+    public LibraProTargetState? CreateCurrentTargetState()
+    {
+        if (_session.CurrentState is not { } state)
+        {
+            return null;
+        }
+
+        EnsureSegmentRuntimeState();
+        AmbientColorMode mode = ExperimentalSegmentRgbEnabled
+            ? _segmentRuntimeState?.LastColorMode ?? AmbientColorMode.Whole
+            : AmbientColorMode.Whole;
+        SegmentRgbRequest? segment = mode == AmbientColorMode.Segmented
+            ? _segmentRuntimeState?.LastSegmentRequest
+            : null;
+        if (mode == AmbientColorMode.Segmented && segment is null)
+        {
+            mode = AmbientColorMode.Whole;
+        }
+
+        return new LibraProTargetState(
+            state.MainPower,
+            state.MainBrightness,
+            state.MainColorTemperature,
+            state.BackgroundPower,
+            state.BackgroundBrightness,
+            state.BackgroundRgb,
+            mode,
+            segment);
+    }
 
     public Task ToggleMainPowerFromHotkeyAsync() =>
         QueueHotkeyAsync(
@@ -362,11 +632,16 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
     public void SetAutomationStatus(string? status) =>
         AutomationStatus = status;
 
+    public void SetDiagnosticStatus(string? status) =>
+        DiagnosticStatus = status;
+
     public void ApplySettings(LibraTraySettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
         DeviceName = ResolveDeviceName(settings.UserAlias);
         ApplyStepSettings(settings);
+        ExperimentalSegmentRgbEnabled =
+            settings.ExperimentalSegmentRgbEnabled;
         RefreshLocalizedText();
     }
 
@@ -380,9 +655,35 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
         ArgumentNullException.ThrowIfNull(preset);
         return IsDeviceOnline
             ? RunManualAsync(
-                () => _session.ApplyTargetStateAsync(
-                    preset.ToTargetState(),
-                    _lifetimeToken),
+                async () =>
+                {
+                    if (preset.AmbientColorMode == AmbientColorMode.Segmented
+                        && (!ExperimentalSegmentRgbEnabled
+                            || GetSegmentFirmwareGate()
+                                != SegmentRgbFirmwareAccess.Allowed))
+                    {
+                        throw new InvalidOperationException(
+                            "The segmented preset is not enabled or acknowledged.");
+                    }
+
+                    _ = await _session.ApplyTargetStateOnceAsync(
+                        preset.ToTargetState(),
+                        _lifetimeToken);
+                    SetAmbientColorMode(preset.AmbientColorMode);
+                    if (preset.SegmentRgb is { } segment)
+                    {
+                        LeftSegmentRgb = segment.LeftRgb;
+                        RightSegmentRgb = segment.RightRgb;
+                    }
+
+                    SaveSegmentRuntimeState(
+                        preset.AmbientColorMode,
+                        preset.SegmentRgb);
+                    SegmentRgbStatus = preset.AmbientColorMode
+                        == AmbientColorMode.Segmented
+                            ? UiText.Get("Message.SegmentRgbApplied")
+                            : null;
+                },
                 _lifetimeToken)
             : Task.CompletedTask;
     }
@@ -440,6 +741,13 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
             BackgroundPower = state.BackgroundPower,
             BackgroundBrightness = state.BackgroundBrightness,
             BackgroundRgb = state.BackgroundRgb,
+            AmbientColorMode = ExperimentalSegmentRgbEnabled
+                ? _ambientColorMode
+                : AmbientColorMode.Whole,
+            SegmentRgb = ExperimentalSegmentRgbEnabled
+                && _ambientColorMode == AmbientColorMode.Segmented
+                    ? new SegmentRgbRequest(LeftSegmentRgb, RightSegmentRgb)
+                    : null,
         };
         Presets.Add(preset);
         SelectedPreset = preset;
@@ -562,6 +870,91 @@ internal sealed class QuickPanelViewModel : INotifyPropertyChanged, IDisposable
         MainColorTemperature = state.MainColorTemperature;
         BackgroundBrightness = state.BackgroundBrightness;
         BackgroundRgb = state.BackgroundRgb;
+        EnsureSegmentRuntimeState();
+        OnPropertyChanged(nameof(HasSegmentRgbCapability));
+        OnPropertyChanged(nameof(CanApplySegmentRgb));
+    }
+
+    private void EnsureSegmentRuntimeState()
+    {
+        string? deviceKey = SegmentRgbRuntimeStateStore.CreateDeviceKey(
+            _session.DeviceId);
+        if (deviceKey is null
+            || string.Equals(
+                deviceKey,
+                _loadedSegmentDeviceKey,
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _loadedSegmentDeviceKey = deviceKey;
+        if (_segmentRuntimeState is { } stored
+            && string.Equals(stored.DeviceKey, deviceKey, StringComparison.Ordinal))
+        {
+            SetAmbientColorMode(stored.LastColorMode);
+            if (stored.LastSegmentRequest is { } request)
+            {
+                LeftSegmentRgb = request.LeftRgb;
+                RightSegmentRgb = request.RightRgb;
+                SegmentRgbStatus = UiText.Get("Message.SegmentRgbUnconfirmed");
+            }
+
+            return;
+        }
+
+        _segmentRuntimeState = null;
+        SetAmbientColorMode(AmbientColorMode.Whole);
+        LeftSegmentRgb = BackgroundRgb;
+        RightSegmentRgb = BackgroundRgb;
+        SegmentRgbStatus = null;
+    }
+
+    private void SaveSegmentRuntimeState(
+        AmbientColorMode mode,
+        SegmentRgbRequest? segmentRequest)
+    {
+        EnsureSegmentRuntimeState();
+        string? deviceKey = SegmentRgbRuntimeStateStore.CreateDeviceKey(
+            _session.DeviceId);
+        if (deviceKey is null)
+        {
+            return;
+        }
+
+        _segmentRuntimeState = _segmentStateStore.Save(
+            new SegmentRgbRuntimeState
+            {
+                DeviceKey = deviceKey,
+                LastColorMode = mode,
+                LastSegmentRequest = segmentRequest
+                    ?? _segmentRuntimeState?.LastSegmentRequest,
+                AcknowledgedFirmwareVersions =
+                    _segmentRuntimeState?.AcknowledgedFirmwareVersions ?? [],
+                UpdatedUtc = DateTimeOffset.UtcNow,
+            });
+    }
+
+    private void SetAmbientColorMode(AmbientColorMode mode)
+    {
+        if (_ambientColorMode == mode)
+        {
+            return;
+        }
+
+        _ambientColorMode = mode;
+        OnPropertyChanged(nameof(IsWholeColorMode));
+        OnPropertyChanged(nameof(IsSegmentColorMode));
+    }
+
+    private static SolidColorBrush CreateRgbBrush(int rgb)
+    {
+        var brush = new SolidColorBrush(Color.FromRgb(
+            (byte)(rgb >> 16),
+            (byte)(rgb >> 8),
+            (byte)rgb));
+        brush.Freeze();
+        return brush;
     }
 
     private static string ToUserMessage(Exception exception) =>

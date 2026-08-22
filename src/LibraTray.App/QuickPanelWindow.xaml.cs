@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using LibraTray.App.Presentation;
+using LibraTray.Core.Devices.LibraPro;
 
 namespace LibraTray.App;
 
@@ -37,6 +38,20 @@ public partial class QuickPanelWindow : Window
     }
 
     internal void PrepareForShutdown() => _allowClose = true;
+
+    protected override void OnRenderSizeChanged(SizeChangedInfo sizeInfo)
+    {
+        base.OnRenderSizeChanged(sizeInfo);
+        if (!IsVisible || !sizeInfo.HeightChanged)
+        {
+            return;
+        }
+
+        Rect workArea = SystemParameters.WorkArea;
+        Top = Math.Max(
+            workArea.Top,
+            workArea.Bottom - ActualHeight - 16);
+    }
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
@@ -191,13 +206,84 @@ public partial class QuickPanelWindow : Window
         }
     }
 
+    private void WholeColorMode_Checked(object sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        _viewModel.SelectWholeColorMode();
+    }
+
+    private void SegmentColorMode_Checked(object sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        _viewModel.SelectSegmentColorMode();
+    }
+
+    private void LeftSegmentColor_Click(object sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        var dialog = new CustomColorWindow(_viewModel.LeftSegmentRgb)
+        {
+            Owner = this,
+        };
+        if (dialog.ShowDialog() == true)
+        {
+            _viewModel.SetLeftSegmentRgb(dialog.RgbValue);
+        }
+    }
+
+    private void RightSegmentColor_Click(object sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        var dialog = new CustomColorWindow(_viewModel.RightSegmentRgb)
+        {
+            Owner = this,
+        };
+        if (dialog.ShowDialog() == true)
+        {
+            _viewModel.SetRightSegmentRgb(dialog.RgbValue);
+        }
+    }
+
+    private void SwapSegmentColor_Click(object sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        _viewModel.SwapSegmentRgb();
+    }
+
+    private async void ApplySegmentColor_Click(object sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (EnsureSegmentFirmwareAllowed())
+        {
+            await _viewModel.ApplySegmentRgbAsync();
+        }
+    }
+
+    private async void RestoreWholeColor_Click(object sender, RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        await _viewModel.SetBackgroundRgbAsync(_viewModel.BackgroundRgb);
+    }
+
     private async void ApplyPresetButton_Click(
         object sender,
         RoutedEventArgs e)
     {
         _ = sender;
         _ = e;
-        await _viewModel.ApplySelectedPresetAsync();
+        if (_viewModel.SelectedPreset?.AmbientColorMode
+                != AmbientColorMode.Segmented
+            || EnsureSegmentFirmwareAllowed())
+        {
+            await _viewModel.ApplySelectedPresetAsync();
+        }
     }
 
     private void SavePresetButton_Click(object sender, RoutedEventArgs e)
@@ -251,4 +337,41 @@ public partial class QuickPanelWindow : Window
             or Key.PageDown
             or Key.Home
             or Key.End;
+
+    internal bool EnsureSegmentFirmwareAllowed()
+    {
+        SegmentRgbFirmwareAccess gate = _viewModel.GetSegmentFirmwareGate();
+        if (gate == SegmentRgbFirmwareAccess.Allowed)
+        {
+            return true;
+        }
+
+        if (gate == SegmentRgbFirmwareAccess.Unsupported)
+        {
+            MessageBox.Show(
+                this,
+                UiText.Get("Message.SegmentRgbUnavailable"),
+                "LibraTray",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return false;
+        }
+
+        string message = UiText.Get(
+            gate == SegmentRgbFirmwareAccess.RequiresFirmwareConfirmation
+                ? "Message.SegmentFirmwareWarning"
+                : "Message.SegmentFirmwareUnknownWarning");
+        if (MessageBox.Show(
+                this,
+                message,
+                "LibraTray",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        {
+            return false;
+        }
+
+        _viewModel.AcknowledgeCurrentSegmentFirmware();
+        return true;
+    }
 }

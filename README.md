@@ -14,13 +14,13 @@ LibraTray is a tray-first, local-only Windows controller being built for the
 synchronization. No other device model is in the supported scope or compatibility
 roadmap.
 
-> **Current status:** the v1.0.1 implementation has passed maintainer hardware,
-> installation, uninstall, control, automation, and interface checks on Windows.
+> **Current status:** v1.1.0 is the latest stable release. It adds default-off
+> experimental two-zone RGB and Windows lifecycle fixes.
 > The authoritative publication status is shown on the project's
 > [GitHub Releases](https://github.com/tHank-CS/LibraTray/releases) page.
-> Code signing is not available for this release. The two-zone RGB command
-> remains disabled in v1.0.1. A future default-off experimental path is now
-> permitted under an explicit risk decision, but has not yet been implemented.
+> Code signing is not available. Segment colours remain requested, visually
+> verified values rather than readable device state, and the single-device
+> cold-start causality limitation remains unresolved.
 
 English | [简体中文](README.zh-CN.md)
 
@@ -100,6 +100,10 @@ Available at the current milestone:
   Yeelight; the UI defaults to 3000–6400 K and exposes the edge ranges through
   an explicit setting;
 - verified background power, brightness, and whole-background RGB presets;
+- a default-off experimental left/right ambient RGB mode for exact `lamp15`,
+  with firmware gating, requested-state labelling, segmented presets, guarded
+  Windows-startup replay, and whole-colour recovery;
+- a manual, bounded ambient renderer self-test and recovery action;
 - bounded retry, notification reconciliation, and per-connection rate limiting;
 - fixed global shortcuts with conflict reporting, queued input, and
   single-instance protection;
@@ -112,12 +116,13 @@ Available at the current milestone:
   English resources;
 - an optional, no-activate brightness/colour-temperature OSD for shortcut and
   tray-wheel adjustments;
-- opt-in lock/display power automation plus guarded shutdown/startup restore;
+- opt-in lock/display power automation, guarded shutdown/startup restore, and
+  an independent sign-in policy that can turn on both light channels;
 - a focused device-information window and optional bounded redacted diagnostic
   summary;
 - automated tests and a mock-device test surface.
 
-Release information: [v1.0.1 notes](docs/releases/v1.0.1.md).
+Release information: [v1.1.0 notes](docs/releases/v1.1.0.md).
 
 Screen sampling, music/game effects, and a general-purpose Yeelight client are
 out of scope for the first stable release.
@@ -217,20 +222,33 @@ as occupied. No normal UI exposes `lamp15` as the device name.
 
 Windows automation is disabled by default and can be enabled separately for
 session lock/unlock, display off/on, startup registration, and guarded
-shutdown/startup restore. Lock and display blockers share one captured state,
-so overlapping events restore only after every blocker is cleared. Recent
-manual input and a newer device state always win.
+shutdown/startup restore. WTS lock state, secure screensaver state, and display
+power are fused as blockers, so overlapping or reordered events restore only
+after every blocker is cleared. A screensaver ending at the Windows lock screen
+does not restore the light. Recent manual input and a newer device state always
+win.
+
+When **Start LibraTray when signing in to Windows** is enabled, the independent
+**Turn on the main and ambient lights after signing in** option can be enabled
+as well. It does not require a shutdown ticket: a Windows `--startup` launch
+waits up to one minute for the device and then turns on both channels while
+preserving their current brightness, colour temperature, and colour targets.
+If conditional shutdown restoration is also enabled, the ticket is evaluated
+first and the explicit sign-in power policy is applied last. Recent manual
+control cancels the pending automatic power-on.
 
 Shutdown restore uses a one-time ticket under
-`%LOCALAPPDATA%\LibraTray\shutdown-restore.json`. The ticket is written only
-after both channels are confirmed off, contains a hash of the exact discovered
-device ID rather than its address, expires after seven days, and is consumed or
-discarded on the next eligible launch. Startup waits up to one minute for the
-LAN device, re-reads it, and restores only when the exact expected off state is
-still present. Session ending is never held for more than three seconds for a
-best-effort device operation. Enabling “start with Windows” creates a
-current-user Startup-folder shortcut and does not require elevation. The MSI
-removes that shortcut during uninstall.
+`%LOCALAPPDATA%\LibraTray\shutdown-restore.json`. The ticket is atomically
+prepared during the initial Windows end-session query, before the confirmed
+power-off stage, contains a hash of the exact discovered device ID rather than
+its address, expires after seven days, and is consumed or discarded only on a
+Windows `--startup` launch. A canceled shutdown clears the prepared ticket.
+Startup waits up to one minute for the LAN device, re-reads it, and restores
+only when the exact expected off state is still present; if the device never
+went off, the ticket is cleared without turning anything on. Session ending is
+never held for more than eight seconds for a best-effort power-only operation.
+Enabling “start with Windows” creates a current-user Startup-folder shortcut
+and does not require elevation. The MSI removes that shortcut during uninstall.
 
 The Device entry in the quick panel or tray menu opens advanced identity,
 firmware, capability, endpoint, and last-confirmed-state details. This is an
@@ -242,7 +260,10 @@ artifacts and must still be reviewed before sharing.
 Settings are stored in `%LOCALAPPDATA%\LibraTray\settings.json`. The current
 schema stores only local preferences: alias, adjustment steps, shortcut
 bindings, tray-wheel preference, Windows automation switches, at most 20 local
-presets, and theme/language preferences. Corrupt or unsupported settings fall
+presets (including optional segment requests), and theme/language preferences.
+The separate segment runtime record contains only a hashed device key, last
+requested mode/colours, and firmware-risk acknowledgements; it is not included
+in settings exports. Corrupt or unsupported settings fall
 back to safe defaults. No account credential, cloud token, or device address is
 stored.
 
@@ -283,7 +304,7 @@ To produce the same self-contained ZIP, current-user MSI, and checksum manifest
 used by release automation:
 
 ```powershell
-powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version 1.0.1 -Locked
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version 1.1.0 -Locked
 ```
 
 To run the current tray application during development:

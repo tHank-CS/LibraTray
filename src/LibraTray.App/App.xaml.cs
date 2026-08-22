@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Security;
@@ -42,6 +43,9 @@ public partial class App : Application
     private WindowsLifecycleEventService? _lifecycleEvents;
     private WindowsLifecycleAutomationController? _automation;
     private ShutdownRestoreCoordinator? _shutdownRestore;
+    private readonly WindowsAutomationDiagnosticLog _automationLog = new();
+    private SegmentIsolationDiagnosticLog? _segmentIsolationLog;
+    private bool _segmentIsolationDiagnostics;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -74,35 +78,80 @@ public partial class App : Application
         bool osdPreviewRequested = commandLineArguments.Contains(
             "--osd-preview",
             StringComparer.OrdinalIgnoreCase);
+        bool segmentIsolationRequested = commandLineArguments.Contains(
+            "--segment-isolation-diagnostics",
+            StringComparer.OrdinalIgnoreCase);
+        _segmentIsolationDiagnostics = segmentIsolationRequested;
         bool debugWindowRequested = osdPreviewRequested
             || commandLineArguments.Contains(
             "--show",
             StringComparer.OrdinalIgnoreCase);
         bool initialPanelRequested = debugWindowRequested || !startupRequested;
-        _deviceSession = new LibraProDeviceSession();
+        if (segmentIsolationRequested)
+        {
+            _segmentIsolationLog = new SegmentIsolationDiagnosticLog();
+            _segmentIsolationLog.WriteMode();
+        }
+
+        _deviceSession = new LibraProDeviceSession(
+            new LibraProDeviceSessionOptions
+            {
+                AdapterOptions = new LibraProAdapterOptions
+                {
+                    ColdStartRecoveryMode = segmentIsolationRequested
+                        ? LibraProColdStartRecoveryMode.Disabled
+                        : LibraProColdStartRecoveryMode.OnVerifiedFailure,
+                },
+                CommandTrace = _segmentIsolationLog is null
+                    ? null
+                    : _segmentIsolationLog.Write,
+            });
         _quickPanelViewModel = new QuickPanelViewModel(
             _deviceSession,
             Dispatcher,
             _settings,
+            new SegmentRgbRuntimeStateStore(),
             _appCancellation.Token);
+        if (segmentIsolationRequested)
+        {
+            _quickPanelViewModel.SetDiagnosticStatus(
+                UiText.Get("Message.SegmentIsolationDiagnosticsEnabled"));
+        }
         _quickPanelViewModel.PresetsChanged += OnPresetsChanged;
         _quickPanelViewModel.ManualControlRequested += OnManualControlRequested;
         _automation = new WindowsLifecycleAutomationController(
-            _settings.WindowsAutomation,
+            GetEffectiveWindowsAutomationSettings(),
             () => _deviceSession.CurrentState,
             (target, token) =>
-                _deviceSession.ApplyTargetStateAsync(target, token),
-            RefreshForAutomationAsync);
+                _deviceSession.RestoreLifecycleTargetStateAsync(target, token),
+            RefreshForAutomationAsync,
+            readCurrentTargetState: () =>
+                _quickPanelViewModel.CreateCurrentTargetState(),
+            applyPowerState: (mainPower, backgroundPower, token) =>
+                _deviceSession.ApplyPowerStateAsync(
+                    mainPower,
+                    backgroundPower,
+                    token));
         _automation.StatusChanged += OnAutomationStatusChanged;
-        _shutdownRestore = new ShutdownRestoreCoordinator(
-            _settings.WindowsAutomation,
-            new ShutdownRestoreTicketStore(),
-            () => _deviceSession.DeviceId,
-            () => _deviceSession.CurrentState,
-            (target, token) =>
-                _deviceSession.ApplyTargetStateAsync(target, token),
-            RefreshForAutomationAsync);
-        _shutdownRestore.StatusChanged += OnShutdownRestoreStatusChanged;
+        if (!segmentIsolationRequested)
+        {
+            _shutdownRestore = new ShutdownRestoreCoordinator(
+                _settings.WindowsAutomation,
+                new ShutdownRestoreTicketStore(),
+                () => _deviceSession.DeviceId,
+                () => _deviceSession.CurrentState,
+                (target, token) =>
+                    _deviceSession.ApplyTargetStateOnceAsync(target, token),
+                RefreshForAutomationAsync,
+                applyPowerState: (mainPower, backgroundPower, token) =>
+                    _deviceSession.ApplyPowerStateAsync(
+                        mainPower,
+                        backgroundPower,
+                        token),
+                readCurrentTargetState: () =>
+                    _quickPanelViewModel.CreateCurrentTargetState());
+            _shutdownRestore.StatusChanged += OnShutdownRestoreStatusChanged;
+        }
         _quickPanel = new QuickPanelWindow(_quickPanelViewModel);
         _quickPanel.SettingsRequested += OnSettingsRequested;
         _quickPanel.DeviceDetailsRequested += OnDeviceDetailsRequested;
@@ -130,7 +179,7 @@ public partial class App : Application
         RegisterHotkeys();
         ConfigureWindowsLifecycleEvents();
         _trayMenu = CreateTrayMenu();
-        _ = ConnectAndRestoreAsync();
+        _ = ConnectAndRestoreAsync(startupRequested);
 
         if (initialPanelRequested)
         {
@@ -361,13 +410,14 @@ public partial class App : Application
         }
 
         Rect workArea = SystemParameters.WorkArea;
+        _quickPanel.Show();
+        _quickPanel.UpdateLayout();
         _quickPanel.Left = Math.Max(
             workArea.Left,
-            workArea.Right - _quickPanel.Width - 16);
+            workArea.Right - _quickPanel.ActualWidth - 16);
         _quickPanel.Top = Math.Max(
             workArea.Top,
-            workArea.Bottom - _quickPanel.Height - 16);
-        _quickPanel.Show();
+            workArea.Bottom - _quickPanel.ActualHeight - 16);
         _quickPanel.Activate();
     }
 
@@ -413,7 +463,7 @@ public partial class App : Application
                 _deviceDetailsWindow?.RefreshLocalizedText();
                 _ = _trayIcon?.TrySetMouseWheelEnabled(
                     _settings.AdjustBrightnessWithTrayWheel);
-                _automation?.Configure(_settings.WindowsAutomation);
+                _automation?.Configure(GetEffectiveWindowsAutomationSettings());
                 _shutdownRestore?.Configure(_settings.WindowsAutomation);
                 ConfigureWindowsLifecycleEvents();
                 RegisterHotkeys();
@@ -591,6 +641,11 @@ public partial class App : Application
             automationCount++;
         }
 
+        if (settings.WindowsAutomation.TurnOnLightsAfterWindowsStartup)
+        {
+            automationCount++;
+        }
+
         return UiText.Format(
             "Message.ImportPreview",
             UiText.Get(settings.UserAlias is null ? "Message.NotSet" : "Message.Set"),
@@ -647,6 +702,13 @@ public partial class App : Application
             return;
         }
 
+        if (_segmentIsolationDiagnostics)
+        {
+            DisposeWindowsLifecycleEvents();
+            _quickPanelViewModel?.SetAutomationStatus(null);
+            return;
+        }
+
         if (!_settings.WindowsAutomation.IsAnyEnabled)
         {
             DisposeWindowsLifecycleEvents();
@@ -659,6 +721,8 @@ public partial class App : Application
 
         if (_lifecycleEvents is not null)
         {
+            _lifecycleEvents.SetSessionStateMonitoringEnabled(
+                _settings.WindowsAutomation.LockAndUnlockEnabled);
             _quickPanelViewModel?.SetAutomationStatus(
                 UiText.Get("Message.AutomationEnabled"));
             return;
@@ -666,7 +730,10 @@ public partial class App : Application
 
         try
         {
-            _lifecycleEvents = new WindowsLifecycleEventService(_quickPanel);
+            _lifecycleEvents = new WindowsLifecycleEventService(
+                _quickPanel,
+                _settings.WindowsAutomation.LockAndUnlockEnabled,
+                UiText.Get("Message.ShutdownBlockingReason"));
             _lifecycleEvents.LifecycleEvent += OnWindowsLifecycleEvent;
             _quickPanelViewModel?.SetAutomationStatus(
                 UiText.Get("Message.AutomationEnabled"));
@@ -703,28 +770,91 @@ public partial class App : Application
         WindowsLifecycleEventArgs eventArgs)
     {
         _ = sender;
-        if (eventArgs.Kind == WindowsLifecycleEventKind.SessionEnding)
+        _automationLog.Write("event", eventArgs.Kind.ToString());
+        if (eventArgs.Kind == WindowsLifecycleEventKind.SessionEndingRequested)
+        {
+            PrepareTicketForPotentialSessionEnding();
+        }
+        else if (eventArgs.Kind == WindowsLifecycleEventKind.SessionEnding)
         {
             PrepareForConfirmedSessionEnding();
         }
+        else if (eventArgs.Kind == WindowsLifecycleEventKind.SessionEndingCanceled)
+        {
+            _shutdownRestore?.CancelPotentialShutdown();
+            _automationLog.Write("shutdown-ticket", "Canceled");
+        }
         else if (_automation is not null)
         {
-            _ = _automation.HandleAsync(
-                eventArgs.Kind,
-                _appCancellation.Token);
+            _ = HandleLifecycleAutomationAsync(eventArgs.Kind);
+        }
+    }
+
+    private void PrepareTicketForPotentialSessionEnding()
+    {
+        if (_shutdownRestore is null
+            || _segmentIsolationDiagnostics
+            || !_settings.WindowsAutomation.ShutdownAndStartupEnabled)
+        {
+            _automationLog.Write("shutdown-ticket", "Ignored");
+            return;
+        }
+
+        try
+        {
+            bool saved = _shutdownRestore.PrepareTicketForPotentialShutdown(
+                _automation?.PendingRestoreSnapshot);
+            _automationLog.Write(
+                "shutdown-ticket",
+                saved ? "Prepared" : "NoRestorableState");
+        }
+        catch (Exception exception) when (
+            exception is IOException
+                or UnauthorizedAccessException
+                or InvalidOperationException)
+        {
+            _automationLog.Write(
+                "shutdown-ticket",
+                $"Failed:{exception.GetType().Name}");
+        }
+    }
+
+    private async Task HandleLifecycleAutomationAsync(
+        WindowsLifecycleEventKind trigger)
+    {
+        if (_automation is null)
+        {
+            return;
+        }
+
+        var stopwatch = Stopwatch.StartNew();
+        try
+        {
+            await _automation.HandleAsync(trigger, _appCancellation.Token);
+        }
+        catch (OperationCanceledException) when (_appCancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            _automationLog.Write(
+                "lifecycle-duration",
+                $"{trigger}:{stopwatch.ElapsedMilliseconds}ms");
         }
     }
 
     private void PrepareForConfirmedSessionEnding()
     {
         if (_shutdownRestore is null
+            || _segmentIsolationDiagnostics
             || !_settings.WindowsAutomation.ShutdownAndStartupEnabled)
         {
             return;
         }
 
         using var timeout = new CancellationTokenSource(
-            TimeSpan.FromSeconds(3));
+            TimeSpan.FromSeconds(8));
+        var stopwatch = Stopwatch.StartNew();
         try
         {
             _shutdownRestore.PrepareForShutdownAsync(
@@ -737,6 +867,12 @@ public partial class App : Application
         {
             // Windows shutdown must continue even when the lamp is offline.
         }
+        finally
+        {
+            _automationLog.Write(
+                "shutdown-duration",
+                $"{stopwatch.ElapsedMilliseconds}ms");
+        }
     }
 
     private void OnAutomationStatusChanged(
@@ -744,6 +880,10 @@ public partial class App : Application
         WindowsAutomationStatusEventArgs eventArgs)
     {
         _ = sender;
+        _automationLog.Write(
+            "lifecycle",
+            $"{eventArgs.Trigger}:{eventArgs.Outcome}:"
+            + (eventArgs.Exception?.GetType().Name ?? "none"));
         string? status = eventArgs.Outcome switch
         {
             WindowsAutomationOutcome.StateCaptured =>
@@ -776,10 +916,16 @@ public partial class App : Application
         ShutdownRestoreStatusEventArgs eventArgs)
     {
         _ = sender;
+        _automationLog.Write(
+            "shutdown-restore",
+            $"{eventArgs.Outcome}:"
+            + (eventArgs.Exception?.GetType().Name ?? "none"));
         string? status = eventArgs.Outcome switch
         {
             ShutdownRestoreOutcome.TicketSaved =>
                 UiText.Get("Message.ShutdownTicketSaved"),
+            ShutdownRestoreOutcome.LightsTurnedOn =>
+                UiText.Get("Message.StartupLightsTurnedOn"),
             ShutdownRestoreOutcome.StateAlreadyCurrent =>
                 UiText.Get("Message.ShutdownAlreadyCurrent"),
             ShutdownRestoreOutcome.StateRestored =>
@@ -803,18 +949,26 @@ public partial class App : Application
         }
     }
 
-    private async Task ConnectAndRestoreAsync()
+    private async Task ConnectAndRestoreAsync(bool startupRequested)
     {
         try
         {
-            await ConnectAndRestoreCoreAsync();
+            await ConnectAndRestoreCoreAsync(startupRequested);
         }
         catch (OperationCanceledException) when (_appCancellation.IsCancellationRequested)
         {
         }
+        catch (Exception exception)
+        {
+            _automationLog.Write(
+                "startup-restore",
+                exception.GetType().Name);
+            _quickPanelViewModel?.SetAutomationStatus(
+                UiText.Get("Message.OperationFailed"));
+        }
     }
 
-    private async Task ConnectAndRestoreCoreAsync()
+    private async Task ConnectAndRestoreCoreAsync(bool startupRequested)
     {
         if (_quickPanelViewModel is null || _deviceSession is null)
         {
@@ -822,13 +976,31 @@ public partial class App : Application
         }
 
         bool pendingRestore =
-            _settings.WindowsAutomation.ShutdownAndStartupEnabled
+            startupRequested
+            && !_segmentIsolationDiagnostics
+            && _settings.WindowsAutomation.ShutdownAndStartupEnabled
             && _shutdownRestore?.HasPendingRestore == true;
+        bool pendingSegmentReplay =
+            startupRequested
+            && !_segmentIsolationDiagnostics
+            && _quickPanelViewModel.HasPendingSegmentStartupReplay;
+        bool pendingStartupPower =
+            startupRequested
+            && !_segmentIsolationDiagnostics
+            && _settings.WindowsAutomation.TurnOnLightsAfterWindowsStartup;
+        long startupManualControlVersion =
+            _shutdownRestore?.ManualControlVersion ?? 0;
+        _automationLog.Write(
+            "startup-restore",
+            $"Requested={startupRequested};Ticket={pendingRestore};Segment={pendingSegmentReplay};PowerOn={pendingStartupPower}");
         DateTimeOffset deadline = DateTimeOffset.UtcNow.AddMinutes(1);
         do
         {
             await _quickPanelViewModel.ConnectAsync(_appCancellation.Token);
-            if (_deviceSession.CurrentState is not null || !pendingRestore)
+            if (_deviceSession.CurrentState is not null
+                || (!pendingRestore
+                    && !pendingSegmentReplay
+                    && !pendingStartupPower))
             {
                 break;
             }
@@ -843,10 +1015,43 @@ public partial class App : Application
 
         if (_deviceSession.CurrentState is not null && pendingRestore)
         {
+            _automationLog.Write("startup-restore", "ApplyingTicket");
             await _shutdownRestore!.TryRestoreAfterStartupAsync(
                 _appCancellation.Token);
         }
+
+        bool backgroundWasOnBeforeStartupPower =
+            _deviceSession.CurrentState?.BackgroundPower == true;
+        if (_deviceSession.CurrentState is not null && pendingStartupPower)
+        {
+            _automationLog.Write("startup-restore", "ApplyingPowerOnPolicy");
+            await _shutdownRestore!.ApplyStartupPowerPolicyAsync(
+                startupManualControlVersion,
+                _appCancellation.Token);
+        }
+
+        bool shouldReplaySegment = pendingSegmentReplay
+            && (!pendingRestore
+                || (pendingStartupPower && !backgroundWasOnBeforeStartupPower));
+        if (_deviceSession.CurrentState is not null
+            && shouldReplaySegment
+            && _deviceSession.CurrentState.BackgroundPower)
+        {
+            _automationLog.Write("startup-restore", "ApplyingSegmentReplay");
+            _ = await _quickPanelViewModel.TryReplaySegmentOnWindowsStartupAsync(
+                _appCancellation.Token);
+        }
+        else if (_deviceSession.CurrentState is null
+            && (pendingRestore || pendingSegmentReplay || pendingStartupPower))
+        {
+            _automationLog.Write("startup-restore", "DeviceUnavailableAfterTimeout");
+        }
     }
+
+    private WindowsAutomationSettings GetEffectiveWindowsAutomationSettings() =>
+        _segmentIsolationDiagnostics
+            ? new WindowsAutomationSettings()
+            : _settings.WindowsAutomation;
 
     private async Task<LibraProState?> RefreshForAutomationAsync(
         CancellationToken cancellationToken)

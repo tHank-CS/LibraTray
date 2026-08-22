@@ -74,6 +74,46 @@ public sealed class ShutdownRestoreTicketStoreTests
         Assert.IsNull(store.Load());
     }
 
+    [TestMethod]
+    public void VersionOneTicketMigratesToWholeColourVersionTwo()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(
+            _ticketPath,
+            """
+            {
+              "SchemaVersion": 1,
+              "DeviceKey": "ABC123",
+              "CreatedUtc": "2026-08-02T01:02:03Z",
+              "RestoreTarget": {
+                "MainPower": true,
+                "MainBrightness": 60,
+                "MainColorTemperature": 4500,
+                "BackgroundPower": true,
+                "BackgroundBrightness": 40,
+                "BackgroundRgb": 3368652
+              }
+            }
+            """);
+
+        ShutdownRestoreTicket? loaded =
+            new ShutdownRestoreTicketStore(_ticketPath).Load();
+
+        Assert.IsNotNull(loaded);
+        Assert.AreEqual(2, loaded.SchemaVersion);
+        Assert.AreEqual(
+            AmbientColorMode.Whole,
+            loaded.RestoreTarget!.AmbientColorMode);
+    }
+
     private static LibraProTargetState CreateTarget() =>
-        new(true, 60, 4_500, true, 40, 0x3366CC);
+        new(
+            true,
+            60,
+            4_500,
+            true,
+            40,
+            0x3366CC,
+            AmbientColorMode.Segmented,
+            new SegmentRgbRequest(0x112233, 0x445566));
 }

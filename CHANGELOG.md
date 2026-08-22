@@ -8,6 +8,68 @@ and this project intends to follow
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-22
+
+### Added
+
+- Added a default-off experimental two-zone ambient RGB mode for exact
+  `lamp15` devices, including left/right colour selection, swapping, segmented
+  presets, Windows-startup replay, firmware gates, and a whole-colour recovery
+  path. Zone colours are stored and displayed only as requested values because
+  the device exposes no readable segment state.
+- Added a user-invoked ambient-light POST that initializes the firmware-38
+  renderer at 1% brightness and restores the prior power, brightness, and
+  whole or segmented colour target.
+- Added bounded, redacted Windows-automation diagnostics and local-only atomic
+  storage for segment requests and firmware-risk acknowledgements.
+- Added an independent, default-off Windows sign-in policy that waits for the
+  device and turns on both the main and ambient lights even when no shutdown
+  restore ticket exists.
+- Added a `--segment-isolation-diagnostics` launch mode that disables automatic
+  `bg_set_scene` recovery, pauses Windows automation/startup replay writes in
+  memory, and records a bounded command/result trace, allowing cold-start scene
+  persistence to be isolated without changing saved settings or normal mode.
+
+### Fixed
+
+- Fixed the quick panel reserving a large blank area below local presets by
+  sizing the window to its visible content and keeping it anchored above the
+  taskbar as whole/segmented controls change.
+- Fixed secure Wallpaper Engine/Windows screensavers being missed as a lock
+  blocker and prevented display-on or screensaver-end events from restoring
+  lights while the Windows session remains locked.
+- Fixed late or duplicate lock events causing an extra off operation.
+- Fixed lock and screensaver entry applying a complete segmented target before
+  power-off, which could visibly flash and then fail state verification. Entry
+  now changes only main and ambient power; appearance is restored only after
+  every blocker clears.
+- Fixed segmented unlock replaying the complete target on every verification
+  retry, which could leave the main light off and oscillate the ambient light
+  between its persistent whole-colour template and the requested zones.
+  Lifecycle restore now uses one bounded power/appearance sequence and never
+  replays that complete sequence after a verification failure.
+- Fixed segmented presets using the same retryable complete-target path, which
+  could leave the main light off and repeat the persistent-template/zone
+  oscillation. Presets and startup ticket restoration now use a single bounded
+  target sequence; off-state presets still store zones without lighting either
+  channel.
+- Fixed shutdown synchronization so the one-time restore ticket is atomically
+  prepared during `WM_QUERYENDSESSION`, before the confirmed bounded power-off
+  stage. This prevents startup restoration from being lost when the final
+  session-ending notification is unavailable. Only necessary main/ambient
+  power commands are sent. ([#21](https://github.com/tHank-CS/LibraTray/issues/21))
+- Fixed ordinary launches being able to consume a shutdown restore ticket;
+  startup restoration now runs only for the Windows `--startup` path.
+
+### Changed
+
+- Upgraded the settings schema to version 5 and the shutdown restore ticket to
+  version 2 while preserving older whole-colour presets and tickets.
+- Increased the confirmed shutdown handling budget to eight seconds and made
+  startup restoration wait up to one minute for the LAN device.
+- Improved spacing in the Windows automation settings and visually nested the
+  independent sign-in power policy under Windows startup.
+
 ## [1.0.1] - 2026-08-04
 
 ### Fixed
@@ -130,6 +192,7 @@ and this project intends to follow
 - Diagnostic data is designed to be redacted before export.
 - Network parsing is bounded and treats device data as untrusted input.
 
-[Unreleased]: https://github.com/tHank-CS/LibraTray/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/tHank-CS/LibraTray/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/tHank-CS/LibraTray/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/tHank-CS/LibraTray/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/tHank-CS/LibraTray/releases/tag/v1.0.0

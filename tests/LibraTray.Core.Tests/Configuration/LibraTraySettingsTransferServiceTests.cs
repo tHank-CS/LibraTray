@@ -42,6 +42,7 @@ public sealed class LibraTraySettingsTransferServiceTests
             WindowsAutomation = new WindowsAutomationSettings
             {
                 StartWithWindows = true,
+                TurnOnLightsAfterWindowsStartup = true,
                 DisplayPowerEnabled = true,
             },
             Presets =
@@ -70,6 +71,8 @@ public sealed class LibraTraySettingsTransferServiceTests
         Assert.AreEqual(AppLanguage.English, imported.Language);
         Assert.IsFalse(imported.ShowOnScreenDisplay);
         Assert.IsTrue(imported.WindowsAutomation.StartWithWindows);
+        Assert.IsTrue(
+            imported.WindowsAutomation.TurnOnLightsAfterWindowsStartup);
         Assert.IsTrue(imported.WindowsAutomation.DisplayPowerEnabled);
         Assert.HasCount(1, imported.Presets);
         Assert.AreEqual("Focus", imported.Presets[0].Name);

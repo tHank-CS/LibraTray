@@ -1,3 +1,4 @@
+using System.Globalization;
 using LibraTray.Core.Devices.LibraPro;
 using LibraTray.Core.Networking;
 using LibraTray.Core.Protocol;
@@ -19,10 +20,61 @@ public sealed class LibraProAdapterTests
         "bg_set_ct_abx",
         "bg_set_rgb",
         "bg_set_scene",
+        "set_segment_rgb",
     ];
 
     private static readonly string[] ExplicitRecoveryMethods =
         ["get_prop", "bg_set_scene", "get_prop", "bg_set_power", "get_prop"];
+    private static readonly string[] SegmentRequestMethods =
+        ["get_prop", "set_segment_rgb", "get_prop"];
+    private static readonly string[] LifecycleSegmentRestoreMethods =
+    [
+        "get_prop",
+        "set_power",
+        "get_prop",
+        "bg_set_bright",
+        "set_segment_rgb",
+        "bg_set_power",
+        "bg_set_bright",
+        "set_segment_rgb",
+        "get_prop",
+    ];
+    private static readonly string[] LifecycleWholeRestoreMethods =
+    [
+        "get_prop",
+        "set_power",
+        "get_prop",
+        "bg_set_bright",
+        "bg_set_rgb",
+        "bg_set_power",
+        "bg_set_bright",
+        "bg_set_rgb",
+        "get_prop",
+    ];
+    private static readonly string[] BoundedSegmentPresetMethods =
+    [
+        "get_prop",
+        "set_bright",
+        "set_ct_abx",
+        "set_power",
+        "get_prop",
+        "bg_set_bright",
+        "set_segment_rgb",
+        "bg_set_power",
+        "bg_set_bright",
+        "set_segment_rgb",
+        "get_prop",
+    ];
+    private static readonly string[] BoundedOffSegmentPresetMethods =
+    [
+        "get_prop",
+        "set_bright",
+        "set_ct_abx",
+        "get_prop",
+        "bg_set_bright",
+        "set_segment_rgb",
+        "get_prop",
+    ];
 
     [TestMethod]
     public async Task BackgroundPowerUsesOrdinaryVerifiedPathWhenFirmwareResponds()
@@ -242,6 +294,236 @@ public sealed class LibraProAdapterTests
     }
 
     [TestMethod]
+    public async Task SegmentRgbReturnsAcceptedUnverifiedWithoutInventingReadableState()
+    {
+        var transport = new FakeTransport();
+        LibraProAdapter adapter = CreateAdapter(transport);
+        var request = new SegmentRgbRequest(0xFF0000, 0x0000FF);
+
+        SegmentRgbApplyResult result = await adapter.SetSegmentRgbAsync(
+            request,
+            TimeSpan.FromSeconds(1));
+
+        Assert.AreEqual(SegmentRgbApplyStatus.AcceptedUnverified, result.Status);
+        Assert.AreEqual(13_395_711, result.State.BackgroundRgb);
+        CollectionAssert.AreEqual(
+            new object?[] { 0xFF0000, 0x0000FF },
+            transport.LastSegmentParameters);
+        CollectionAssert.AreEqual(
+            SegmentRequestMethods,
+            transport.Methods);
+    }
+
+    [TestMethod]
+    public async Task SegmentedTargetWritesRequestedZonesWithoutInventingBackgroundRgb()
+    {
+        var transport = new FakeTransport();
+        LibraProAdapter adapter = CreateAdapter(transport);
+        var request = new SegmentRgbRequest(0x112233, 0x445566);
+        var target = new LibraProTargetState(
+            mainPower: true,
+            mainBrightness: 62,
+            mainColorTemperature: 4_600,
+            backgroundPower: false,
+            backgroundBrightness: 40,
+            backgroundRgb: 0x010203,
+            AmbientColorMode.Segmented,
+            request);
+
+        LibraProCommandResult result = await adapter.ApplyTargetStateAsync(
+            target,
+            TimeSpan.FromSeconds(1));
+
+        Assert.AreEqual(13_395_711, result.State.BackgroundRgb);
+        Assert.IsFalse(result.State.BackgroundPower);
+        CollectionAssert.AreEqual(
+            new object?[] { 0x112233, 0x445566 },
+            transport.LastSegmentParameters);
+        string[] expectedMethods =
+        [
+            "set_bright",
+            "set_ct_abx",
+            "bg_set_bright",
+            "set_segment_rgb",
+            "set_power",
+            "bg_set_power",
+            "get_prop",
+        ];
+        CollectionAssert.AreEqual(expectedMethods, transport.Methods);
+    }
+
+    [TestMethod]
+    public async Task LifecycleSegmentRestoreUsesOneBoundedPowerThenAppearanceSequence()
+    {
+        var transport = new FakeTransport
+        {
+            RestorePersistentTemplateOnBackgroundPowerOn = true,
+        };
+        LibraProAdapter adapter = CreateAdapter(transport);
+        var request = new SegmentRgbRequest(0x13FF00, 0x0000FF);
+        var target = new LibraProTargetState(
+            mainPower: true,
+            mainBrightness: 100,
+            mainColorTemperature: 4_000,
+            backgroundPower: true,
+            backgroundBrightness: 40,
+            backgroundRgb: 0x3366CC,
+            AmbientColorMode.Segmented,
+            request);
+
+        LibraProCommandResult result =
+            await adapter.RestoreLifecycleTargetStateAsync(
+                target,
+                TimeSpan.FromSeconds(1));
+
+        Assert.IsTrue(result.State.MainPower);
+        Assert.IsTrue(result.State.BackgroundPower);
+        Assert.AreEqual(40, result.State.BackgroundBrightness);
+        CollectionAssert.AreEqual(
+            new object?[] { 0x13FF00, 0x0000FF },
+            transport.LastSegmentParameters);
+        CollectionAssert.AreEqual(
+            LifecycleSegmentRestoreMethods,
+            transport.Methods);
+        CollectionAssert.DoesNotContain(transport.Methods, "set_bright");
+        CollectionAssert.DoesNotContain(transport.Methods, "set_ct_abx");
+        CollectionAssert.DoesNotContain(transport.Methods, "bg_set_rgb");
+    }
+
+    [TestMethod]
+    public async Task LifecycleWholeRestoreOverwritesPowerOnTemplateOnce()
+    {
+        var transport = new FakeTransport
+        {
+            RestorePersistentTemplateOnBackgroundPowerOn = true,
+        };
+        LibraProAdapter adapter = CreateAdapter(transport);
+        var target = new LibraProTargetState(
+            mainPower: true,
+            mainBrightness: 100,
+            mainColorTemperature: 4_000,
+            backgroundPower: true,
+            backgroundBrightness: 38,
+            backgroundRgb: 0x112233);
+
+        LibraProCommandResult result =
+            await adapter.RestoreLifecycleTargetStateAsync(
+                target,
+                TimeSpan.FromSeconds(1));
+
+        Assert.IsTrue(result.State.MainPower);
+        Assert.IsTrue(result.State.BackgroundPower);
+        Assert.AreEqual(38, result.State.BackgroundBrightness);
+        Assert.AreEqual(0x112233, result.State.BackgroundRgb);
+        CollectionAssert.AreEqual(
+            LifecycleWholeRestoreMethods,
+            transport.Methods);
+    }
+
+    [TestMethod]
+    public async Task BoundedSegmentPresetAppliesMainAndFinalPostPowerZonesOnce()
+    {
+        var transport = new FakeTransport
+        {
+            RestorePersistentTemplateOnBackgroundPowerOn = true,
+        };
+        LibraProAdapter adapter = CreateAdapter(transport);
+        var request = new SegmentRgbRequest(0x13FF00, 0x0000FF);
+        var target = new LibraProTargetState(
+            mainPower: true,
+            mainBrightness: 62,
+            mainColorTemperature: 4_600,
+            backgroundPower: true,
+            backgroundBrightness: 40,
+            backgroundRgb: 0x3366CC,
+            AmbientColorMode.Segmented,
+            request);
+
+        LibraProCommandResult result = await adapter.ApplyTargetStateOnceAsync(
+            target,
+            TimeSpan.FromSeconds(1));
+
+        Assert.IsTrue(result.State.MainPower);
+        Assert.AreEqual(62, result.State.MainBrightness);
+        Assert.AreEqual(4_600, result.State.MainColorTemperature);
+        Assert.IsTrue(result.State.BackgroundPower);
+        Assert.AreEqual(40, result.State.BackgroundBrightness);
+        CollectionAssert.AreEqual(
+            new object?[] { 0x13FF00, 0x0000FF },
+            transport.LastSegmentParameters);
+        CollectionAssert.AreEqual(
+            BoundedSegmentPresetMethods,
+            transport.Methods);
+    }
+
+    [TestMethod]
+    public async Task BoundedOffSegmentPresetStoresAppearanceWithoutPowerOn()
+    {
+        var transport = new FakeTransport();
+        LibraProAdapter adapter = CreateAdapter(transport);
+        var request = new SegmentRgbRequest(0x112233, 0x445566);
+        var target = new LibraProTargetState(
+            mainPower: false,
+            mainBrightness: 62,
+            mainColorTemperature: 4_600,
+            backgroundPower: false,
+            backgroundBrightness: 40,
+            backgroundRgb: 0x3366CC,
+            AmbientColorMode.Segmented,
+            request);
+
+        LibraProCommandResult result = await adapter.ApplyTargetStateOnceAsync(
+            target,
+            TimeSpan.FromSeconds(1));
+
+        Assert.IsFalse(result.State.MainPower);
+        Assert.IsFalse(result.State.BackgroundPower);
+        Assert.AreEqual(40, result.State.BackgroundBrightness);
+        CollectionAssert.AreEqual(
+            new object?[] { 0x112233, 0x445566 },
+            transport.LastSegmentParameters);
+        CollectionAssert.AreEqual(
+            BoundedOffSegmentPresetMethods,
+            transport.Methods);
+    }
+
+    [TestMethod]
+    public async Task SegmentRgbRequiresAdvertisedCapability()
+    {
+        var transport = new FakeTransport();
+        using var adapter = new LibraProAdapter(
+            transport,
+            "lamp15",
+            Capabilities.Where(value => value != "set_segment_rgb"));
+
+        await Assert.ThrowsExactlyAsync<NotSupportedException>(() =>
+            adapter.SetSegmentRgbAsync(
+                new SegmentRgbRequest(1, 2),
+                TimeSpan.FromSeconds(1)));
+    }
+
+    [TestMethod]
+    public async Task ManualPostInitializesAtOnePercentAndRestoresSegmentRequest()
+    {
+        var transport = new FakeTransport();
+        LibraProAdapter adapter = CreateAdapter(transport);
+        var request = new SegmentRgbRequest(0x112233, 0x445566);
+
+        LibraProCommandResult result = await adapter.RunBackgroundPostAsync(
+            new LibraProBackgroundSnapshot(60, 0x3366CC),
+            desiredPower: false,
+            request,
+            TimeSpan.FromSeconds(1));
+
+        Assert.IsFalse(result.State.BackgroundPower);
+        Assert.AreEqual(60, result.State.BackgroundBrightness);
+        Assert.AreEqual(1, transport.LastSceneBrightness);
+        CollectionAssert.AreEqual(
+            new object?[] { 0x112233, 0x445566 },
+            transport.LastSegmentParameters);
+    }
+
+    [TestMethod]
     public async Task AppearanceCommandsRejectOutOfRangeValuesBeforeSending()
     {
         var transport = new FakeTransport();
@@ -305,9 +587,15 @@ public sealed class LibraProAdapterTests
 
         public bool SceneChangesMainPower { get; set; }
 
+        public bool RestorePersistentTemplateOnBackgroundPowerOn { get; set; }
+
         public string? AggregateOverride { get; set; }
 
         public int SceneRefreshCount { get; private set; }
+
+        public int LastSceneBrightness { get; private set; }
+
+        public object?[] LastSegmentParameters { get; private set; } = [];
 
         public List<string> Methods { get; } = [];
 
@@ -332,6 +620,7 @@ public sealed class LibraProAdapterTests
                 "bg_set_ct_abx" => SetIntegerProperty("bg_ct", parameters),
                 "bg_set_rgb" => SetIntegerProperty("bg_rgb", parameters),
                 "bg_set_scene" => SetBackgroundScene(parameters),
+                "set_segment_rgb" => SetSegmentRgb(parameters),
                 _ => throw new NotSupportedException(method),
             };
 
@@ -382,6 +671,12 @@ public sealed class LibraProAdapterTests
             else if (!BackgroundRendererSilent)
             {
                 _state["bg_power"] = "on";
+                if (RestorePersistentTemplateOnBackgroundPowerOn)
+                {
+                    _state["bg_bright"] = "50";
+                    _state["bg_rgb"] = "13395711";
+                }
+
                 UpdateAggregatePower();
             }
 
@@ -392,6 +687,9 @@ public sealed class LibraProAdapterTests
             IReadOnlyList<object?> parameters)
         {
             SceneRefreshCount++;
+            LastSceneBrightness = Convert.ToInt32(
+                parameters[2],
+                CultureInfo.InvariantCulture);
             if (SceneRecoveryWorks)
             {
                 BackgroundRendererSilent = false;
@@ -410,6 +708,13 @@ public sealed class LibraProAdapterTests
                 UpdateAggregatePower();
             }
 
+            return ["ok"];
+        }
+
+        private IReadOnlyList<string> SetSegmentRgb(
+            IReadOnlyList<object?> parameters)
+        {
+            LastSegmentParameters = parameters.ToArray();
             return ["ok"];
         }
 

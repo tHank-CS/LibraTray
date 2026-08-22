@@ -69,6 +69,12 @@ public sealed class LibraProAdapter : IDisposable
         }
     }
 
+    public bool Supports(string method)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(method);
+        return _capabilities.Contains(method);
+    }
+
     /// <summary>
     /// Starts a new logical connection epoch. A bounded recovery may be
     /// attempted once in each epoch.
@@ -271,6 +277,152 @@ public sealed class LibraProAdapter : IDisposable
             cancellationToken);
     }
 
+    public async Task<SegmentRgbApplyResult> SetSegmentRgbAsync(
+        SegmentRgbRequest request,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ThrowIfDisposed();
+        await _commandLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            LibraProState before = await QueryStateAsync(timeout, cancellationToken)
+                .ConfigureAwait(false);
+            await SendOkAsync(
+                    "set_segment_rgb",
+                    [request.LeftRgb, request.RightRgb],
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            LibraProState after = await QueryStateAsync(timeout, cancellationToken)
+                .ConfigureAwait(false);
+            EnsureReadableStatePreserved(before, after, "segment RGB");
+            return new SegmentRgbApplyResult(
+                after,
+                request,
+                SegmentRgbApplyStatus.AcceptedUnverified,
+                ConnectionEpoch);
+        }
+        finally
+        {
+            _commandLock.Release();
+        }
+    }
+
+    public async Task<LibraProCommandResult> ApplyPowerStateAsync(
+        bool mainPower,
+        bool backgroundPower,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        await _commandLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            LibraProState before = await QueryStateAsync(timeout, cancellationToken)
+                .ConfigureAwait(false);
+            if (before.MainPower != mainPower)
+            {
+                await SendOkAsync(
+                        "set_power",
+                        [mainPower ? "on" : "off", "sudden", 0],
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            LibraProState intermediate = await QueryStateAsync(timeout, cancellationToken)
+                .ConfigureAwait(false);
+            if (intermediate.BackgroundPower != backgroundPower)
+            {
+                await SendOkAsync(
+                        "bg_set_power",
+                        [backgroundPower ? "on" : "off", "sudden", 0],
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            LibraProState after = await QueryStateAsync(timeout, cancellationToken)
+                .ConfigureAwait(false);
+            if (after.MainPower != mainPower || after.BackgroundPower != backgroundPower)
+            {
+                throw new LibraProStateVerificationException(
+                    "Power-only target verification failed.");
+            }
+
+            EnsureAppearancePreserved(before, after);
+            return new LibraProCommandResult(after, false, ConnectionEpoch);
+        }
+        finally
+        {
+            _commandLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Restores a lifecycle snapshot without replaying the complete preset
+    /// sequence. Main appearance is never rewritten. Background appearance is
+    /// applied once after power-on so a device-side on-template cannot remain
+    /// visible, while segmented requests remain explicitly unconfirmed.
+    /// </summary>
+    public async Task<LibraProCommandResult> RestoreLifecycleTargetStateAsync(
+        LibraProTargetState target,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ThrowIfDisposed();
+        await _commandLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            return await ApplyBoundedTargetStateCoreAsync(
+                    target,
+                    writeMainAppearance: false,
+                    writeBackgroundAppearanceWhenOff: false,
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            _commandLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Applies one complete target without retrying the multi-command sequence.
+    /// This is used by presets and startup restoration so a verification
+    /// mismatch cannot oscillate a segmented background through repeated power
+    /// and appearance writes.
+    /// </summary>
+    public async Task<LibraProCommandResult> ApplyTargetStateOnceAsync(
+        LibraProTargetState target,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ThrowIfDisposed();
+        await _commandLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            return await ApplyBoundedTargetStateCoreAsync(
+                    target,
+                    writeMainAppearance: true,
+                    writeBackgroundAppearanceWhenOff: true,
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            _commandLock.Release();
+        }
+    }
+
     public async Task<LibraProCommandResult> ApplyTargetStateAsync(
         LibraProTargetState target,
         TimeSpan timeout,
@@ -300,12 +452,28 @@ public sealed class LibraProAdapter : IDisposable
                     timeout,
                     cancellationToken)
                 .ConfigureAwait(false);
-            await SendOkAsync(
-                    "bg_set_rgb",
-                    [target.BackgroundRgb, "sudden", 0],
-                    timeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
+            if (target.AmbientColorMode == AmbientColorMode.Segmented)
+            {
+                SegmentRgbRequest segment = target.SegmentRgb
+                    ?? throw new ArgumentException(
+                        "The segmented target is incomplete.",
+                        nameof(target));
+                await SendOkAsync(
+                        "set_segment_rgb",
+                        [segment.LeftRgb, segment.RightRgb],
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                await SendOkAsync(
+                        "bg_set_rgb",
+                        [target.BackgroundRgb, "sudden", 0],
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
             await SendOkAsync(
                     "set_power",
                     [target.MainPower ? "on" : "off", "sudden", 0],
@@ -346,6 +514,19 @@ public sealed class LibraProAdapter : IDisposable
                         timeout,
                         cancellationToken)
                     .ConfigureAwait(false);
+                if (target.AmbientColorMode == AmbientColorMode.Segmented
+                    && target.SegmentRgb is { } recoveredSegment)
+                {
+                    await SendOkAsync(
+                            "set_segment_rgb",
+                            [recoveredSegment.LeftRgb, recoveredSegment.RightRgb],
+                            timeout,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    state = await QueryStateAsync(timeout, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
                 if (MatchesTarget(state, target))
                 {
                     return new LibraProCommandResult(
@@ -402,6 +583,81 @@ public sealed class LibraProAdapter : IDisposable
                 recovered,
                 RecoveryAttempted: true,
                 ConnectionEpoch);
+        }
+        finally
+        {
+            _commandLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Runs an explicit, user-requested renderer initialization at minimum
+    /// brightness, then restores the readable appearance and optional segment
+    /// request. Unlike automatic recovery, each invocation is user bounded.
+    /// </summary>
+    public async Task<LibraProCommandResult> RunBackgroundPostAsync(
+        LibraProBackgroundSnapshot restoreSnapshot,
+        bool desiredPower,
+        SegmentRgbRequest? segmentRequest,
+        TimeSpan timeout,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(restoreSnapshot);
+        ThrowIfDisposed();
+        await _commandLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            LibraProState before = await QueryStateAsync(timeout, cancellationToken)
+                .ConfigureAwait(false);
+            await SendOkAsync(
+                    "bg_set_scene",
+                    ["color", restoreSnapshot.Rgb, 1],
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            await SendOkAsync(
+                    "bg_set_bright",
+                    [restoreSnapshot.Brightness, "sudden", 0],
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (segmentRequest is null)
+            {
+                await SendOkAsync(
+                        "bg_set_rgb",
+                        [restoreSnapshot.Rgb, "sudden", 0],
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                await SendOkAsync(
+                        "set_segment_rgb",
+                        [segmentRequest.LeftRgb, segmentRequest.RightRgb],
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            await SendOkAsync(
+                    "bg_set_power",
+                    [desiredPower ? "on" : "off", "sudden", 0],
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            LibraProState after = await QueryStateAsync(timeout, cancellationToken)
+                .ConfigureAwait(false);
+            EnsureMainStatePreserved(before, after);
+            if (after.BackgroundPower != desiredPower
+                || after.BackgroundBrightness != restoreSnapshot.Brightness
+                || (segmentRequest is null && after.BackgroundRgb != restoreSnapshot.Rgb))
+            {
+                throw new LibraProStateVerificationException(
+                    "Background POST did not restore the requested readable state.");
+            }
+
+            return new LibraProCommandResult(after, true, ConnectionEpoch);
         }
         finally
         {
@@ -592,7 +848,168 @@ public sealed class LibraProAdapter : IDisposable
         && state.MainColorTemperature == target.MainColorTemperature
         && state.BackgroundPower == target.BackgroundPower
         && state.BackgroundBrightness == target.BackgroundBrightness
-        && state.BackgroundRgb == target.BackgroundRgb;
+        && (target.AmbientColorMode == AmbientColorMode.Segmented
+            || state.BackgroundRgb == target.BackgroundRgb);
+
+    private static bool MatchesLifecycleRestore(
+        LibraProState state,
+        LibraProTargetState target) =>
+        state.MainPower == target.MainPower
+        && state.MainBrightness == target.MainBrightness
+        && state.MainColorTemperature == target.MainColorTemperature
+        && state.BackgroundPower == target.BackgroundPower
+        && state.BackgroundBrightness == target.BackgroundBrightness
+        && (target.AmbientColorMode == AmbientColorMode.Segmented
+            || state.BackgroundRgb == target.BackgroundRgb);
+
+    private async Task<LibraProCommandResult> ApplyBoundedTargetStateCoreAsync(
+        LibraProTargetState target,
+        bool writeMainAppearance,
+        bool writeBackgroundAppearanceWhenOff,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        LibraProState before = await QueryStateAsync(timeout, cancellationToken)
+            .ConfigureAwait(false);
+        if (writeMainAppearance)
+        {
+            if (before.MainBrightness != target.MainBrightness)
+            {
+                await SendOkAsync(
+                        "set_bright",
+                        [target.MainBrightness, "sudden", 0],
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            if (before.MainColorTemperature != target.MainColorTemperature)
+            {
+                await SendOkAsync(
+                        "set_ct_abx",
+                        [target.MainColorTemperature, "sudden", 0],
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        if (before.MainPower != target.MainPower)
+        {
+            await SendOkAsync(
+                    "set_power",
+                    [target.MainPower ? "on" : "off", "sudden", 0],
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        LibraProState intermediate = await QueryStateAsync(
+                timeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (target.BackgroundPower)
+        {
+            if (!intermediate.BackgroundPower)
+            {
+                await SendLifecycleBackgroundAppearanceAsync(
+                        target,
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                await SendOkAsync(
+                        "bg_set_power",
+                        ["on", "sudden", 0],
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            await SendLifecycleBackgroundAppearanceAsync(
+                    target,
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            if (intermediate.BackgroundPower)
+            {
+                await SendOkAsync(
+                        "bg_set_power",
+                        ["off", "sudden", 0],
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            if (writeBackgroundAppearanceWhenOff)
+            {
+                await SendLifecycleBackgroundAppearanceAsync(
+                        target,
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            else if (target.AmbientColorMode == AmbientColorMode.Segmented)
+            {
+                await SendSegmentRequestAsync(
+                        target.SegmentRgb!,
+                        timeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        LibraProState after = await QueryStateAsync(timeout, cancellationToken)
+            .ConfigureAwait(false);
+        if (!MatchesLifecycleRestore(after, target))
+        {
+            throw new LibraProStateVerificationException(
+                "Target verification failed after one bounded apply sequence.");
+        }
+
+        return new LibraProCommandResult(after, false, ConnectionEpoch);
+    }
+
+    private async Task SendLifecycleBackgroundAppearanceAsync(
+        LibraProTargetState target,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        await SendOkAsync(
+                "bg_set_bright",
+                [target.BackgroundBrightness, "sudden", 0],
+                timeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (target.AmbientColorMode == AmbientColorMode.Segmented)
+        {
+            await SendSegmentRequestAsync(
+                    target.SegmentRgb!,
+                    timeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return;
+        }
+
+        await SendOkAsync(
+                "bg_set_rgb",
+                [target.BackgroundRgb, "sudden", 0],
+                timeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private Task SendSegmentRequestAsync(
+        SegmentRgbRequest request,
+        TimeSpan timeout,
+        CancellationToken cancellationToken) =>
+        SendOkAsync(
+            "set_segment_rgb",
+            [request.LeftRgb, request.RightRgb],
+            timeout,
+            cancellationToken);
 
     private void EnsureCapability(string method)
     {
@@ -607,10 +1024,42 @@ public sealed class LibraProAdapter : IDisposable
         LibraProState before,
         LibraProState after)
     {
-        if (before.MainPower != after.MainPower)
+        if (before.MainPower != after.MainPower
+            || before.MainBrightness != after.MainBrightness
+            || before.MainColorTemperature != after.MainColorTemperature)
         {
             throw new LibraProStateVerificationException(
-                "A background operation unexpectedly changed main_power.");
+                "A background operation unexpectedly changed main_power or main appearance.");
+        }
+    }
+
+    private static void EnsureReadableStatePreserved(
+        LibraProState before,
+        LibraProState after,
+        string operation)
+    {
+        if (before != after)
+        {
+            throw new LibraProStateVerificationException(
+                $"The {operation} operation unexpectedly changed readable device state.");
+        }
+    }
+
+    private static void EnsureAppearancePreserved(
+        LibraProState before,
+        LibraProState after)
+    {
+        if (before.MainBrightness != after.MainBrightness
+            || before.MainColorTemperature != after.MainColorTemperature
+            || before.BackgroundBrightness != after.BackgroundBrightness
+            || before.BackgroundColorTemperature != after.BackgroundColorTemperature
+            || before.BackgroundRgb != after.BackgroundRgb
+            || before.BackgroundHue != after.BackgroundHue
+            || before.BackgroundSaturation != after.BackgroundSaturation
+            || before.BackgroundLightMode != after.BackgroundLightMode)
+        {
+            throw new LibraProStateVerificationException(
+                "A power-only operation unexpectedly changed lamp appearance.");
         }
     }
 

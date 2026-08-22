@@ -41,6 +41,46 @@ public sealed class ShutdownRestoreCoordinatorTests
     }
 
     [TestMethod]
+    public void QueryStagePersistsTicketWithoutSendingPowerWrite()
+    {
+        using ShutdownRestoreCoordinator coordinator = CreateCoordinator();
+
+        bool saved = coordinator.PrepareTicketForPotentialShutdown();
+
+        Assert.IsTrue(saved);
+        Assert.IsEmpty(_writes);
+        Assert.IsNotNull(_store.Ticket);
+        Assert.IsTrue(_store.Ticket.RestoreTarget!.MainPower);
+        Assert.IsTrue(_state.MainPower);
+        Assert.IsTrue(_state.BackgroundPower);
+    }
+
+    [TestMethod]
+    public void CanceledQueryStageClearsPreparedTicket()
+    {
+        using ShutdownRestoreCoordinator coordinator = CreateCoordinator();
+        _ = coordinator.PrepareTicketForPotentialShutdown();
+
+        coordinator.CancelPotentialShutdown();
+
+        Assert.IsNull(_store.Ticket);
+        Assert.IsEmpty(_writes);
+    }
+
+    [TestMethod]
+    public void QueryStageDoesNotPersistAlreadyOffState()
+    {
+        _state = CreateState(mainPower: false, backgroundPower: false);
+        using ShutdownRestoreCoordinator coordinator = CreateCoordinator();
+
+        bool saved = coordinator.PrepareTicketForPotentialShutdown();
+
+        Assert.IsFalse(saved);
+        Assert.IsNull(_store.Ticket);
+        Assert.IsEmpty(_writes);
+    }
+
+    [TestMethod]
     public async Task AlreadyOffWithoutAutomationSnapshotCreatesNoTicket()
     {
         _state = CreateState(mainPower: false, backgroundPower: false);
@@ -65,6 +105,22 @@ public sealed class ShutdownRestoreCoordinatorTests
         Assert.IsTrue(_state.MainPower);
         Assert.IsTrue(_state.BackgroundPower);
         Assert.IsNull(_store.Ticket);
+    }
+
+    [TestMethod]
+    public async Task StartupClearsTicketWhenDeviceNeverTurnedOff()
+    {
+        using ShutdownRestoreCoordinator coordinator = CreateCoordinator();
+        await coordinator.PrepareForShutdownAsync();
+        _state = CreateState(mainPower: true, backgroundPower: true);
+        _writes.Clear();
+
+        await coordinator.TryRestoreAfterStartupAsync();
+
+        Assert.IsEmpty(_writes);
+        Assert.IsNull(_store.Ticket);
+        Assert.IsTrue(_state.MainPower);
+        Assert.IsTrue(_state.BackgroundPower);
     }
 
     [TestMethod]
@@ -165,10 +221,153 @@ public sealed class ShutdownRestoreCoordinatorTests
         Assert.IsNull(_store.Ticket);
     }
 
+    [TestMethod]
+    public async Task ShutdownTicketIsSavedBeforePowerOnlyWriteStarts()
+    {
+        bool ticketWasPresentDuringWrite = false;
+        using ShutdownRestoreCoordinator coordinator = CreateCoordinator(
+            applyPower: (mainPower, backgroundPower, _) =>
+            {
+                ticketWasPresentDuringWrite = _store.Ticket is not null;
+                var target = new LibraProTargetState(
+                    false,
+                    _state.MainBrightness,
+                    _state.MainColorTemperature,
+                    false,
+                    _state.BackgroundBrightness,
+                    _state.BackgroundRgb);
+                _writes.Add(target);
+                _state = _state with
+                {
+                    AggregatePower = mainPower || backgroundPower,
+                    MainPower = mainPower,
+                    BackgroundPower = backgroundPower,
+                };
+                return Task.FromResult(_state);
+            });
+
+        await coordinator.PrepareForShutdownAsync();
+
+        Assert.IsTrue(ticketWasPresentDuringWrite);
+        Assert.IsNotNull(_store.Ticket);
+        Assert.HasCount(1, _writes);
+    }
+
+    [TestMethod]
+    public async Task ShutdownTimeoutLeavesSavedTicketForSafeStartupEvaluation()
+    {
+        using var cancellation = new CancellationTokenSource(
+            TimeSpan.FromMilliseconds(20));
+        using ShutdownRestoreCoordinator coordinator = CreateCoordinator(
+            applyPower: async (_, _, token) =>
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, token);
+                return _state;
+            });
+
+        await coordinator.PrepareForShutdownAsync(
+            cancellationToken: cancellation.Token);
+
+        Assert.IsNotNull(_store.Ticket);
+        Assert.IsTrue(_state.MainPower);
+        Assert.IsTrue(_state.BackgroundPower);
+    }
+
+    [TestMethod]
+    public async Task StartupPowerPolicyTurnsBothChannelsOnFromOffState()
+    {
+        _state = CreateState(mainPower: false, backgroundPower: false);
+        using ShutdownRestoreCoordinator coordinator = CreateCoordinator(
+            settings: CreateStartupPowerSettings());
+        ShutdownRestoreOutcome? outcome = null;
+        coordinator.StatusChanged += (_, eventArgs) =>
+            outcome = eventArgs.Outcome;
+
+        await coordinator.ApplyStartupPowerPolicyAsync(
+            coordinator.ManualControlVersion);
+
+        Assert.HasCount(1, _writes);
+        Assert.IsTrue(_state.MainPower);
+        Assert.IsTrue(_state.BackgroundPower);
+        Assert.AreEqual(ShutdownRestoreOutcome.LightsTurnedOn, outcome);
+    }
+
+    [TestMethod]
+    public async Task DisabledStartupPowerPolicyNeverWrites()
+    {
+        _state = CreateState(mainPower: false, backgroundPower: false);
+        using ShutdownRestoreCoordinator coordinator = CreateCoordinator();
+
+        await coordinator.ApplyStartupPowerPolicyAsync(
+            coordinator.ManualControlVersion);
+
+        Assert.IsEmpty(_writes);
+        Assert.IsFalse(_state.MainPower);
+        Assert.IsFalse(_state.BackgroundPower);
+    }
+
+    [TestMethod]
+    public async Task ExplicitStartupPowerPolicyRunsAfterTicketRestore()
+    {
+        _state = CreateState(mainPower: true, backgroundPower: false);
+        using ShutdownRestoreCoordinator coordinator = CreateCoordinator(
+            settings: CreateStartupPowerSettings());
+        await coordinator.PrepareForShutdownAsync();
+        _writes.Clear();
+
+        await coordinator.TryRestoreAfterStartupAsync();
+        await coordinator.ApplyStartupPowerPolicyAsync(
+            coordinator.ManualControlVersion);
+
+        Assert.HasCount(2, _writes);
+        Assert.IsTrue(_state.MainPower);
+        Assert.IsTrue(_state.BackgroundPower);
+    }
+
+    [TestMethod]
+    public async Task StartupPowerPolicyDoesNotRewriteAlreadyOnState()
+    {
+        using ShutdownRestoreCoordinator coordinator = CreateCoordinator(
+            settings: CreateStartupPowerSettings());
+
+        await coordinator.ApplyStartupPowerPolicyAsync(
+            coordinator.ManualControlVersion);
+
+        Assert.IsEmpty(_writes);
+        Assert.IsTrue(_state.MainPower);
+        Assert.IsTrue(_state.BackgroundPower);
+    }
+
+    [TestMethod]
+    public async Task ManualControlDuringStartupPowerRefreshCancelsWrite()
+    {
+        _state = CreateState(mainPower: false, backgroundPower: false);
+        ShutdownRestoreCoordinator? coordinator = null;
+        coordinator = CreateCoordinator(
+            refresh: _ =>
+            {
+                coordinator!.RecordManualControl();
+                return Task.FromResult<LibraProState?>(_state);
+            },
+            settings: CreateStartupPowerSettings());
+        using (coordinator)
+        {
+            await coordinator.ApplyStartupPowerPolicyAsync(
+                coordinator.ManualControlVersion);
+        }
+
+        Assert.IsEmpty(_writes);
+        Assert.IsFalse(_state.MainPower);
+        Assert.IsFalse(_state.BackgroundPower);
+    }
+
     private ShutdownRestoreCoordinator CreateCoordinator(
-        Func<CancellationToken, Task<LibraProState?>>? refresh = null) =>
+        Func<CancellationToken, Task<LibraProState?>>? refresh = null,
+        Func<bool, bool, CancellationToken, Task<LibraProState>>?
+            applyPower = null,
+        WindowsAutomationSettings? settings = null) =>
         new(
-            new WindowsAutomationSettings
+            settings ?? new WindowsAutomationSettings
             {
                 ShutdownAndStartupEnabled = true,
             },
@@ -182,7 +381,16 @@ public sealed class ShutdownRestoreCoordinatorTests
                 return Task.FromResult(_state);
             },
             refresh ?? (_ => Task.FromResult<LibraProState?>(_state)),
-            () => Now);
+            () => Now,
+            applyPowerState: applyPower);
+
+    private static WindowsAutomationSettings CreateStartupPowerSettings() =>
+        new()
+        {
+            StartWithWindows = true,
+            TurnOnLightsAfterWindowsStartup = true,
+            ShutdownAndStartupEnabled = true,
+        };
 
     private static LibraProState Apply(
         LibraProState state,

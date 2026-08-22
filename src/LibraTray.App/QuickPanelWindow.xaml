@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="LibraTray"
         Width="408"
-        Height="590"
+        SizeToContent="Height"
         MinWidth="368"
         ResizeMode="NoResize"
         WindowStyle="None"
@@ -25,7 +25,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="12" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
+                <RowDefinition Height="16" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
@@ -222,7 +222,39 @@
                                    VerticalAlignment="Center"
                                    Text="{Binding BackgroundBrightness}" />
                     </Grid>
+                    <StackPanel Margin="0,13,0,0"
+                                Orientation="Horizontal">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ExperimentalSegmentRgbEnabled}"
+                                                 Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <RadioButton Margin="52,0,14,0"
+                                     Content="{DynamicResource Text.WholeColor}"
+                                     IsChecked="{Binding IsWholeColorMode, Mode=OneWay}"
+                                     Checked="WholeColorMode_Checked" />
+                        <RadioButton Content="{DynamicResource Text.SegmentColor}"
+                                     IsChecked="{Binding IsSegmentColorMode, Mode=OneWay}"
+                                     Checked="SegmentColorMode_Checked" />
+                    </StackPanel>
                     <StackPanel Margin="0,15,0,0" Orientation="Horizontal">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSegmentColorMode}"
+                                                 Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
                         <TextBlock Width="52"
                                    VerticalAlignment="Center"
                                    Text="{DynamicResource Text.Color}"
@@ -284,7 +316,78 @@
                                 Content="{DynamicResource Text.Custom}"
                                 ToolTip="{DynamicResource Text.CustomColorTip}"
                                 Style="{StaticResource QuietButtonStyle}"
-                                Click="CustomBackgroundColor_Click" />
+                                 Click="CustomBackgroundColor_Click" />
+                    </StackPanel>
+                    <StackPanel Margin="0,12,0,0">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSegmentColorMode}"
+                                                 Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="52" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="10" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center"
+                                       Text="{DynamicResource Text.Color}"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" />
+                            <Button Grid.Column="1"
+                                    Height="34"
+                                    Padding="5,3"
+                                    Style="{StaticResource QuietButtonStyle}"
+                                    Click="LeftSegmentColor_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Width="24" Height="20"
+                                            CornerRadius="5"
+                                            Background="{Binding LeftSegmentBrush}" />
+                                    <TextBlock Margin="8,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Text="{DynamicResource Text.LeftZone}" />
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="3"
+                                    Height="34"
+                                    Padding="5,3"
+                                    Style="{StaticResource QuietButtonStyle}"
+                                    Click="RightSegmentColor_Click">
+                                <StackPanel Orientation="Horizontal">
+                                    <Border Width="24" Height="20"
+                                            CornerRadius="5"
+                                            Background="{Binding RightSegmentBrush}" />
+                                    <TextBlock Margin="8,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Text="{DynamicResource Text.RightZone}" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                        <StackPanel Margin="52,9,0,0" Orientation="Horizontal">
+                            <Button Content="{DynamicResource Text.Swap}"
+                                    Style="{StaticResource QuietButtonStyle}"
+                                    Click="SwapSegmentColor_Click" />
+                            <Button Margin="7,0,0,0"
+                                    Content="{DynamicResource Text.Apply}"
+                                    IsEnabled="{Binding CanApplySegmentRgb}"
+                                    Style="{StaticResource QuietButtonStyle}"
+                                    Click="ApplySegmentColor_Click" />
+                            <Button Margin="7,0,0,0"
+                                    Content="{DynamicResource Text.RestoreWholeColor}"
+                                    Style="{StaticResource QuietButtonStyle}"
+                                    Click="RestoreWholeColor_Click" />
+                        </StackPanel>
+                        <TextBlock Margin="52,7,0,0"
+                                   Text="{Binding SegmentRgbStatus}"
+                                   TextWrapping="Wrap"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource WarningBrush}" />
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -382,6 +485,25 @@
                                    BasedOn="{StaticResource {x:Type TextBlock}}">
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding AutomationStatus}"
+                                                 Value="{x:Null}">
+                                        <Setter Property="Visibility"
+                                                Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Margin="0,4,12,0"
+                               MaxWidth="280"
+                               Text="{Binding DiagnosticStatus}"
+                               TextWrapping="Wrap"
+                               FontSize="11"
+                               Foreground="{DynamicResource WarningBrush}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock"
+                                   BasedOn="{StaticResource {x:Type TextBlock}}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding DiagnosticStatus}"
                                                  Value="{x:Null}">
                                         <Setter Property="Visibility"
                                                 Value="Collapsed" />

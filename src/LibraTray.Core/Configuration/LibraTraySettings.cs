@@ -5,7 +5,7 @@ namespace LibraTray.Core.Configuration;
 
 public sealed record LibraTraySettings
 {
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 5;
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
 
@@ -18,6 +18,8 @@ public sealed record LibraTraySettings
     public int ColorTemperatureStep { get; init; } = 100;
 
     public bool AllowExtremeColorTemperature { get; init; }
+
+    public bool ExperimentalSegmentRgbEnabled { get; init; }
 
     public bool AdjustBrightnessWithTrayWheel { get; init; } = true;
 
@@ -53,6 +55,8 @@ public sealed record WindowsAutomationSettings
     public bool LockAndUnlockEnabled { get; init; }
 
     public bool StartWithWindows { get; init; }
+
+    public bool TurnOnLightsAfterWindowsStartup { get; init; }
 
     public bool ShutdownAndStartupEnabled { get; init; }
 
@@ -104,6 +108,10 @@ public sealed record LibraProPreset
 
     public int BackgroundRgb { get; init; } = 13_395_711;
 
+    public AmbientColorMode AmbientColorMode { get; init; }
+
+    public SegmentRgbRequest? SegmentRgb { get; init; }
+
     public LibraProTargetState ToTargetState() =>
         new(
             MainPower,
@@ -111,7 +119,9 @@ public sealed record LibraProPreset
             MainColorTemperature,
             BackgroundPower,
             BackgroundBrightness,
-            BackgroundRgb);
+            BackgroundRgb,
+            AmbientColorMode,
+            SegmentRgb);
 }
 
 internal static class LibraTraySettingsNormalizer
@@ -155,6 +165,8 @@ internal static class LibraTraySettingsNormalizer
                     : defaults.ColorTemperatureStep,
             AllowExtremeColorTemperature =
                 settings.AllowExtremeColorTemperature,
+            ExperimentalSegmentRgbEnabled =
+                settings.ExperimentalSegmentRgbEnabled,
             AdjustBrightnessWithTrayWheel =
                 settings.AdjustBrightnessWithTrayWheel,
             Theme = Enum.IsDefined(settings.Theme)
@@ -166,7 +178,8 @@ internal static class LibraTraySettingsNormalizer
             ShowOnScreenDisplay = settings.ShowOnScreenDisplay,
             WindowsAutomation = NormalizeWindowsAutomation(
                 settings.WindowsAutomation,
-                defaults.WindowsAutomation),
+                defaults.WindowsAutomation,
+                settings.SchemaVersion),
             Hotkeys = NormalizeHotkeys(settings.Hotkeys, defaults.Hotkeys),
             Presets = NormalizePresets(settings.Presets),
         };
@@ -174,11 +187,16 @@ internal static class LibraTraySettingsNormalizer
 
     private static WindowsAutomationSettings NormalizeWindowsAutomation(
         WindowsAutomationSettings? settings,
-        WindowsAutomationSettings defaults)
+        WindowsAutomationSettings defaults,
+        int sourceSchemaVersion)
     {
         settings ??= defaults;
         return settings with
         {
+            TurnOnLightsAfterWindowsStartup =
+                sourceSchemaVersion >= 5
+                && settings.StartWithWindows
+                && settings.TurnOnLightsAfterWindowsStartup,
             ManualSuppressionSeconds = IsInRange(
                 settings.ManualSuppressionSeconds,
                 0,
@@ -237,7 +255,10 @@ internal static class LibraTraySettingsNormalizer
                 || !IsInRange(preset.MainBrightness, 1, 100)
                 || !IsInRange(preset.MainColorTemperature, 2_700, 6_500)
                 || !IsInRange(preset.BackgroundBrightness, 1, 100)
-                || !IsInRange(preset.BackgroundRgb, 0, 16_777_215))
+                || !IsInRange(preset.BackgroundRgb, 0, 16_777_215)
+                || !Enum.IsDefined(preset.AmbientColorMode)
+                || (preset.AmbientColorMode == AmbientColorMode.Segmented
+                    && preset.SegmentRgb is null))
             {
                 continue;
             }

@@ -5,7 +5,9 @@ namespace LibraTray.Core.Automation;
 
 public enum WindowsLifecycleEventKind
 {
+    SessionEndingRequested,
     SessionEnding,
+    SessionEndingCanceled,
     SessionLocked,
     SessionUnlocked,
     DisplayOff,
@@ -47,8 +49,14 @@ public sealed class WindowsLifecycleAutomationController : IDisposable
     private readonly Func<
         LibraProTargetState,
         CancellationToken,
-        Task<LibraProState>> _applyTargetState;
+        Task<LibraProState>> _restoreTargetState;
+    private readonly Func<
+        bool,
+        bool,
+        CancellationToken,
+        Task<LibraProState>>? _applyPowerState;
     private readonly Func<CancellationToken, Task<LibraProState?>> _refreshState;
+    private readonly Func<LibraProTargetState?> _readCurrentTargetState;
     private readonly Func<DateTimeOffset> _getUtcNow;
     private readonly SemaphoreSlim _operationLock = new(1, 1);
     private readonly HashSet<AutomationBlocker> _activeBlockers = [];
@@ -68,18 +76,29 @@ public sealed class WindowsLifecycleAutomationController : IDisposable
         Func<
             LibraProTargetState,
             CancellationToken,
-            Task<LibraProState>> applyTargetState,
+            Task<LibraProState>> restoreTargetState,
         Func<CancellationToken, Task<LibraProState?>> refreshState,
-        Func<DateTimeOffset>? getUtcNow = null)
+        Func<DateTimeOffset>? getUtcNow = null,
+        Func<LibraProTargetState?>? readCurrentTargetState = null,
+        Func<
+            bool,
+            bool,
+            CancellationToken,
+            Task<LibraProState>>? applyPowerState = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(readCurrentState);
-        ArgumentNullException.ThrowIfNull(applyTargetState);
+        ArgumentNullException.ThrowIfNull(restoreTargetState);
         ArgumentNullException.ThrowIfNull(refreshState);
         _settings = settings;
         _readCurrentState = readCurrentState;
-        _applyTargetState = applyTargetState;
+        _restoreTargetState = restoreTargetState;
+        _applyPowerState = applyPowerState;
         _refreshState = refreshState;
+        _readCurrentTargetState = readCurrentTargetState
+            ?? (() => _readCurrentState() is { } state
+                ? ToTargetState(state)
+                : null);
         _getUtcNow = getUtcNow ?? (() => DateTimeOffset.UtcNow);
     }
 
@@ -174,9 +193,9 @@ public sealed class WindowsLifecycleAutomationController : IDisposable
             return;
         }
 
-        if (_snapshot is null && _readCurrentState() is { } current)
+        if (_snapshot is null && _readCurrentTargetState() is { } current)
         {
-            _snapshot = ToTargetState(current);
+            _snapshot = current;
             _snapshotManualControlVersion =
                 Volatile.Read(ref _manualControlVersion);
             PublishPendingRestoreSnapshot();
@@ -203,8 +222,19 @@ public sealed class WindowsLifecycleAutomationController : IDisposable
             return;
         }
 
-        _ = await _applyTargetState(offTarget, cancellationToken)
-            .ConfigureAwait(false);
+        if (_applyPowerState is not null)
+        {
+            _ = await _applyPowerState(
+                    false,
+                    false,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            _ = await _restoreTargetState(offTarget, cancellationToken)
+                .ConfigureAwait(false);
+        }
         _automationPowerOffApplied = true;
         PublishPendingRestoreSnapshot();
         Publish(trigger, WindowsAutomationOutcome.LightsTurnedOff);
@@ -263,7 +293,7 @@ public sealed class WindowsLifecycleAutomationController : IDisposable
             return;
         }
 
-        _ = await _applyTargetState(snapshot, cancellationToken)
+        _ = await _restoreTargetState(snapshot, cancellationToken)
             .ConfigureAwait(false);
         ClearPendingRestore();
         Publish(trigger, WindowsAutomationOutcome.StateRestored);

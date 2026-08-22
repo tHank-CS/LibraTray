@@ -5,7 +5,7 @@ namespace LibraTray.Core.Automation;
 
 public sealed record ShutdownRestoreTicket
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
 
@@ -58,7 +58,17 @@ public sealed class ShutdownRestoreTicketStore : IShutdownRestoreTicketStore
                 JsonSerializer.Deserialize<ShutdownRestoreTicket>(
                     json,
                     SerializerOptions);
-            return IsStructurallyValid(ticket) ? ticket : null;
+            if (!IsStructurallyValid(ticket))
+            {
+                return null;
+            }
+
+            return ticket!.SchemaVersion == 1
+                ? ticket with
+                {
+                    SchemaVersion = ShutdownRestoreTicket.CurrentSchemaVersion,
+                }
+                : ticket;
         }
         catch (Exception exception) when (
             exception is JsonException
@@ -117,7 +127,7 @@ public sealed class ShutdownRestoreTicketStore : IShutdownRestoreTicketStore
     private static bool IsStructurallyValid(ShutdownRestoreTicket? ticket) =>
         ticket is
         {
-            SchemaVersion: ShutdownRestoreTicket.CurrentSchemaVersion,
+            SchemaVersion: 1 or ShutdownRestoreTicket.CurrentSchemaVersion,
             DeviceKey.Length: > 0,
             RestoreTarget: not null,
         };

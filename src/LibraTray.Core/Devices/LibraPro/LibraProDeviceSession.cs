@@ -63,6 +63,10 @@ public sealed record LibraProDeviceSessionOptions
 
     public TimeSpan CommandQuotaWindow { get; init; } =
         TimeSpan.FromMinutes(1);
+
+    public LibraProAdapterOptions AdapterOptions { get; init; } = new();
+
+    public Action<YeelightCommandTrace>? CommandTrace { get; init; }
 }
 
 public sealed record LibraProConnectionInfo
@@ -148,6 +152,7 @@ public sealed class LibraProDeviceSession : IAsyncDisposable
             _options.CommandQuotaWindow,
             TimeSpan.Zero,
             nameof(options));
+        ArgumentNullException.ThrowIfNull(_options.AdapterOptions);
     }
 
     public event EventHandler<LibraProSessionStatusChangedEventArgs>? StatusChanged;
@@ -244,15 +249,25 @@ public sealed class LibraProDeviceSession : IAsyncDisposable
                 await client
                     .ConnectAsync(device.Response.ControlEndPoint, cancellationToken)
                     .ConfigureAwait(false);
+                IYeelightCommandTransport commandTransport =
+                    new YeelightCommandTransport(client);
+                if (_options.CommandTrace is { } trace)
+                {
+                    commandTransport = new TracingYeelightCommandTransport(
+                        commandTransport,
+                        trace);
+                }
+
                 transport = new RateLimitedYeelightCommandTransport(
-                    new YeelightCommandTransport(client),
+                    commandTransport,
                     _options.MinimumCommandInterval,
                     _options.MaximumCommandsPerWindow,
                     _options.CommandQuotaWindow);
                 adapter = new LibraProAdapter(
                     transport,
                     identity.InternalModel!,
-                    capabilities);
+                    capabilities,
+                    _options.AdapterOptions);
                 adapter.BeginConnectionEpoch(++_connectionEpoch);
                 LibraProState state = await adapter
                     .QueryStateAsync(CommandTimeout, cancellationToken)
@@ -410,6 +425,98 @@ public sealed class LibraProDeviceSession : IAsyncDisposable
                 operationToken),
             cancellationToken);
 
+    public async Task<SegmentRgbApplyResult> SetSegmentRgbAsync(
+        SegmentRgbRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ThrowIfDisposed();
+        using var operationCancellation =
+            CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                _lifetimeCancellation.Token);
+        CancellationToken operationToken = operationCancellation.Token;
+        await _operationLock.WaitAsync(operationToken).ConfigureAwait(false);
+        Interlocked.Increment(ref _commandInProgress);
+        try
+        {
+            SegmentRgbApplyResult result = await ExecuteRetriableAsync(
+                    adapter => adapter.SetSegmentRgbAsync(
+                        request,
+                        CommandTimeout,
+                        operationToken),
+                    "segment RGB request",
+                    "The segment RGB request failed.",
+                    operationToken)
+                .ConfigureAwait(false);
+            PublishState(result.State);
+            ConfirmConnected();
+            return result;
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _commandInProgress);
+            _operationLock.Release();
+        }
+    }
+
+    public Task<LibraProState> ApplyPowerStateAsync(
+        bool mainPower,
+        bool backgroundPower,
+        CancellationToken cancellationToken = default) =>
+        ExecuteAsync(
+            (adapter, token) => adapter.ApplyPowerStateAsync(
+                mainPower,
+                backgroundPower,
+                CommandTimeout,
+                token),
+            cancellationToken);
+
+    public Task<LibraProState> RestoreLifecycleTargetStateAsync(
+        LibraProTargetState target,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return ExecuteSingleAsync(
+            (adapter, token) => adapter.RestoreLifecycleTargetStateAsync(
+                target,
+                CommandTimeout,
+                token),
+            "The lifecycle restore failed without replaying the sequence.",
+            cancellationToken);
+    }
+
+    public Task<LibraProState> ApplyTargetStateOnceAsync(
+        LibraProTargetState target,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        return ExecuteSingleAsync(
+            (adapter, token) => adapter.ApplyTargetStateOnceAsync(
+                target,
+                CommandTimeout,
+                token),
+            "The target apply failed without replaying the sequence.",
+            cancellationToken);
+    }
+
+    public Task<LibraProState> RunBackgroundPostAsync(
+        LibraProBackgroundSnapshot restoreSnapshot,
+        bool desiredPower,
+        SegmentRgbRequest? segmentRequest,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(restoreSnapshot);
+        return ExecuteAsync(
+            (adapter, token) => adapter.RunBackgroundPostAsync(
+                restoreSnapshot,
+                desiredPower,
+                segmentRequest,
+                CommandTimeout,
+                token),
+            cancellationToken);
+    }
+
     public Task<LibraProState> ApplyTargetStateAsync(
         LibraProTargetState target,
         CancellationToken cancellationToken = default)
@@ -502,6 +609,50 @@ public sealed class LibraProDeviceSession : IAsyncDisposable
             PublishState(result.State);
             ConfirmConnected();
             return result.State;
+        }
+        finally
+        {
+            Interlocked.Decrement(ref _commandInProgress);
+            _operationLock.Release();
+        }
+    }
+
+    private async Task<LibraProState> ExecuteSingleAsync(
+        Func<
+            LibraProAdapter,
+            CancellationToken,
+            Task<LibraProCommandResult>> operation,
+        string failureMessage,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        ThrowIfDisposed();
+        using var operationCancellation =
+            CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                _lifetimeCancellation.Token);
+        CancellationToken operationToken = operationCancellation.Token;
+        await _operationLock.WaitAsync(operationToken).ConfigureAwait(false);
+        Interlocked.Increment(ref _commandInProgress);
+
+        try
+        {
+            try
+            {
+                LibraProCommandResult result = await operation(
+                        GetConnectedAdapter(),
+                        operationToken)
+                    .ConfigureAwait(false);
+                PublishState(result.State);
+                ConfirmConnected();
+                return result.State;
+            }
+            catch (Exception exception) when (
+                exception is not OperationCanceledException)
+            {
+                ReportOperationFailure(failureMessage, exception);
+                throw;
+            }
         }
         finally
         {
