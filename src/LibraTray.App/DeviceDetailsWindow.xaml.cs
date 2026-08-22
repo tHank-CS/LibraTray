@@ -30,6 +30,7 @@ public partial class DeviceDetailsWindow : Window
             ? null
             : DateTimeOffset.Now;
         InitializeComponent();
+        DataContext = quickPanelViewModel;
         _session.StatusChanged += OnSessionStatusChanged;
         _session.StateChanged += OnSessionStateChanged;
         UpdateView();
@@ -77,6 +78,78 @@ public partial class DeviceDetailsWindow : Window
             RefreshButton.IsEnabled = true;
             UpdateView();
         }
+    }
+
+    private async void BackgroundPostButton_Click(
+        object sender,
+        RoutedEventArgs e)
+    {
+        _ = sender;
+        _ = e;
+        if (_quickPanelViewModel.IsSegmentColorMode
+            && _quickPanelViewModel.ExperimentalSegmentRgbEnabled
+            && !EnsureSegmentFirmwareAllowed())
+        {
+            return;
+        }
+
+        BackgroundPostButton.IsEnabled = false;
+        BackgroundPostStatusTextBlock.Text = UiText.Get("Message.ApplyingSettings");
+        try
+        {
+            bool completed = await _quickPanelViewModel.RunBackgroundPostAsync();
+            BackgroundPostStatusTextBlock.Text = UiText.Get(
+                completed
+                    ? "Message.BackgroundPostDone"
+                    : "Message.BackgroundPostFailed");
+        }
+        catch (Exception)
+        {
+            BackgroundPostStatusTextBlock.Text = UiText.Get(
+                "Message.BackgroundPostFailed");
+        }
+        finally
+        {
+            BackgroundPostButton.IsEnabled = _quickPanelViewModel.CanControl;
+            UpdateView();
+        }
+    }
+
+    private bool EnsureSegmentFirmwareAllowed()
+    {
+        SegmentRgbFirmwareAccess gate = _quickPanelViewModel.GetSegmentFirmwareGate();
+        if (gate == SegmentRgbFirmwareAccess.Allowed)
+        {
+            return true;
+        }
+
+        if (gate == SegmentRgbFirmwareAccess.Unsupported)
+        {
+            MessageBox.Show(
+                this,
+                UiText.Get("Message.SegmentRgbUnavailable"),
+                "LibraTray",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return false;
+        }
+
+        string message = UiText.Get(
+            gate == SegmentRgbFirmwareAccess.RequiresFirmwareConfirmation
+                ? "Message.SegmentFirmwareWarning"
+                : "Message.SegmentFirmwareUnknownWarning");
+        if (MessageBox.Show(
+                this,
+                message,
+                "LibraTray",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        {
+            return false;
+        }
+
+        _quickPanelViewModel.AcknowledgeCurrentSegmentFirmware();
+        return true;
     }
 
     private void CopyDiagnosticButton_Click(object sender, RoutedEventArgs e)

@@ -8,7 +8,7 @@ internal sealed class MockState
 {
     public const string SupportedMethods =
         "get_prop set_power set_bright set_ct_abx set_rgb "
-        + "bg_set_power bg_set_bright bg_set_rgb bg_set_scene";
+        + "bg_set_power bg_set_bright bg_set_rgb bg_set_scene set_segment_rgb";
 
     private readonly object _sync = new();
     private readonly Dictionary<string, string> _properties;
@@ -120,6 +120,7 @@ internal sealed class MockState
                     minimum: 0,
                     maximum: 16_777_215),
                 "bg_set_scene" => SetBackgroundColorScene(request.Parameters),
+                "set_segment_rgb" => SetSegmentRgb(request.Parameters),
                 _ => MockReply.Fail(-1, $"unsupported method: {request.Method}"),
             };
         }
@@ -143,6 +144,25 @@ internal sealed class MockState
         }
 
         return MockReply.Ok(results);
+    }
+
+    private MockReply SetSegmentRgb(IReadOnlyList<JsonElement> parameters)
+    {
+        if (!ProductIdentityMapper.IsSupportedInternalModel(_model)
+            || parameters.Count != 2
+            || parameters.Any(value => value.ValueKind != JsonValueKind.Number
+                || !value.TryGetInt32(out int rgb)
+                || rgb < 0
+                || rgb > 16_777_215))
+        {
+            return MockReply.Fail(
+                -5001,
+                "set_segment_rgb expects two RGB integers for lamp15");
+        }
+
+        // Segment values intentionally remain write-only, matching the real
+        // firmware's lack of readable segment properties.
+        return MockReply.Ok(["ok"]);
     }
 
     private MockReply SetPower(

@@ -45,12 +45,16 @@ public partial class SettingsWindow : Window
             CultureInfo.InvariantCulture);
         ExtremeColorTemperatureCheckBox.IsChecked =
             settings.AllowExtremeColorTemperature;
+        ExperimentalSegmentRgbCheckBox.IsChecked =
+            settings.ExperimentalSegmentRgbEnabled;
         TrayWheelCheckBox.IsChecked =
             settings.AdjustBrightnessWithTrayWheel;
         LockAutomationCheckBox.IsChecked =
             settings.WindowsAutomation.LockAndUnlockEnabled;
         StartWithWindowsCheckBox.IsChecked =
             settings.WindowsAutomation.StartWithWindows;
+        TurnOnLightsAfterStartupCheckBox.IsChecked =
+            settings.WindowsAutomation.TurnOnLightsAfterWindowsStartup;
         ShutdownAutomationCheckBox.IsChecked =
             settings.WindowsAutomation.ShutdownAndStartupEnabled;
         DisplayAutomationCheckBox.IsChecked =
@@ -212,6 +216,8 @@ public partial class SettingsWindow : Window
             ColorTemperatureStep = temperatureStep,
             AllowExtremeColorTemperature =
                 ExtremeColorTemperatureCheckBox.IsChecked == true,
+            ExperimentalSegmentRgbEnabled =
+                ExperimentalSegmentRgbCheckBox.IsChecked == true,
             AdjustBrightnessWithTrayWheel = TrayWheelCheckBox.IsChecked == true,
             Theme = (AppTheme)Math.Max(0, ThemeComboBox.SelectedIndex),
             Language = (AppLanguage)Math.Max(0, LanguageComboBox.SelectedIndex),
@@ -222,6 +228,9 @@ public partial class SettingsWindow : Window
                     LockAutomationCheckBox.IsChecked == true,
                 StartWithWindows =
                     StartWithWindowsCheckBox.IsChecked == true,
+                TurnOnLightsAfterWindowsStartup =
+                    StartWithWindowsCheckBox.IsChecked == true
+                    && TurnOnLightsAfterStartupCheckBox.IsChecked == true,
                 ShutdownAndStartupEnabled =
                     ShutdownAutomationCheckBox.IsChecked == true,
                 DisplayPowerEnabled =

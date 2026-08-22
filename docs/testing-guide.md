@@ -149,13 +149,12 @@ Do not test replacement-firmware devices as evidence for the stock protocol.
    `power,main_power,bg_power` before and after the command. It verifies
    `main_power` against the requested value, recomputes aggregate `power`, and
    rejects any unexpected change to `bg_power`.
-   The current probe still rejects `set_segment_rgb`, even when the device
-   advertises it. A future implementation may expose it only through a separate,
-   default-off experimental path with explicit risk confirmation, exact
-   `lamp15`/firmware/capability gates, before/after dual-channel capture, and a
-   whole-background recovery path. Because no segment property is readable,
-   physical confirmation is required and requested colours must not be reported
-   as confirmed state.
+   The probe still rejects `set_segment_rgb`, even when the device advertises
+   it. Version 1.1.0 exposes it only through a separate,
+   default-off experimental adapter path with exact identity/capability/firmware
+   gates, before/after ordinary-state capture, and a whole-background recovery
+   path. Because no segment property is readable, physical confirmation is
+   required and requested colours must not be reported as confirmed state.
    The exact-`lamp15` `bg_set_scene` path is retained only as a temporary
    recovery diagnostic. It initializes the current running session but does
    not persist across a cold cycle.
@@ -181,12 +180,12 @@ Record every row separately for the tested firmware:
 | Area | Evidence to capture | Current status |
 | --- | --- | --- |
 | discovery address/port and TCP `Location` | raw redacted response | Verified once on firmware 38; multi-NIC host required explicit local binding |
-| message terminator and request ID | exact request/response bytes | Verified for `get_prop`, basic main/background writes, and the now-disabled `set_segment_rgb` on firmware 38 |
+| message terminator and request ID | exact request/response bytes | Verified for `get_prop`, basic main/background writes, and experimental `set_segment_rgb` on firmware 38 |
 | initial main properties | response and physical state | Verified once on firmware 38 |
 | initial ambient properties | response and physical state | Verified once on firmware 38 |
 | main power/brightness/temperature | request, result, notification, query | `set_power` on/off, `set_bright`, and 5000→4000 K `set_ct_abx` locally verified; the 2700–6500 K native range was confirmed directly with Yeelight by the maintainer on 2026-08-04; off follows the vendor-app ambient-follow policy |
 | ambient power/brightness/color | request, result, notification, query | `bg_set_power` off/on, `bg_set_bright`, and `bg_set_rgb` verified; off notification is unreliable |
-| ambient left/right segments | exact request, result, physical side mapping | Immediate left/right mapping verified twice on the only test device; eligible for a guarded experimental path, but causality and readable state remain unresolved |
+| ambient left/right segments | exact request, result, physical side mapping | Immediate left/right mapping verified twice on the only test device; implemented as a guarded v1.1.0 experiment, but causality and readable state remain unresolved |
 | both-channel power interaction | before/after state | Three power combinations queried on firmware 38 |
 | one channel off, other on | before/after state | `main_power`/`bg_power` query semantics verified |
 | physical-knob updates | notification plus reconciliation query | Brightness/CT observed; independent background off can notify `bg_power=on` |
@@ -211,11 +210,70 @@ as stable or causally proven safe.
   Physical cold starts are rare abnormal events, not a routine gate for every
   ordinary control change.
 - Cold-power tests require a task-specific reason and explicit approval. They
-  are required when validating a future POST, cold-start recovery, or claimed
+  are required when validating POST, cold-start recovery, or claimed
   persistence behavior.
-- A future POST must be tested independently for trigger accuracy, one-attempt
+- POST must be tested independently for trigger accuracy, one-attempt
   bounds, main-channel preservation, background appearance/power restoration,
   visible-flash behavior, and failure reporting.
+
+## v1.1.0 maintainer acceptance
+
+Run these groups separately and record the exact starting state and result:
+
+1. Enable experimental segmented RGB, set visibly distinct left/right colours,
+   swap them, restore whole colour, save/apply presets with ambient both on and
+   off, then verify one Windows `--startup` replay. Applying an on-state preset
+   may show one transition from the persistent template but must not oscillate,
+   and both requested powers must finish correctly. An off-state preset must
+   not light either channel. Every segmented success must
+   say “sent; visually confirm,” never “confirmed.”
+2. With Wallpaper Engine configured as a secure Windows screensaver, verify
+   that screensaver start turns the selected channels off; returning to the
+   lock screen does not restore or send a second off; unlocking restores once.
+   Repeat with `Win+L` and overlapping display-off/display-on events. Wait past
+   the configured manual-suppression interval before each entry test. With a
+   segmented target active, lock entry must not flash or resend appearance;
+   visually confirm after unlock that the main channel returns, the background
+   does not oscillate between the persistent template and requested zones, and
+   the final left/right request is visible. Record any single transition from
+   the device-side power-on template separately from repeated oscillation.
+3. Enable Windows startup and shutdown synchronization. Shut down once from a
+   both-channels-on state and once from a single-channel-on state. Confirm
+   power-off during shutdown and conditional restoration only after the next
+   Windows startup launch. Before shutdown completes, the bounded automation
+   log should contain `SessionEndingRequested` and `shutdown-ticket Prepared`;
+   after login it should contain `startup-restore` with `Ticket=True`, followed
+   by `ApplyingTicket` and `shutdown-restore StateRestored`. If shutdown is
+   canceled, confirm `SessionEndingCanceled` clears the prepared ticket.
+4. Separately enable **Turn on the main and ambient lights after signing in**,
+   leave both channels off before a normal Windows restart, and confirm that a
+   `--startup` launch waits for the device and turns both channels on without a
+   ticket. The log should show `PowerOn=True` and `ApplyingPowerOnPolicy`.
+   Repeat once with a segmented ambient target and confirm no repeated
+   whole/segment oscillation. Manual control during the wait must cancel the
+   pending power-on.
+
+The manual POST cold-power acceptance is a separate, explicitly confirmed test:
+perform one controlled cold power cycle, invoke the Device-window POST once,
+record any 1% flash, ambient restoration and segment replay, and verify that
+main power, brightness, and colour temperature did not change.
+
+When further isolating the 2026-08-09 persistent `#CC66FF`/50% slow-on
+observation, launch the diagnostic build with:
+
+```powershell
+.\.dotnet\dotnet.exe run --project .\src\LibraTray.App\LibraTray.App.csproj `
+  -c Debug -- --show --segment-isolation-diagnostics
+```
+
+Confirm the panel warning says automatic scene recovery and Windows automation
+writes are paused. The saved Windows settings and any shutdown ticket remain
+untouched. Preserve
+the existing device state; the next cold-power cycle still requires explicit
+approval. After that cycle, first use ordinary ambient power once, then inspect
+the bounded trace for `bg_set_power`, `get_prop`, and the absence of automatic
+`bg_set_scene`. Do not invoke POST during this isolation step. Record the visual
+transition and a physical remote off/on separately.
 
 ## Evidence record
 

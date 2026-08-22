@@ -2,7 +2,7 @@
 
 ## Status
 
-This is the synchronization contract for the future Libra Pro adapter. The
+This is the synchronization contract for the Libra Pro adapter. The
 generic request/result/`props` model is officially documented. Physical-knob
 brightness/temperature notifications and two-channel queries were observed on
 one firmware-38 YLTD003 session. Independent background-power notifications
@@ -125,12 +125,12 @@ The adapter treats this as a failed postcondition, not as a successful write:
 
 Ordinary TCP reconnects do not unconditionally trigger a scene because network
 jitter and idle disconnects are not proof of a device reboot. The default is
-lazy recovery after a verified write mismatch. A future power-on self-test
-(POST) may perform one proactive check/recovery after an explicit cold-start
-signal or user-invoked diagnostic. It must preserve main state, restore the
-cached background appearance and desired power, report failure rather than
-loop, and warn about a brief visible flash when the desired background state is
-off.
+lazy recovery after a verified write mismatch. The Device window also exposes
+a user-invoked POST. It performs exactly one 1%-brightness scene initialization,
+restores cached ambient appearance and power, restores a remembered segment
+request when applicable, preserves the complete main state, reports failure
+rather than looping, and warns about a brief visible flash when the desired
+ambient state is off.
 
 The readable properties do not reveal whether LEDs are physically emitting
 light. The verified mismatch (`ok` followed by `bg_power=off`) is detectable;
@@ -141,6 +141,22 @@ The complete bounded recovery sequence was physically confirmed on firmware 38
 on 2026-07-31: visible background output returned and ordinary background
 control worked again for that running session. This confirms the recovery
 behavior, not persistence across a later cold power cycle.
+
+A later 2026-08-09 cold-start observation produced a different failure mode:
+ambient control remained available, but power-on— including a physical remote
+cycle—slowly restored a `#CC66FF`, 50% whole-background template. Because the
+preceding cycle did not record whether automatic `bg_set_scene` recovery ran,
+the persistent template cannot yet be attributed to `set_segment_rgb` or scene
+recovery. The diagnostic isolation launch mode disables only automatic scene
+recovery and records every actual command attempt so the next explicitly
+approved cold-start test does not repeat that confounder.
+
+On 2026-08-10, the same device confirmed that power-only lock entry does not
+flash a segmented target. Its former full-target unlock path did oscillate
+between the persistent whole-colour template and the requested zones, left the
+main channel off, and exhausted verification retries. Lifecycle restoration is
+therefore a separate single bounded sequence rather than a retryable preset
+application.
 
 ## High-frequency controls
 
@@ -165,17 +181,28 @@ behind the active reconciliation query, so the UI converges to the latest
 confirmed state without replaying every intermediate value.
 
 Transient timeout, device-busy (`-1`), protocol, disconnect, and verified
-postcondition failures receive two retries after 300 ms and 900 ms. Idempotent
-setting commands are resent, then re-read. The UI remains online and exposes
-retry progress. A successful re-read publishes the complete state and resets
-the session status to connected; only exhaustion produces an operation error.
+postcondition failures receive two retries after 300 ms and 900 ms for ordinary
+single-setting commands. Idempotent setting commands are resent, then re-read.
+Multi-command preset and lifecycle restore sequences are deliberately excluded
+because replaying the whole sequence can create visible power/appearance
+oscillation. The UI remains online and exposes retry progress for operations
+that remain retryable.
 
-A local preset is one idempotent target-state operation. The adapter writes
-main appearance, background appearance, main power, and background power in
-that order, then reads the complete state once. Background power is last so the
-vendor-app follow-main policy cannot overwrite the requested independent final
-state. A mismatch enters the same bounded retry path; a verified cold-start
-background failure may use the established once-per-connection recovery.
+A local preset is one bounded target-state operation. The adapter reads first,
+writes changed main appearance and power, re-reads after the possible
+follow-main side effect, applies background appearance before power-on, then
+applies the background appearance once more after power-on to supersede the
+device-side template. It reads the complete state once at the end. A mismatch
+is reported without replaying the multi-command sequence or invoking automatic
+scene recovery.
+
+Segment colours form a separate requested-state record, not confirmed device
+state. A segmented preset sends the two requested colours even when ambient
+power is off without turning a channel on. Ordinary readable state
+must remain intact, but `bg_rgb` is not compared to either zone because firmware
+does not expose the zones. A successful whole-background RGB write changes the
+local mode back to whole colour. Ordinary reconnect never replays the local
+segment record.
 
 ## Notifications
 
@@ -213,17 +240,42 @@ Never spin in a query loop. Rate limiting and backoff apply to reconciliation.
 
 ## Windows lifecycle automation
 
-Future lock/display/sleep actions enter the same command pipeline with source
-metadata and conservative precedence:
+Windows lifecycle actions enter the same command pipeline with conservative
+precedence. WTS lock state, secure-screensaver state, and display power are
+fused into blockers. A secure screensaver or locked session closes the lock
+blocker; display-on cannot restore while either remains. Screensaver end needs
+an explicit WTS unlock or two consecutive unlocked WTS samples before a single
+restore. Failed queries preserve the known blocker rather than guessing that it
+cleared. Duplicate and late events do not generate additional writes. Entering
+a blocker uses the adapter's power-only path, so it never resends brightness,
+colour temperature, whole-background RGB, or a segmented request before
+turning the channels off. The saved complete target is used only after all
+blockers clear. Restore first establishes the requested channel powers, then
+restores background brightness and applies whole or segmented appearance after
+background power-on. The complete sequence is never replayed after a
+verification failure; segmented appearance remains a requested, visually
+confirmed value.
 
-- automation is individually opt-in;
-- duplicate sleep/display events are debounced;
-- recent explicit user action wins within a suppression window;
-- sleep stores intent but does not wait indefinitely on network I/O;
-- wake waits for network recovery, reconnects, then queries before restoring;
-- restore is skipped if newer user/device state exists.
+The initial `WM_QUERYENDSESSION` atomically prepares a short-lived,
+hashed-device one-time ticket without sending a network command. Confirmed
+`WM_ENDSESSION` handling then sends only the necessary main and ambient power
+changes and re-reads them within the eight-second budget. A canceled end-session
+request clears the prepared ticket. This split preserves restoration intent if
+the final notification is unavailable while still keeping query handling fast.
+Only a Windows `--startup` launch may consume a ticket. It waits up to one
+minute for the device, clears the ticket without lighting anything if the
+original state is already present, restores only from the expected off state,
+and skips restoration after a newer device or user change. A segmented target
+is carried as a request rather than confirmed state. Ticket restoration takes
+priority over ordinary segmented startup replay.
 
-This behavior is planned and unimplemented at the current milestone.
+The independent sign-in power policy does not use a shutdown ticket. When it
+is explicitly enabled together with current-user startup registration, only a
+Windows `--startup` launch may invoke it. The application waits within the same
+one-minute connection window, evaluates any shutdown ticket first, and then
+uses a power-only write to turn on both channels. A pending segmented request
+is applied once after ambient power-on when the ticket path did not already do
+so. Manual control observed during the wait cancels the automatic power-on.
 
 ## Test coverage
 

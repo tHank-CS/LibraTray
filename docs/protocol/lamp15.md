@@ -15,8 +15,8 @@ Therefore:
 - generic protocol syntax listed in Yeelight's public specification is
   **officially documented**;
 - only the exact properties and operations recorded below are device-observed;
-- no production `lamp15` adapter exists yet, and the probe exposes no
-  `lamp15`-specific private method;
+- the application adapter supports only exact `lamp15`; the diagnostic probe
+  continues to reject direct use of the private segmented-colour method;
 - a method advertised in `support` is eligible for a careful probe, not
   automatically trusted as semantically correct.
 
@@ -108,8 +108,29 @@ The 2026-07-31 session established:
 - on 2026-08-04, the maintainer explicitly accepted proceeding with a guarded
   experimental implementation despite the unresolved cold-start causality and
   single-device evidence limit. This changes the product risk decision, not the
-  historical evidence or its confidence. The current executable paths remain
-  disabled until that implementation and its tests are added.
+  historical evidence or its confidence. Version 1.1.0 implements that
+  default-off guarded path without promoting the evidence to stable status.
+- on 2026-08-09, after applying distinct left/right colours and performing a
+  cold start, the ambient renderer no longer remained silent and ordinary
+  program control worked. However, each ambient power-on slowly restored a
+  whole-background `#CC66FF` appearance at 50% brightness. The same appearance
+  returned after an independent physical remote off/on cycle, so the repeated
+  restoration is device-side rather than a local preset or notification write.
+  No local preset existed and the last requested segment colours were different.
+  The observation is consistent with a persistent scene/template mode, but the
+  initiating write remains unverified: the segment command itself and a later
+  automatic `bg_set_scene` recovery were not traced separately in that cycle.
+- on 2026-08-10, a power-only Windows lock entry turned both channels off
+  cleanly while segmented colour was active. The former full-target unlock
+  path then left the main light off and repeatedly alternated the background
+  between the persistent `#CC66FF` template and the requested zones before
+  ending in a single colour. The automation log confirmed an 11-second bounded
+  retry sequence ending in state-verification failure. This is device evidence
+  that lifecycle restoration must not replay the complete preset sequence.
+- the same main-off and whole/segment oscillation was then reproduced when
+  applying a segmented local preset. Presets and startup-ticket restoration
+  must therefore use the same no-complete-sequence-replay boundary; this is not
+  limited to WTS lifecycle events.
 
 On 2026-08-04, the maintainer confirmed directly with Yeelight that the native
 main-light colour-temperature range for Libra Pro / `lamp15` is 2700–6500 K.
@@ -174,6 +195,39 @@ read. Values in `props` are documented as partial updates and commonly strings.
 
 Parameters are taken only from the official specification or the probe's
 evidence record. LibraTray does not invent parameter order or default values.
+
+### Experimental segment command policy
+
+Version 1.1.0 exposes `set_segment_rgb(leftRgb, rightRgb)` only through
+the Libra Pro adapter. It requires exact `lamp15`, an advertised capability,
+the default-off user setting, and a firmware gate. Firmware 38 is the recorded
+device-evidence target; another known firmware requires a remembered warning,
+while an unknown firmware permits only a session-confirmed manual operation and
+is never replayed at startup.
+
+The adapter snapshots ordinary readable state before the command and queries it
+again afterwards. Success means only that the command returned `ok` and did not
+change main power/appearance or ambient power/brightness. The left and right
+colours remain local requested values and are never inserted into
+`LibraProState`. Ordinary reconnect never replays them. A Windows `--startup`
+launch may replay one remembered request after the device is ready; shutdown
+restore takes precedence.
+
+The manual ambient POST sends one
+`bg_set_scene("color", currentWholeRgb, 1)` initialization, restores the prior
+brightness and power, then restores either the whole RGB or the last segmented
+request. It is serialized and bounded, preserves the main channel, warns about
+a possible minimum-brightness flash, and remains a runtime recovery rather than
+a firmware repair.
+
+For isolation testing, `--segment-isolation-diagnostics` disables every
+automatic verified-failure `bg_set_scene` path and pauses Windows lifecycle and
+startup replay writes in memory, while retaining manual ordinary power,
+whole-colour, segmented-colour, and explicitly invoked POST operations. It logs
+only bounded command methods, parameters, results, failure types, and elapsed
+times to `%LOCALAPPDATA%\LibraTray\logs\segment-isolation.log`; discovery
+identity and network endpoints are not included. A mode header explicitly
+records that automatic scene recovery and Windows automation writes were disabled.
 
 ## Property research matrix
 

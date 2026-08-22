@@ -9,6 +9,7 @@ public enum ShutdownRestoreOutcome
 {
     Ignored,
     TicketSaved,
+    LightsTurnedOn,
     StateAlreadyCurrent,
     StateRestored,
     SkippedDifferentDevice,
@@ -38,8 +39,14 @@ public sealed class ShutdownRestoreCoordinator : IDisposable
         LibraProTargetState,
         CancellationToken,
         Task<LibraProState>> _applyTargetState;
+    private readonly Func<
+        bool,
+        bool,
+        CancellationToken,
+        Task<LibraProState>> _applyPowerState;
     private readonly Func<CancellationToken, Task<LibraProState?>> _refreshState;
     private readonly Func<DateTimeOffset> _getUtcNow;
+    private readonly Func<LibraProTargetState?> _readCurrentTargetState;
     private readonly SemaphoreSlim _operationLock = new(1, 1);
 
     private WindowsAutomationSettings _settings;
@@ -56,7 +63,10 @@ public sealed class ShutdownRestoreCoordinator : IDisposable
             CancellationToken,
             Task<LibraProState>> applyTargetState,
         Func<CancellationToken, Task<LibraProState?>> refreshState,
-        Func<DateTimeOffset>? getUtcNow = null)
+        Func<DateTimeOffset>? getUtcNow = null,
+        Func<bool, bool, CancellationToken, Task<LibraProState>>?
+            applyPowerState = null,
+        Func<LibraProTargetState?>? readCurrentTargetState = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(store);
@@ -69,8 +79,27 @@ public sealed class ShutdownRestoreCoordinator : IDisposable
         _readDeviceId = readDeviceId;
         _readCurrentState = readCurrentState;
         _applyTargetState = applyTargetState;
+        _applyPowerState = applyPowerState ?? ((mainPower, backgroundPower, token) =>
+        {
+            LibraProState state = _readCurrentState()
+                ?? throw new InvalidOperationException(
+                    "No confirmed state is available for a power-only operation.");
+            return _applyTargetState(
+                new LibraProTargetState(
+                    mainPower,
+                    state.MainBrightness,
+                    state.MainColorTemperature,
+                    backgroundPower,
+                    state.BackgroundBrightness,
+                    state.BackgroundRgb),
+                token);
+        });
         _refreshState = refreshState;
         _getUtcNow = getUtcNow ?? (() => DateTimeOffset.UtcNow);
+        _readCurrentTargetState = readCurrentTargetState
+            ?? (() => _readCurrentState() is { } state
+                ? ToTargetState(state)
+                : null);
         if (!settings.ShutdownAndStartupEnabled)
         {
             TryClearTicket();
@@ -80,6 +109,9 @@ public sealed class ShutdownRestoreCoordinator : IDisposable
     public event EventHandler<ShutdownRestoreStatusEventArgs>? StatusChanged;
 
     public bool HasPendingRestore => _store.Load() is not null;
+
+    public long ManualControlVersion =>
+        Volatile.Read(ref _manualControlVersion);
 
     public void Configure(WindowsAutomationSettings settings)
     {
@@ -96,6 +128,47 @@ public sealed class ShutdownRestoreCoordinator : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         Interlocked.Increment(ref _manualControlVersion);
+    }
+
+    public bool PrepareTicketForPotentialShutdown(
+        AutomationRestoreSnapshot? lifecycleSnapshot = null)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!_settings.ShutdownAndStartupEnabled)
+        {
+            return false;
+        }
+
+        string? deviceKey = CreateDeviceKey(_readDeviceId());
+        LibraProState? current = _readCurrentState();
+        if (deviceKey is null || current is null)
+        {
+            return false;
+        }
+
+        LibraProTargetState restoreTarget = lifecycleSnapshot?.Target
+            ?? _readCurrentTargetState()
+            ?? ToTargetState(current);
+        if (!restoreTarget.MainPower && !restoreTarget.BackgroundPower)
+        {
+            TryClearTicket();
+            return false;
+        }
+
+        _store.Save(
+            new ShutdownRestoreTicket
+            {
+                DeviceKey = deviceKey,
+                CreatedUtc = _getUtcNow(),
+                RestoreTarget = restoreTarget,
+            });
+        return true;
+    }
+
+    public void CancelPotentialShutdown()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        TryClearTicket();
     }
 
     public async Task PrepareForShutdownAsync(
@@ -121,22 +194,31 @@ public sealed class ShutdownRestoreCoordinator : IDisposable
             }
 
             LibraProTargetState restoreTarget = lifecycleSnapshot?.Target
+                ?? _readCurrentTargetState()
                 ?? ToTargetState(current);
             LibraProTargetState offTarget = WithPower(
                 restoreTarget,
                 enabled: false);
 
-            if (Matches(current, offTarget)
-                && lifecycleSnapshot?.PowerOffApplied != true)
+            if (!restoreTarget.MainPower && !restoreTarget.BackgroundPower)
             {
                 TryClearTicket();
                 Publish(ShutdownRestoreOutcome.StateAlreadyCurrent);
                 return;
             }
 
+            if (!PrepareTicketForPotentialShutdown(lifecycleSnapshot))
+            {
+                Publish(ShutdownRestoreOutcome.Failed);
+                return;
+            }
+
             if (!Matches(current, offTarget))
             {
-                current = await _applyTargetState(offTarget, cancellationToken)
+                current = await _applyPowerState(
+                        false,
+                        false,
+                        cancellationToken)
                     .ConfigureAwait(false);
             }
 
@@ -146,20 +228,6 @@ public sealed class ShutdownRestoreCoordinator : IDisposable
                 return;
             }
 
-            if (!restoreTarget.MainPower && !restoreTarget.BackgroundPower)
-            {
-                TryClearTicket();
-                Publish(ShutdownRestoreOutcome.StateAlreadyCurrent);
-                return;
-            }
-
-            _store.Save(
-                new ShutdownRestoreTicket
-                {
-                    DeviceKey = deviceKey,
-                    CreatedUtc = _getUtcNow(),
-                    RestoreTarget = restoreTarget,
-                });
             Publish(ShutdownRestoreOutcome.TicketSaved);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -269,6 +337,72 @@ public sealed class ShutdownRestoreCoordinator : IDisposable
         }
     }
 
+    public async Task ApplyStartupPowerPolicyAsync(
+        long expectedManualControlVersion,
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!_settings.StartWithWindows
+                || !_settings.TurnOnLightsAfterWindowsStartup)
+            {
+                Publish(ShutdownRestoreOutcome.Ignored);
+                return;
+            }
+
+            if (expectedManualControlVersion
+                != Volatile.Read(ref _manualControlVersion))
+            {
+                Publish(ShutdownRestoreOutcome.SkippedManualControl);
+                return;
+            }
+
+            LibraProState? current = await _refreshState(cancellationToken)
+                .ConfigureAwait(false);
+            if (current is null)
+            {
+                Publish(ShutdownRestoreOutcome.Failed);
+                return;
+            }
+
+            if (expectedManualControlVersion
+                != Volatile.Read(ref _manualControlVersion))
+            {
+                Publish(ShutdownRestoreOutcome.SkippedManualControl);
+                return;
+            }
+
+            if (current.MainPower && current.BackgroundPower)
+            {
+                Publish(ShutdownRestoreOutcome.StateAlreadyCurrent);
+                return;
+            }
+
+            current = await _applyPowerState(
+                    true,
+                    true,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            Publish(current.MainPower && current.BackgroundPower
+                ? ShutdownRestoreOutcome.LightsTurnedOn
+                : ShutdownRestoreOutcome.Failed);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            Publish(ShutdownRestoreOutcome.Failed);
+        }
+        catch (Exception exception)
+        {
+            Publish(ShutdownRestoreOutcome.Failed, exception);
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -331,7 +465,9 @@ public sealed class ShutdownRestoreCoordinator : IDisposable
             state.MainColorTemperature,
             enabled,
             state.BackgroundBrightness,
-            state.BackgroundRgb);
+            state.BackgroundRgb,
+            state.AmbientColorMode,
+            state.SegmentRgb);
 
     internal static bool Matches(
         LibraProState state,
@@ -341,5 +477,6 @@ public sealed class ShutdownRestoreCoordinator : IDisposable
         && state.MainColorTemperature == target.MainColorTemperature
         && state.BackgroundPower == target.BackgroundPower
         && state.BackgroundBrightness == target.BackgroundBrightness
-        && state.BackgroundRgb == target.BackgroundRgb;
+        && (target.AmbientColorMode == AmbientColorMode.Segmented
+            || state.BackgroundRgb == target.BackgroundRgb);
 }

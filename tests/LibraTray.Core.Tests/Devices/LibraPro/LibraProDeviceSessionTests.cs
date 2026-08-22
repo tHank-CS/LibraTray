@@ -13,6 +13,14 @@ namespace LibraTray.Core.Tests.Devices.LibraPro;
 public sealed class LibraProDeviceSessionTests
 {
     private static readonly TimeSpan TestTimeout = TimeSpan.FromSeconds(10);
+    private static readonly string[] LifecycleRestoreWriteMethods =
+    [
+        "bg_set_bright",
+        "set_segment_rgb",
+        "bg_set_power",
+        "bg_set_bright",
+        "set_segment_rgb",
+    ];
 
     [TestMethod]
     public async Task ConnectAndVerifiedCommandPublishCompleteState()
@@ -365,6 +373,167 @@ public sealed class LibraProDeviceSessionTests
     }
 
     [TestMethod]
+    public async Task DiagnosticSessionTracesCommandsAndNeverRunsDisabledRecovery()
+    {
+        using var testCancellation = new CancellationTokenSource(TestTimeout);
+        await using var server = new LoopbackYeelightServer();
+        var traces = new System.Collections.Concurrent.ConcurrentQueue<
+            YeelightCommandTrace>();
+        await using var session = new LibraProDeviceSession(
+            new LibraProDeviceSessionOptions
+            {
+                MinimumCommandInterval = TimeSpan.Zero,
+                AdapterOptions = new LibraProAdapterOptions
+                {
+                    ColdStartRecoveryMode = LibraProColdStartRecoveryMode.Disabled,
+                },
+                CommandTrace = traces.Enqueue,
+            });
+        Task connectTask = session.ConnectAsync(
+            CreateDevice(server.EndPoint),
+            testCancellation.Token);
+        await using LoopbackYeelightConnection connection =
+            await server.AcceptAsync(testCancellation.Token);
+        ReceivedRequest initialQuery =
+            await connection.ReadRequestAsync(testCancellation.Token);
+        await WriteStateAsync(
+            connection,
+            initialQuery.Id,
+            mainBrightness: 50,
+            testCancellation.Token);
+        await connectTask;
+
+        Task<LibraProState> command = session.SetBackgroundPowerAsync(
+            true,
+            testCancellation.Token);
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            ReceivedRequest before =
+                await connection.ReadRequestAsync(testCancellation.Token);
+            Assert.AreEqual("get_prop", before.Method);
+            await WriteStateAsync(
+                connection,
+                before.Id,
+                mainBrightness: 50,
+                testCancellation.Token);
+            ReceivedRequest write =
+                await connection.ReadRequestAsync(testCancellation.Token);
+            Assert.AreEqual("bg_set_power", write.Method);
+            await WriteOkAsync(connection, write.Id, testCancellation.Token);
+            ReceivedRequest after =
+                await connection.ReadRequestAsync(testCancellation.Token);
+            Assert.AreEqual("get_prop", after.Method);
+            await WriteStateAsync(
+                connection,
+                after.Id,
+                mainBrightness: 50,
+                testCancellation.Token);
+        }
+
+        await Assert.ThrowsExactlyAsync<LibraProStateVerificationException>(
+            () => command);
+        Assert.IsGreaterThanOrEqualTo(10, traces.Count);
+        Assert.IsTrue(traces.All(trace => trace.FailureType is null));
+        Assert.IsFalse(traces.Any(trace => trace.Method == "bg_set_scene"));
+        Assert.AreEqual("get_prop", traces.First().Method);
+    }
+
+    [TestMethod]
+    public async Task LifecycleRestoreVerificationFailureDoesNotReplaySequence()
+    {
+        using var testCancellation = new CancellationTokenSource(TestTimeout);
+        await using var server = new LoopbackYeelightServer();
+        await using var session = CreateSession();
+        var observedStatuses = new List<LibraProSessionStatus>();
+        session.StatusChanged += (_, eventArgs) =>
+            observedStatuses.Add(eventArgs.Status);
+        Task connectTask = session.ConnectAsync(
+            CreateDevice(server.EndPoint),
+            testCancellation.Token);
+        await using LoopbackYeelightConnection connection =
+            await server.AcceptAsync(testCancellation.Token);
+        ReceivedRequest initialQuery =
+            await connection.ReadRequestAsync(testCancellation.Token);
+        await WriteStateAsync(
+            connection,
+            initialQuery.Id,
+            mainBrightness: 100,
+            testCancellation.Token);
+        await connectTask;
+
+        var target = new LibraProTargetState(
+            mainPower: true,
+            mainBrightness: 100,
+            mainColorTemperature: 4_000,
+            backgroundPower: true,
+            backgroundBrightness: 40,
+            backgroundRgb: 13_395_711,
+            AmbientColorMode.Segmented,
+            new SegmentRgbRequest(0x13FF00, 0x0000FF));
+        Task<LibraProState> restore = session.RestoreLifecycleTargetStateAsync(
+            target,
+            testCancellation.Token);
+
+        ReceivedRequest before =
+            await connection.ReadRequestAsync(testCancellation.Token);
+        Assert.AreEqual("get_prop", before.Method);
+        await WriteDetailedStateAsync(
+            connection,
+            before.Id,
+            mainPower: false,
+            backgroundPower: false,
+            mainBrightness: 100,
+            backgroundBrightness: 50,
+            backgroundRgb: 13_395_711,
+            testCancellation.Token);
+
+        ReceivedRequest mainPower =
+            await connection.ReadRequestAsync(testCancellation.Token);
+        Assert.AreEqual("set_power", mainPower.Method);
+        await WriteOkAsync(connection, mainPower.Id, testCancellation.Token);
+
+        ReceivedRequest intermediate =
+            await connection.ReadRequestAsync(testCancellation.Token);
+        Assert.AreEqual("get_prop", intermediate.Method);
+        await WriteDetailedStateAsync(
+            connection,
+            intermediate.Id,
+            mainPower: true,
+            backgroundPower: false,
+            mainBrightness: 100,
+            backgroundBrightness: 50,
+            backgroundRgb: 13_395_711,
+            testCancellation.Token);
+
+        foreach (string expectedMethod in LifecycleRestoreWriteMethods)
+        {
+            ReceivedRequest write =
+                await connection.ReadRequestAsync(testCancellation.Token);
+            Assert.AreEqual(expectedMethod, write.Method);
+            await WriteOkAsync(connection, write.Id, testCancellation.Token);
+        }
+
+        ReceivedRequest verification =
+            await connection.ReadRequestAsync(testCancellation.Token);
+        Assert.AreEqual("get_prop", verification.Method);
+        await WriteDetailedStateAsync(
+            connection,
+            verification.Id,
+            mainPower: false,
+            backgroundPower: true,
+            mainBrightness: 100,
+            backgroundBrightness: 40,
+            backgroundRgb: 13_395_711,
+            testCancellation.Token);
+
+        await Assert.ThrowsExactlyAsync<LibraProStateVerificationException>(
+            () => restore);
+        CollectionAssert.DoesNotContain(
+            observedStatuses,
+            LibraProSessionStatus.Retrying);
+    }
+
+    [TestMethod]
     public async Task SessionDefersRequestsThatReachRollingWindowQuota()
     {
         using var testCancellation = new CancellationTokenSource(TestTimeout);
@@ -464,7 +633,8 @@ public sealed class LibraProDeviceSessionTests
             + $"model: {model}\r\n"
             + "fw_ver: 38\r\n"
             + "support: get_prop set_power set_bright set_ct_abx "
-            + "bg_set_power bg_set_bright bg_set_ct_abx bg_set_rgb bg_set_scene\r\n"
+            + "bg_set_power bg_set_bright bg_set_ct_abx bg_set_rgb bg_set_scene "
+            + "set_segment_rgb\r\n"
             + "\r\n";
         YeelightDiscoveryResponse parsed = YeelightDiscovery.ParseResponse(
             Encoding.UTF8.GetBytes(response));
@@ -488,6 +658,25 @@ public sealed class LibraProDeviceSessionTests
     {
         string response =
             $$"""{"id":{{requestId}},"result":["off","off","off","{{mainBrightness}}","4000","50","4000","13395711","359","100","1"]}"""
+            + "\r\n";
+        return connection.WriteTextAsync(response, cancellationToken);
+    }
+
+    private static Task WriteDetailedStateAsync(
+        LoopbackYeelightConnection connection,
+        int requestId,
+        bool mainPower,
+        bool backgroundPower,
+        int mainBrightness,
+        int backgroundBrightness,
+        int backgroundRgb,
+        CancellationToken cancellationToken)
+    {
+        string main = mainPower ? "on" : "off";
+        string background = backgroundPower ? "on" : "off";
+        string aggregate = mainPower || backgroundPower ? "on" : "off";
+        string response =
+            $$"""{"id":{{requestId}},"result":["{{aggregate}}","{{main}}","{{background}}","{{mainBrightness}}","4000","{{backgroundBrightness}}","4000","{{backgroundRgb}}","359","100","1"]}"""
             + "\r\n";
         return connection.WriteTextAsync(response, cancellationToken);
     }

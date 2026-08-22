@@ -13,14 +13,16 @@ public sealed class WindowsLifecycleAutomationControllerTests
 
     private DateTimeOffset _now;
     private LibraProState _state = null!;
-    private List<LibraProTargetState> _writes = null!;
+    private List<LibraProTargetState> _targetWrites = null!;
+    private List<(bool MainPower, bool BackgroundPower)> _powerWrites = null!;
 
     [TestInitialize]
     public void Initialize()
     {
         _now = InitialTime;
         _state = CreateState(mainPower: true, backgroundPower: true);
-        _writes = [];
+        _targetWrites = [];
+        _powerWrites = [];
     }
 
     [TestMethod]
@@ -32,7 +34,8 @@ public sealed class WindowsLifecycleAutomationControllerTests
         await controller.HandleAsync(WindowsLifecycleEventKind.SessionLocked);
         await controller.HandleAsync(WindowsLifecycleEventKind.SessionUnlocked);
 
-        Assert.IsEmpty(_writes);
+        Assert.IsEmpty(_powerWrites);
+        Assert.IsEmpty(_targetWrites);
     }
 
     [TestMethod]
@@ -47,11 +50,11 @@ public sealed class WindowsLifecycleAutomationControllerTests
         await controller.HandleAsync(WindowsLifecycleEventKind.SessionLocked);
         await controller.HandleAsync(WindowsLifecycleEventKind.SessionUnlocked);
 
-        Assert.HasCount(2, _writes);
-        Assert.IsFalse(_writes[0].MainPower);
-        Assert.IsFalse(_writes[0].BackgroundPower);
-        Assert.IsTrue(_writes[1].MainPower);
-        Assert.IsTrue(_writes[1].BackgroundPower);
+        Assert.HasCount(1, _powerWrites);
+        Assert.AreEqual((false, false), _powerWrites[0]);
+        Assert.HasCount(1, _targetWrites);
+        Assert.IsTrue(_targetWrites[0].MainPower);
+        Assert.IsTrue(_targetWrites[0].BackgroundPower);
     }
 
     [TestMethod]
@@ -67,12 +70,43 @@ public sealed class WindowsLifecycleAutomationControllerTests
         await controller.HandleAsync(WindowsLifecycleEventKind.SessionLocked);
         await controller.HandleAsync(WindowsLifecycleEventKind.DisplayOff);
         await controller.HandleAsync(WindowsLifecycleEventKind.SessionUnlocked);
-        Assert.HasCount(1, _writes);
+        Assert.HasCount(1, _powerWrites);
+        Assert.IsEmpty(_targetWrites);
 
         await controller.HandleAsync(WindowsLifecycleEventKind.DisplayOn);
 
-        Assert.HasCount(2, _writes);
-        Assert.IsTrue(_writes[1].MainPower);
+        Assert.HasCount(1, _powerWrites);
+        Assert.HasCount(1, _targetWrites);
+        Assert.IsTrue(_targetWrites[0].MainPower);
+    }
+
+    [TestMethod]
+    public async Task ScreenSaverLockBeforeDisplayOnPreventsRestoreThenSecondOff()
+    {
+        using WindowsLifecycleAutomationController controller =
+            CreateController(new WindowsAutomationSettings
+            {
+                LockAndUnlockEnabled = true,
+                DisplayPowerEnabled = true,
+            });
+
+        await controller.HandleAsync(WindowsLifecycleEventKind.DisplayOff);
+        await controller.HandleAsync(WindowsLifecycleEventKind.SessionLocked);
+        await controller.HandleAsync(WindowsLifecycleEventKind.DisplayOn);
+
+        Assert.HasCount(1, _powerWrites);
+        Assert.AreEqual((false, false), _powerWrites[0]);
+        Assert.IsEmpty(_targetWrites);
+
+        await controller.HandleAsync(WindowsLifecycleEventKind.SessionLocked);
+        Assert.HasCount(1, _powerWrites);
+        Assert.IsEmpty(_targetWrites);
+
+        await controller.HandleAsync(WindowsLifecycleEventKind.SessionUnlocked);
+        Assert.HasCount(1, _powerWrites);
+        Assert.HasCount(1, _targetWrites);
+        Assert.IsTrue(_targetWrites[0].MainPower);
+        Assert.IsTrue(_targetWrites[0].BackgroundPower);
     }
 
     [TestMethod]
@@ -90,7 +124,8 @@ public sealed class WindowsLifecycleAutomationControllerTests
         await controller.HandleAsync(WindowsLifecycleEventKind.SessionLocked);
         await controller.HandleAsync(WindowsLifecycleEventKind.SessionUnlocked);
 
-        Assert.IsEmpty(_writes);
+        Assert.IsEmpty(_powerWrites);
+        Assert.IsEmpty(_targetWrites);
     }
 
     [TestMethod]
@@ -106,7 +141,8 @@ public sealed class WindowsLifecycleAutomationControllerTests
         controller.RecordManualControl();
         await controller.HandleAsync(WindowsLifecycleEventKind.SessionUnlocked);
 
-        Assert.HasCount(1, _writes);
+        Assert.HasCount(1, _powerWrites);
+        Assert.IsEmpty(_targetWrites);
     }
 
     [TestMethod]
@@ -122,7 +158,45 @@ public sealed class WindowsLifecycleAutomationControllerTests
         _state = CreateState(mainPower: true, backgroundPower: false);
         await controller.HandleAsync(WindowsLifecycleEventKind.DisplayOn);
 
-        Assert.HasCount(1, _writes);
+        Assert.HasCount(1, _powerWrites);
+        Assert.IsEmpty(_targetWrites);
+    }
+
+    [TestMethod]
+    public async Task SegmentedLockUsesPowerOnlyWriteBeforeRestore()
+    {
+        var segment = new SegmentRgbRequest(0x13FF00, 0x0000FF);
+        var target = new LibraProTargetState(
+            true,
+            _state.MainBrightness,
+            _state.MainColorTemperature,
+            true,
+            _state.BackgroundBrightness,
+            _state.BackgroundRgb,
+            AmbientColorMode.Segmented,
+            segment);
+        using WindowsLifecycleAutomationController controller =
+            CreateController(
+                new WindowsAutomationSettings
+                {
+                    LockAndUnlockEnabled = true,
+                },
+                () => target);
+
+        await controller.HandleAsync(WindowsLifecycleEventKind.SessionLocked);
+
+        Assert.HasCount(1, _powerWrites);
+        Assert.AreEqual((false, false), _powerWrites[0]);
+        Assert.IsEmpty(_targetWrites);
+        Assert.AreEqual(60, _state.MainBrightness);
+        Assert.AreEqual(40, _state.BackgroundBrightness);
+        Assert.AreEqual(0x3366CC, _state.BackgroundRgb);
+
+        await controller.HandleAsync(WindowsLifecycleEventKind.SessionUnlocked);
+
+        Assert.HasCount(1, _targetWrites);
+        Assert.AreEqual(AmbientColorMode.Segmented, _targetWrites[0].AmbientColorMode);
+        Assert.AreEqual(segment, _targetWrites[0].SegmentRgb);
     }
 
     [TestMethod]
@@ -143,18 +217,31 @@ public sealed class WindowsLifecycleAutomationControllerTests
     }
 
     private WindowsLifecycleAutomationController CreateController(
-        WindowsAutomationSettings settings) =>
+        WindowsAutomationSettings settings,
+        Func<LibraProTargetState?>? readCurrentTargetState = null) =>
         new(
             settings,
             () => _state,
             (target, _) =>
             {
-                _writes.Add(target);
+                _targetWrites.Add(target);
                 _state = Apply(_state, target);
                 return Task.FromResult(_state);
             },
             _ => Task.FromResult<LibraProState?>(_state),
-            () => _now);
+            getUtcNow: () => _now,
+            readCurrentTargetState: readCurrentTargetState,
+            applyPowerState: (mainPower, backgroundPower, _) =>
+            {
+                _powerWrites.Add((mainPower, backgroundPower));
+                _state = _state with
+                {
+                    AggregatePower = mainPower || backgroundPower,
+                    MainPower = mainPower,
+                    BackgroundPower = backgroundPower,
+                };
+                return Task.FromResult(_state);
+            });
 
     private static LibraProState Apply(
         LibraProState state,

@@ -10,6 +10,7 @@ namespace LibraTray.App.Interop;
 internal sealed class WindowsLifecycleEventService : IDisposable
 {
     private const int WmPowerBroadcast = 0x0218;
+    private const int WmQueryEndSession = 0x0011;
     private const int WmEndSession = 0x0016;
     private const int WmWtsSessionChange = 0x02B1;
     private const int WtsSessionLock = 0x7;
@@ -17,6 +18,16 @@ internal sealed class WindowsLifecycleEventService : IDisposable
     private const int PbtPowerSettingChange = 0x8013;
     private const uint NotifyForThisSession = 0;
     private const uint DeviceNotifyWindowHandle = 0;
+    private const uint SpiGetScreenSaverRunning = 0x0072;
+    private const uint SpiGetScreenSaverSecure = 0x0076;
+    private const int WtsInfoEx = 25;
+    private const uint WtsCurrentSession = 0xFFFFFFFF;
+    private const int WtsSessionStateLocked = 0;
+    private const int WtsSessionStateUnlocked = 1;
+    // WTSINFOEX contains a 32-bit level followed by an 8-byte-aligned
+    // WTSINFOEX_LEVEL1_W union on the x64-only target supported by LibraTray.
+    // SessionFlags is the first field after the level-1 session identifier.
+    private const int WtsInfoExSessionFlagsOffset = 16;
 
     private static readonly Guid ConsoleDisplayState =
         new("6fe69556-704a-47a0-8f24-c28d936fda47");
@@ -24,12 +35,25 @@ internal sealed class WindowsLifecycleEventService : IDisposable
     private readonly HwndSource _source;
     private readonly nint _windowHandle;
     private nint _displayNotification;
+    private readonly Timer _sessionStateTimer;
     private bool _sessionRegistered;
+    private readonly WindowsSessionStateFusion _sessionStateFusion = new();
+    private int _sessionPollInProgress;
+    private volatile bool _monitorSessionState;
+    private readonly string _shutdownReason;
+    private readonly object _sessionStateSync = new();
+    private bool _shutdownReasonRegistered;
     private bool _disposed;
 
-    public WindowsLifecycleEventService(Window owner)
+    public WindowsLifecycleEventService(
+        Window owner,
+        bool monitorSessionState,
+        string shutdownReason)
     {
         ArgumentNullException.ThrowIfNull(owner);
+        ArgumentException.ThrowIfNullOrWhiteSpace(shutdownReason);
+        _monitorSessionState = monitorSessionState;
+        _shutdownReason = shutdownReason;
         var helper = new WindowInteropHelper(owner);
         _windowHandle = helper.EnsureHandle();
         _source = HwndSource.FromHwnd(_windowHandle)
@@ -60,15 +84,31 @@ internal sealed class WindowsLifecycleEventService : IDisposable
                     Marshal.GetLastWin32Error(),
                     "Windows rejected display-power registration.");
             }
+
+            _sessionStateTimer = new Timer(
+                _ => PollSessionState(),
+                null,
+                TimeSpan.FromSeconds(1),
+                TimeSpan.FromSeconds(1));
         }
         catch
         {
+            _sessionStateTimer = null!;
             Dispose();
             throw;
         }
     }
 
     public event EventHandler<WindowsLifecycleEventArgs>? LifecycleEvent;
+
+    public void SetSessionStateMonitoringEnabled(bool enabled)
+    {
+        _monitorSessionState = enabled;
+        if (enabled)
+        {
+            PollSessionState();
+        }
+    }
 
     public void Dispose()
     {
@@ -78,6 +118,8 @@ internal sealed class WindowsLifecycleEventService : IDisposable
         }
 
         _disposed = true;
+        _sessionStateTimer?.Dispose();
+        DestroyShutdownReason();
         if (_displayNotification != 0)
         {
             _ = UnregisterPowerSettingNotification(_displayNotification);
@@ -103,20 +145,39 @@ internal sealed class WindowsLifecycleEventService : IDisposable
     {
         _ = hwnd;
         _ = handled;
-        if (message == WmEndSession && wParam != IntPtr.Zero)
+        if (message == WmQueryEndSession)
         {
-            Publish(WindowsLifecycleEventKind.SessionEnding);
+            _shutdownReasonRegistered = ShutdownBlockReasonCreate(
+                _windowHandle,
+                _shutdownReason);
+            Publish(WindowsLifecycleEventKind.SessionEndingRequested);
+            handled = true;
+            return 1;
         }
-        else if (message == WmWtsSessionChange)
+
+        if (message == WmEndSession)
+        {
+            if (wParam != IntPtr.Zero)
+            {
+                Publish(WindowsLifecycleEventKind.SessionEnding);
+            }
+            else
+            {
+                Publish(WindowsLifecycleEventKind.SessionEndingCanceled);
+            }
+
+            DestroyShutdownReason();
+        }
+        else if (message == WmWtsSessionChange && _monitorSessionState)
         {
             int change = unchecked((int)wParam);
             if (change == WtsSessionLock)
             {
-                Publish(WindowsLifecycleEventKind.SessionLocked);
+                ReconcileSessionState(forceLocked: true, explicitUnlock: false);
             }
             else if (change == WtsSessionUnlock)
             {
-                Publish(WindowsLifecycleEventKind.SessionUnlocked);
+                ReconcileSessionState(forceLocked: false, explicitUnlock: true);
             }
         }
         else if (message == WmPowerBroadcast)
@@ -129,6 +190,15 @@ internal sealed class WindowsLifecycleEventService : IDisposable
         }
 
         return 0;
+    }
+
+    private void DestroyShutdownReason()
+    {
+        if (_shutdownReasonRegistered)
+        {
+            _ = ShutdownBlockReasonDestroy(_windowHandle);
+            _shutdownReasonRegistered = false;
+        }
     }
 
     private void PublishDisplayState(nint dataPointer)
@@ -158,7 +228,107 @@ internal sealed class WindowsLifecycleEventService : IDisposable
         };
         if (kind is { } lifecycleEvent)
         {
+            if (lifecycleEvent == WindowsLifecycleEventKind.DisplayOn
+                && _monitorSessionState)
+            {
+                ReconcileSessionState(forceLocked: null, explicitUnlock: false);
+            }
+
             Publish(lifecycleEvent);
+        }
+    }
+
+    private void PollSessionState()
+    {
+        if (_disposed
+            || !_monitorSessionState
+            || Interlocked.Exchange(ref _sessionPollInProgress, 1) != 0)
+        {
+            return;
+        }
+
+        try
+        {
+            ReconcileSessionState(forceLocked: null, explicitUnlock: false);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _sessionPollInProgress, 0);
+        }
+    }
+
+    private void ReconcileSessionState(bool? forceLocked, bool explicitUnlock)
+    {
+        lock (_sessionStateSync)
+        {
+            bool? queriedLocked = TryQuerySessionLocked();
+            bool? secureScreenSaver = TryQuerySecureScreenSaverRunning();
+            WindowsLifecycleEventKind? transition = _sessionStateFusion.Observe(
+                queriedLocked,
+                secureScreenSaver,
+                forceLocked,
+                explicitUnlock);
+            if (transition is { } lifecycleEvent)
+            {
+                Publish(lifecycleEvent);
+            }
+        }
+    }
+
+    private static bool? TryQuerySecureScreenSaverRunning()
+    {
+        if (!SystemParametersInfo(
+                SpiGetScreenSaverRunning,
+                0,
+                out bool running,
+                0)
+            || !SystemParametersInfo(
+                SpiGetScreenSaverSecure,
+                0,
+                out bool secure,
+                0))
+        {
+            return null;
+        }
+
+        return running && secure;
+    }
+
+    private static bool? TryQuerySessionLocked()
+    {
+        if (!WtsQuerySessionInformation(
+                0,
+                WtsCurrentSession,
+                WtsInfoEx,
+                out nint buffer,
+                out int bytesReturned)
+            || buffer == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            if (bytesReturned < WtsInfoExSessionFlagsOffset + sizeof(int))
+            {
+                return null;
+            }
+
+            if (Marshal.ReadInt32(buffer, 0) != 1)
+            {
+                return null;
+            }
+
+            return Marshal.ReadInt32(buffer, WtsInfoExSessionFlagsOffset) switch
+            {
+                WtsSessionStateLocked => true,
+                WtsSessionStateUnlocked => false,
+                _ => null,
+            };
+        }
+        finally
+        {
+            WtsFreeMemory(buffer);
         }
     }
 
@@ -196,6 +366,62 @@ internal sealed class WindowsLifecycleEventService : IDisposable
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool WtsUnRegisterSessionNotification(
         nint windowHandle);
+
+    [DllImport(
+        "wtsapi32.dll",
+        EntryPoint = "WTSQuerySessionInformationW",
+        ExactSpelling = true,
+        SetLastError = true,
+        CharSet = CharSet.Unicode)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool WtsQuerySessionInformation(
+        nint serverHandle,
+        uint sessionId,
+        int infoClass,
+        out nint buffer,
+        out int bytesReturned);
+
+    [DllImport(
+        "wtsapi32.dll",
+        EntryPoint = "WTSFreeMemory",
+        ExactSpelling = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    private static extern void WtsFreeMemory(nint memory);
+
+    [DllImport(
+        "user32.dll",
+        EntryPoint = "SystemParametersInfoW",
+        ExactSpelling = true,
+        SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SystemParametersInfo(
+        uint action,
+        uint parameter,
+        [MarshalAs(UnmanagedType.Bool)] out bool value,
+        uint update);
+
+    [DllImport(
+        "user32.dll",
+        EntryPoint = "ShutdownBlockReasonCreate",
+        ExactSpelling = true,
+        SetLastError = true,
+        CharSet = CharSet.Unicode)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShutdownBlockReasonCreate(
+        nint windowHandle,
+        string reason);
+
+    [DllImport(
+        "user32.dll",
+        EntryPoint = "ShutdownBlockReasonDestroy",
+        ExactSpelling = true,
+        SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ShutdownBlockReasonDestroy(nint windowHandle);
 
     [DllImport(
         "user32.dll",
