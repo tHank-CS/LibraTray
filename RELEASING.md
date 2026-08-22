@@ -39,7 +39,7 @@ projects with reports and coverage, and performs the dependency audit. Then
 build the candidate assets:
 
 ```powershell
-powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version 1.0.0 -Locked
+powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\scripts\package-release.ps1 -Version 1.1.0 -Locked
 ```
 
 Verify:
@@ -97,6 +97,24 @@ picker, swatches, resizing, slider snap points, and light control. Release notes
 are stored in `docs/releases/v1.0.1.md` and
 `docs/releases/v1.0.1.zh-CN.md`. The existing unsigned-artifact, single-device,
 firmware-38, and clean-VM limitations remain unchanged.
+
+## v1.1.0 candidate record
+
+The 2026-08-22 candidate adds default-off experimental segmented ambient RGB,
+a manual renderer POST, secure-screensaver/lock-state fusion, and safer
+shutdown/startup restoration. Repository verification passed 340/340 tests, a
+zero-warning Release build, and the dependency vulnerability audit. Maintainer
+testing passed `Win+L`, secure-screensaver automation, direct segmented colour,
+and the query-stage shutdown-ticket restore path. The corrected segmented-preset
+path, overlapping display events, independent both-lights-on sign-in policy,
+and separately confirmed cold-power POST remain unverified on the real device
+and must stay explicit during release review. Segment colours remain
+requested/unconfirmed, only firmware 38 has direct evidence, one target device
+is available, and artifacts are unsigned. Candidate assets must be rebuilt and
+audited after those checks.
+
+Release notes are stored in `docs/releases/v1.1.0.md` and
+`docs/releases/v1.1.0.zh-CN.md`.
 
 ## Tag and GitHub release
 
