@@ -4,7 +4,7 @@
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="MSTest" Version="4.3.2" />
+    <PackageVersion Include="MSTest" Version="4.3.3" />
     <PackageVersion Include="WixToolset.UI.wixext" Version="6.0.2" />
   </ItemGroup>
 </Project>
