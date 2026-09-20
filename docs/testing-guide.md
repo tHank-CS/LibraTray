@@ -93,8 +93,11 @@ nor does it cover every post-write timeout/rejection/mismatch path. The mock
 covers exact-`lamp15` main-power reconciliation and a `cold-start-silent` mode
 where `bg_set_power("on")` returns success without changing readable state.
 The production adapter's bounded `bg_set_scene` recovery is exercised over a
-real loopback TCP connection. `set_segment_rgb` remains rejected by the parser
-and is not implemented by the mock.
+real loopback TCP connection. The Probe safe-write parser still rejects
+`set_segment_rgb`. The mock accepts it for exact `lamp15` devices, validates
+two integer RGB values in the range 0-16777215, and returns `ok` without
+exposing readable segment properties. This mock response does not establish
+real-device visual effects, persistence, or firmware safety.
 
 Passing a mock smoke or future automated mock test does not change a protocol
 item to “device verified.”
